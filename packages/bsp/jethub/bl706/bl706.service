@@ -1,9 +1,9 @@
 [Unit]
-Description=JN5189
+Description=BL706
 After=amlogicw1.target
 
 [Service]
-ExecStart=/usr/lib/firmware/jn5189/jn5189_func.sh start
+ExecStart=/usr/lib/firmware/bl706/bl706_func.sh start
 
 [Install]
 WantedBy=multi-user.target

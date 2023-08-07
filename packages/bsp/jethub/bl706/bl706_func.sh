@@ -2,7 +2,7 @@
 
 reset_zigbee_module()
 {
-    # pin A113X_RST_ZG: GPIOA_16
+    # pin A113X_RST_ZG: GPIOA_17
     echo 469 > /sys/class/gpio/export
     echo out > /sys/class/gpio/gpio469/direction
 
@@ -16,14 +16,15 @@ reset_zigbee_module()
 
 zigbee_enter_isp_mode()
 {
+    # pin Z_ISP: GPIOA_16
     echo 468 > /sys/class/gpio/export
     echo out > /sys/class/gpio/gpio468/direction
-    echo 0 > /sys/class/gpio/gpio468/value
+    echo 1 > /sys/class/gpio/gpio468/value
     sleep 0.1
 
     reset_zigbee_module
     sleep 0.1
-    echo 1 > /sys/class/gpio/gpio468/value
+    echo 0 > /sys/class/gpio/gpio468/value
 
     echo 468 > /sys/class/gpio/unexport
 }
@@ -32,7 +33,7 @@ disable_zigbee_isp()
 {
     echo 468 > /sys/class/gpio/export
     echo out > /sys/class/gpio/gpio468/direction
-    echo 1 > /sys/class/gpio/gpio468/value
+    echo 0 > /sys/class/gpio/gpio468/value
     sleep 0.1
     echo 468 > /sys/class/gpio/unexport
 }
@@ -40,27 +41,27 @@ disable_zigbee_isp()
 flash_zigbee()
 {
     zigbee_enter_isp_mode
-	/usr/lib/firmware/jn5189/JN5189Programmer -s ttyAML3 -p /usr/lib/firmware/jn5189/ZiGate.bin
-	disable_zigbee_isp
+#    /usr/lib/firmware/bl706/BL706Programmer -s ttyAML3 -p /usr/lib/firmware/bl706/ZiGate.bin
+    disable_zigbee_isp
 }
 
 
 case "$1" in
     start)
-	echo "JN5189: start..."
+    echo "BL706: start..."
     disable_zigbee_isp
     reset_zigbee_module
     ;;
 
     restart)
-    echo "JN5189: restart..."
-	disable_zigbee_isp
+    echo "BL706: restart..."
+    disable_zigbee_isp
     reset_zigbee_module
     ;;
 
-	flash)
-    echo "JN5189: restart..."
-	flash_zigbee
+    flash)
+    echo "BL706: restart..."
+    flash_zigbee
     disable_zigbee_isp
     reset_zigbee_module
     ;;
