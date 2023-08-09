@@ -103,7 +103,7 @@ int main()
                 printf("-----------------------wifiAccount------------------ = %s\n",wifiAccount);
 	    }
 	   
-            FILE *fp1 = fopen("/etc/wifi/ap_name","r");
+            FILE *fp1 = fopen("/etc/ap_name","r");
             if (fread(send_buf+4, 1,12,fp1) < 1) {
                 fclose(fp1);
                 return -1;

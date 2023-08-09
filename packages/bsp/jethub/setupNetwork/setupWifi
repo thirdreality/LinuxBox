@@ -43,9 +43,9 @@ config_wifi()
 
 hostapd_conf()
 {
-	if [ -f /etc/ap_name ]; then
+	if [ ! -f /etc/ap_name ]; then
 		# mkdir /etc/wifi
-		cat /sys/class/net/wlan0/address |sed 's/\://g' |tr 'a- z' 'A-Z' > /etc/ap_name
+		cat /sys/class/net/wlan0/address |sed 's/\://g' |tr 'a-z' 'A-Z' > /etc/ap_name
 	fi
 
 	ap_name=`cat /etc/ap_name`
