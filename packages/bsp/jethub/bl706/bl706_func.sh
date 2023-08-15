@@ -38,10 +38,35 @@ disable_zigbee_isp()
     echo 468 > /sys/class/gpio/unexport
 }
 
+bflb_pip_install_dependence()
+{
+    apt-get install python3-dev -y
+    pip install pylink-square==0.5.0
+    pip install pyserial==3.5
+    pip install ecdsa==0.15
+    pip install portalocker==2.0.0
+    pip install pycryptodome==3.9.8
+    pip install bflb-crypto-plus==1.0
+    pip install pycklink==0.1.1
+}
+
 flash_zigbee()
 {
+    if [ ! -d "/usr/lib/firmware/bl706/bflb_iot" ]; then
+        bflb_pip_install_dependence
+        tar -zxvf /lib/firmware/bl706/bflb_iot.tar.gz -C /lib/firmware/bl706/
+    fi
     zigbee_enter_isp_mode
-#    /usr/lib/firmware/bl706/BL706Programmer -s ttyAML3 -p /usr/lib/firmware/bl706/ZiGate.bin
+    python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=/dev/ttyAML3 --baudrate=2000000 --addr=0x0 --firmware="/usr/lib/firmware/bl706/bl706_whole_flash_data.bin" --single
+
+    if [ $? -eq 0 ]; then
+        echo "Burn successfully"
+    else
+        echo "Burning failed, try again"
+        bflb_pip_install_dependence
+        python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=/dev/ttyAML3 --baudrate=2000000 --addr=0x0 --firmware="/usr/lib/firmware/bl706/bl706_whole_flash_data.bin" --single
+    fi
+
     disable_zigbee_isp
 }
 
@@ -64,6 +89,11 @@ case "$1" in
     flash_zigbee
     disable_zigbee_isp
     reset_zigbee_module
+    ;;
+
+    install)
+    echo "BL706: bflb_pip_install_dependence..."
+    bflb_pip_install_dependence
     ;;
 
     *)
