@@ -765,9 +765,9 @@ diff -urN linux-5.10.y-a/drivers/amlogic/bluetooth/Kconfig linux-5.10.y-b/driver
 +      Say Y here if you want to use the BT device.
 diff -urN linux-5.10.y-a/drivers/amlogic/bluetooth/Makefile linux-5.10.y-b/drivers/amlogic/bluetooth/Makefile
 --- linux-5.10.y-a/drivers/amlogic/bluetooth/Makefile	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/bluetooth/Makefile	2022-12-21 11:29:48.000000000 +0800
++++ linux-5.10.y-b/drivers/amlogic/bluetooth/Makefile	2024-11-26 11:42:21.695212495 +0800
 @@ -0,0 +1 @@
-+#obj-$(CONFIG_AMLOGIC_BT_DEVICE) += bt_device.o
++obj-$(CONFIG_AMLOGIC_BT_DEVICE) += bt_device.o
 diff -urN linux-5.10.y-a/drivers/amlogic/Kconfig linux-5.10.y-b/drivers/amlogic/Kconfig
 --- linux-5.10.y-a/drivers/amlogic/Kconfig	1970-01-01 08:00:00.000000000 +0800
 +++ linux-5.10.y-b/drivers/amlogic/Kconfig	2022-11-27 09:30:04.000000000 +0800
@@ -3124,7 +3124,7 @@ diff -urN linux-5.10.y-a/drivers/amlogic/wifi/wifi_dt.c linux-5.10.y-b/drivers/a
 +MODULE_AUTHOR("Kevin Hilman <khilman@baylibre.com>");
 +MODULE_LICENSE("GPL");
 diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
---- linux-5.10.y-a/drivers/base/dd.c	2023-06-30 15:33:52.173696818 +0800
+--- linux-5.10.y-a/drivers/base/dd.c	2024-11-26 10:42:36.909504748 +0800
 +++ linux-5.10.y-b/drivers/base/dd.c	2022-12-25 17:04:50.000000000 +0800
 @@ -501,6 +501,7 @@
  	bool test_remove = IS_ENABLED(CONFIG_DEBUG_TEST_DRIVER_REMOVE) &&
@@ -3234,8 +3234,26 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  	} /* ret > 0 means positive match */
  
  	if (driver_allows_async_probing(drv)) {
+@@ -1187,6 +1190,8 @@
+ 		else if (drv->remove)
+ 			drv->remove(dev);
+ 
++		device_links_driver_cleanup(dev);
++
+ 		devres_release_all(dev);
+ 		arch_teardown_dma_ops(dev);
+ 		kfree(dev->dma_range_map);
+@@ -1198,8 +1203,6 @@
+ 		pm_runtime_reinit(dev);
+ 		dev_pm_set_driver_flags(dev, 0);
+ 
+-		device_links_driver_cleanup(dev);
+-
+ 		klist_remove(&dev->p->knode_driver);
+ 		device_pm_check_callbacks(dev);
+ 		if (dev->bus)
 diff -urN linux-5.10.y-a/drivers/Kconfig linux-5.10.y-b/drivers/Kconfig
---- linux-5.10.y-a/drivers/Kconfig	2023-06-30 15:33:27.033314100 +0800
+--- linux-5.10.y-a/drivers/Kconfig	2024-11-26 10:43:18.906818220 +0800
 +++ linux-5.10.y-b/drivers/Kconfig	2022-12-21 07:30:00.000000000 +0800
 @@ -235,4 +235,6 @@
  source "drivers/counter/Kconfig"
@@ -3245,7 +3263,7 @@ diff -urN linux-5.10.y-a/drivers/Kconfig linux-5.10.y-b/drivers/Kconfig
 +source "drivers/amlogic/Kconfig"
  endmenu
 diff -urN linux-5.10.y-a/drivers/Makefile linux-5.10.y-b/drivers/Makefile
---- linux-5.10.y-a/drivers/Makefile	2023-06-30 15:33:39.225499555 +0800
+--- linux-5.10.y-a/drivers/Makefile	2024-11-26 10:43:21.909770630 +0800
 +++ linux-5.10.y-b/drivers/Makefile	2022-12-21 07:30:18.000000000 +0800
 @@ -189,3 +189,5 @@
  obj-$(CONFIG_INTERCONNECT)	+= interconnect/
@@ -3255,7 +3273,7 @@ diff -urN linux-5.10.y-a/drivers/Makefile linux-5.10.y-b/drivers/Makefile
 +obj-$(CONFIG_AMLOGIC_MODIFY)	+= amlogic/
 \ No newline at end of file
 diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/core/block.c
---- linux-5.10.y-a/drivers/mmc/core/block.c	2023-06-30 15:39:09.775475669 +0800
+--- linux-5.10.y-a/drivers/mmc/core/block.c	2024-11-26 10:43:50.333329627 +0800
 +++ linux-5.10.y-b/drivers/mmc/core/block.c	2023-01-30 10:58:54.000000000 +0800
 @@ -253,7 +253,6 @@
  		goto out_put;
@@ -3265,7 +3283,89 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	blk_execute_rq(mq->queue, NULL, req, 0);
  	ret = req_to_mmc_queue_req(req)->drv_op_result;
  	blk_put_request(req);
-@@ -639,7 +638,6 @@
+@@ -346,10 +345,6 @@
+ 	struct mmc_ioc_cmd ic;
+ 	unsigned char *buf;
+ 	u64 buf_bytes;
+-	unsigned int flags;
+-#define MMC_BLK_IOC_DROP	BIT(0)	/* drop this mrq */
+-#define MMC_BLK_IOC_SBC	BIT(1)	/* use mrq.sbc */
+-
+ 	struct mmc_rpmb_data *rpmb;
+ };
+ 
+@@ -359,7 +354,7 @@
+ 	struct mmc_blk_ioc_data *idata;
+ 	int err;
+ 
+-	idata = kzalloc(sizeof(*idata), GFP_KERNEL);
++	idata = kmalloc(sizeof(*idata), GFP_KERNEL);
+ 	if (!idata) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -451,7 +446,7 @@
+ }
+ 
+ static int __mmc_blk_ioctl_cmd(struct mmc_card *card, struct mmc_blk_data *md,
+-			       struct mmc_blk_ioc_data **idatas, int i)
++			       struct mmc_blk_ioc_data *idata)
+ {
+ 	struct mmc_command cmd = {}, sbc = {};
+ 	struct mmc_data data = {};
+@@ -459,18 +454,10 @@
+ 	struct scatterlist sg;
+ 	int err;
+ 	unsigned int target_part;
+-	struct mmc_blk_ioc_data *idata = idatas[i];
+-	struct mmc_blk_ioc_data *prev_idata = NULL;
+ 
+ 	if (!card || !md || !idata)
+ 		return -EINVAL;
+ 
+-	if (idata->flags & MMC_BLK_IOC_DROP)
+-		return 0;
+-
+-	if (idata->flags & MMC_BLK_IOC_SBC && i > 0)
+-		prev_idata = idatas[i - 1];
+-
+ 	/*
+ 	 * The RPMB accesses comes in from the character device, so we
+ 	 * need to target these explicitly. Else we just target the
+@@ -537,7 +524,7 @@
+ 			return err;
+ 	}
+ 
+-	if (idata->rpmb || prev_idata) {
++	if (idata->rpmb) {
+ 		sbc.opcode = MMC_SET_BLOCK_COUNT;
+ 		/*
+ 		 * We don't do any blockcount validation because the max size
+@@ -545,8 +532,6 @@
+ 		 * 'Reliable Write' bit here.
+ 		 */
+ 		sbc.arg = data.blocks | (idata->ic.write_flag & BIT(31));
+-		if (prev_idata)
+-			sbc.arg = prev_idata->ic.arg;
+ 		sbc.flags = MMC_RSP_R1 | MMC_CMD_AC;
+ 		mrq.sbc = &sbc;
+ 	}
+@@ -558,15 +543,6 @@
+ 	mmc_wait_for_req(card->host, &mrq);
+ 	memcpy(&idata->ic.response, cmd.resp, sizeof(cmd.resp));
+ 
+-	if (prev_idata) {
+-		memcpy(&prev_idata->ic.response, sbc.resp, sizeof(sbc.resp));
+-		if (sbc.error) {
+-			dev_err(mmc_dev(card->host), "%s: sbc error %d\n",
+-							__func__, sbc.error);
+-			return sbc.error;
+-		}
+-	}
+-
+ 	if (cmd.error) {
+ 		dev_err(mmc_dev(card->host), "%s: cmd error %d\n",
+ 						__func__, cmd.error);
+@@ -662,7 +638,6 @@
  	idatas[0] = idata;
  	req_to_mmc_queue_req(req)->drv_op =
  		rpmb ? MMC_DRV_OP_IOCTL_RPMB : MMC_DRV_OP_IOCTL;
@@ -3273,7 +3373,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	req_to_mmc_queue_req(req)->drv_op_data = idatas;
  	req_to_mmc_queue_req(req)->ioc_count = 1;
  	blk_execute_rq(mq->queue, NULL, req, 0);
-@@ -709,7 +707,6 @@
+@@ -732,7 +707,6 @@
  	}
  	req_to_mmc_queue_req(req)->drv_op =
  		rpmb ? MMC_DRV_OP_IOCTL_RPMB : MMC_DRV_OP_IOCTL;
@@ -3281,7 +3381,113 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	req_to_mmc_queue_req(req)->drv_op_data = idata;
  	req_to_mmc_queue_req(req)->ioc_count = num_of_cmds;
  	blk_execute_rq(mq->queue, NULL, req, 0);
-@@ -2752,7 +2749,6 @@
+@@ -823,11 +797,9 @@
+ static int mmc_blk_part_switch_pre(struct mmc_card *card,
+ 				   unsigned int part_type)
+ {
+-	const unsigned int mask = EXT_CSD_PART_CONFIG_ACC_MASK;
+-	const unsigned int rpmb = EXT_CSD_PART_CONFIG_ACC_RPMB;
+ 	int ret = 0;
+ 
+-	if ((part_type & mask) == rpmb) {
++	if (part_type == EXT_CSD_PART_CONFIG_ACC_RPMB) {
+ 		if (card->ext_csd.cmdq_en) {
+ 			ret = mmc_cmdq_disable(card);
+ 			if (ret)
+@@ -842,11 +814,9 @@
+ static int mmc_blk_part_switch_post(struct mmc_card *card,
+ 				    unsigned int part_type)
+ {
+-	const unsigned int mask = EXT_CSD_PART_CONFIG_ACC_MASK;
+-	const unsigned int rpmb = EXT_CSD_PART_CONFIG_ACC_RPMB;
+ 	int ret = 0;
+ 
+-	if ((part_type & mask) == rpmb) {
++	if (part_type == EXT_CSD_PART_CONFIG_ACC_RPMB) {
+ 		mmc_retune_unpause(card->host);
+ 		if (card->reenable_cmdq && !card->ext_csd.cmdq_en)
+ 			ret = mmc_cmdq_enable(card);
+@@ -1010,20 +980,6 @@
+ 	md->reset_done &= ~type;
+ }
+ 
+-static void mmc_blk_check_sbc(struct mmc_queue_req *mq_rq)
+-{
+-	struct mmc_blk_ioc_data **idata = mq_rq->drv_op_data;
+-	int i;
+-
+-	for (i = 1; i < mq_rq->ioc_count; i++) {
+-		if (idata[i - 1]->ic.opcode == MMC_SET_BLOCK_COUNT &&
+-		    mmc_op_multi(idata[i]->ic.opcode)) {
+-			idata[i - 1]->flags |= MMC_BLK_IOC_DROP;
+-			idata[i]->flags |= MMC_BLK_IOC_SBC;
+-		}
+-	}
+-}
+-
+ /*
+  * The non-block commands come back from the block layer after it queued it and
+  * processed it with all other requests and then they get issued in this
+@@ -1051,14 +1007,11 @@
+ 			if (ret)
+ 				break;
+ 		}
+-
+-		mmc_blk_check_sbc(mq_rq);
+-
+ 		fallthrough;
+ 	case MMC_DRV_OP_IOCTL_RPMB:
+ 		idata = mq_rq->drv_op_data;
+ 		for (i = 0, ret = 0; i < mq_rq->ioc_count; i++) {
+-			ret = __mmc_blk_ioctl_cmd(card, md, idata, i);
++			ret = __mmc_blk_ioctl_cmd(card, md, idata[i]);
+ 			if (ret)
+ 				break;
+ 		}
+@@ -1462,8 +1415,6 @@
+ 			blk_mq_requeue_request(req, true);
+ 		else
+ 			__blk_mq_end_request(req, BLK_STS_OK);
+-	} else if (mq->in_recovery) {
+-		blk_mq_requeue_request(req, true);
+ 	} else {
+ 		blk_mq_end_request(req, BLK_STS_OK);
+ 	}
+@@ -2026,14 +1977,14 @@
+ 	mmc_blk_urgent_bkops(mq, mqrq);
+ }
+ 
+-static void mmc_blk_mq_dec_in_flight(struct mmc_queue *mq, enum mmc_issue_type issue_type)
++static void mmc_blk_mq_dec_in_flight(struct mmc_queue *mq, struct request *req)
+ {
+ 	unsigned long flags;
+ 	bool put_card;
+ 
+ 	spin_lock_irqsave(&mq->lock, flags);
+ 
+-	mq->in_flight[issue_type] -= 1;
++	mq->in_flight[mmc_issue_type(mq, req)] -= 1;
+ 
+ 	put_card = (mmc_tot_in_flight(mq) == 0);
+ 
+@@ -2045,7 +1996,6 @@
+ 
+ static void mmc_blk_mq_post_req(struct mmc_queue *mq, struct request *req)
+ {
+-	enum mmc_issue_type issue_type = mmc_issue_type(mq, req);
+ 	struct mmc_queue_req *mqrq = req_to_mmc_queue_req(req);
+ 	struct mmc_request *mrq = &mqrq->brq.mrq;
+ 	struct mmc_host *host = mq->card->host;
+@@ -2061,7 +2011,7 @@
+ 	else if (likely(!blk_should_fake_timeout(req->q)))
+ 		blk_mq_complete_request(req);
+ 
+-	mmc_blk_mq_dec_in_flight(mq, issue_type);
++	mmc_blk_mq_dec_in_flight(mq, req);
+ }
+ 
+ void mmc_blk_mq_recovery(struct mmc_queue *mq)
+@@ -2799,7 +2749,6 @@
  	if (IS_ERR(req))
  		return PTR_ERR(req);
  	req_to_mmc_queue_req(req)->drv_op = MMC_DRV_OP_GET_CARD_STATUS;
@@ -3289,7 +3495,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	blk_execute_rq(mq->queue, NULL, req, 0);
  	ret = req_to_mmc_queue_req(req)->drv_op_result;
  	if (ret >= 0) {
-@@ -2791,7 +2787,6 @@
+@@ -2838,7 +2787,6 @@
  		goto out_free;
  	}
  	req_to_mmc_queue_req(req)->drv_op = MMC_DRV_OP_GET_EXT_CSD;
@@ -3297,8 +3503,13 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	req_to_mmc_queue_req(req)->drv_op_data = &ext_csd;
  	blk_execute_rq(mq->queue, NULL, req, 0);
  	err = req_to_mmc_queue_req(req)->drv_op_result;
+@@ -3146,3 +3094,4 @@
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("Multimedia Card (MMC) block device driver");
++
 diff -urN linux-5.10.y-a/drivers/mmc/core/core.c linux-5.10.y-b/drivers/mmc/core/core.c
---- linux-5.10.y-a/drivers/mmc/core/core.c	2023-06-30 15:39:09.711478316 +0800
+--- linux-5.10.y-a/drivers/mmc/core/core.c	2024-11-26 10:44:04.094122083 +0800
 +++ linux-5.10.y-b/drivers/mmc/core/core.c	2023-01-30 11:00:10.000000000 +0800
 @@ -394,6 +394,7 @@
  	return err;
@@ -3358,6 +3569,99 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/core.c linux-5.10.y-b/drivers/mmc/core
  EXPORT_SYMBOL(mmc_wait_for_req_done);
  
  /*
+@@ -547,27 +591,22 @@
+ 	host->cqe_ops->cqe_recovery_start(host);
+ 
+ 	memset(&cmd, 0, sizeof(cmd));
+-	cmd.opcode       = MMC_STOP_TRANSMISSION;
+-	cmd.flags        = MMC_RSP_R1B | MMC_CMD_AC;
++	cmd.opcode       = MMC_STOP_TRANSMISSION,
++	cmd.flags        = MMC_RSP_R1B | MMC_CMD_AC,
+ 	cmd.flags       &= ~MMC_RSP_CRC; /* Ignore CRC */
+-	cmd.busy_timeout = MMC_CQE_RECOVERY_TIMEOUT;
+-	mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
+-
+-	mmc_poll_for_busy(host->card, MMC_CQE_RECOVERY_TIMEOUT, MMC_BUSY_IO);
++	cmd.busy_timeout = MMC_CQE_RECOVERY_TIMEOUT,
++	mmc_wait_for_cmd(host, &cmd, 0);
+ 
+ 	memset(&cmd, 0, sizeof(cmd));
+ 	cmd.opcode       = MMC_CMDQ_TASK_MGMT;
+ 	cmd.arg          = 1; /* Discard entire queue */
+ 	cmd.flags        = MMC_RSP_R1B | MMC_CMD_AC;
+ 	cmd.flags       &= ~MMC_RSP_CRC; /* Ignore CRC */
+-	cmd.busy_timeout = MMC_CQE_RECOVERY_TIMEOUT;
+-	err = mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
++	cmd.busy_timeout = MMC_CQE_RECOVERY_TIMEOUT,
++	err = mmc_wait_for_cmd(host, &cmd, 0);
+ 
+ 	host->cqe_ops->cqe_recovery_finish(host);
+ 
+-	if (err)
+-		err = mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
+-
+ 	mmc_retune_release(host);
+ 
+ 	return err;
+diff -urN linux-5.10.y-a/drivers/mmc/core/host.c linux-5.10.y-b/drivers/mmc/core/host.c
+--- linux-5.10.y-a/drivers/mmc/core/host.c	2024-11-26 10:44:10.665024310 +0800
++++ linux-5.10.y-b/drivers/mmc/core/host.c	2023-01-01 12:09:28.000000000 +0800
+@@ -114,12 +114,13 @@
+ 
+ /*
+  * Pause re-tuning for a small set of operations.  The pause begins after the
+- * next command.
++ * next command and after first doing re-tuning.
+  */
+ void mmc_retune_pause(struct mmc_host *host)
+ {
+ 	if (!host->retune_paused) {
+ 		host->retune_paused = 1;
++		mmc_retune_needed(host);
+ 		mmc_retune_hold(host);
+ 	}
+ }
+@@ -512,32 +513,6 @@
+ 
+ EXPORT_SYMBOL(mmc_alloc_host);
+ 
+-static void devm_mmc_host_release(struct device *dev, void *res)
+-{
+-	mmc_free_host(*(struct mmc_host **)res);
+-}
+-
+-struct mmc_host *devm_mmc_alloc_host(struct device *dev, int extra)
+-{
+-	struct mmc_host **dr, *host;
+-
+-	dr = devres_alloc(devm_mmc_host_release, sizeof(*dr), GFP_KERNEL);
+-	if (!dr)
+-		return ERR_PTR(-ENOMEM);
+-
+-	host = mmc_alloc_host(extra, dev);
+-	if (IS_ERR(host)) {
+-		devres_free(dr);
+-		return host;
+-	}
+-
+-	*dr = host;
+-	devres_add(dev, dr);
+-
+-	return host;
+-}
+-EXPORT_SYMBOL(devm_mmc_alloc_host);
+-
+ static int mmc_validate_host_caps(struct mmc_host *host)
+ {
+ 	if (host->caps & MMC_CAP_SDIO_IRQ && !host->ops->enable_sdio_irq) {
+@@ -611,7 +586,6 @@
+  */
+ void mmc_free_host(struct mmc_host *host)
+ {
+-	cancel_delayed_work_sync(&host->detect);
+ 	mmc_pwrseq_free(host);
+ 	put_device(&host->class_dev);
+ }
 diff -urN linux-5.10.y-a/drivers/mmc/core/host.h linux-5.10.y-b/drivers/mmc/core/host.h
 --- linux-5.10.y-a/drivers/mmc/core/host.h	1970-01-01 08:00:00.000000000 +0800
 +++ linux-5.10.y-b/drivers/mmc/core/host.h	2023-01-01 12:09:38.000000000 +0800
@@ -3443,6 +3747,22 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/host.h linux-5.10.y-b/drivers/mmc/core
 +
 +#endif
 +
+diff -urN linux-5.10.y-a/drivers/mmc/core/mmc.c linux-5.10.y-b/drivers/mmc/core/mmc.c
+--- linux-5.10.y-a/drivers/mmc/core/mmc.c	2024-11-26 10:44:22.027857213 +0800
++++ linux-5.10.y-b/drivers/mmc/core/mmc.c	2023-01-01 12:10:00.000000000 +0800
+@@ -997,12 +997,10 @@
+ 	static unsigned ext_csd_bits[] = {
+ 		EXT_CSD_BUS_WIDTH_8,
+ 		EXT_CSD_BUS_WIDTH_4,
+-		EXT_CSD_BUS_WIDTH_1,
+ 	};
+ 	static unsigned bus_widths[] = {
+ 		MMC_BUS_WIDTH_8,
+ 		MMC_BUS_WIDTH_4,
+-		MMC_BUS_WIDTH_1,
+ 	};
+ 	struct mmc_host *host = card->host;
+ 	unsigned idx, bus_width = 0;
 diff -urN linux-5.10.y-a/drivers/mmc/core/mmc_ops.c linux-5.10.y-b/drivers/mmc/core/mmc_ops.c
 --- linux-5.10.y-a/drivers/mmc/core/mmc_ops.c	1970-01-01 08:00:00.000000000 +0800
 +++ linux-5.10.y-b/drivers/mmc/core/mmc_ops.c	2023-01-03 16:51:32.000000000 +0800
@@ -4515,9 +4835,17 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/mmc_ops.c linux-5.10.y-b/drivers/mmc/c
 +}
 +EXPORT_SYMBOL_GPL(mmc_sanitize);
 diff -urN linux-5.10.y-a/drivers/mmc/core/mmc_ops.h linux-5.10.y-b/drivers/mmc/core/mmc_ops.h
---- linux-5.10.y-a/drivers/mmc/core/mmc_ops.h	2023-06-30 15:39:09.475488080 +0800
+--- linux-5.10.y-a/drivers/mmc/core/mmc_ops.h	2024-11-26 10:44:33.276694229 +0800
 +++ linux-5.10.y-b/drivers/mmc/core/mmc_ops.h	2023-01-03 16:40:46.000000000 +0800
-@@ -48,5 +48,7 @@
+@@ -14,7 +14,6 @@
+ 	MMC_BUSY_CMD6,
+ 	MMC_BUSY_ERASE,
+ 	MMC_BUSY_HPI,
+-	MMC_BUSY_IO,
+ };
+ 
+ struct mmc_host;
+@@ -49,5 +48,7 @@
  int mmc_cmdq_disable(struct mmc_card *card);
  int mmc_sanitize(struct mmc_card *card);
  
@@ -4525,8 +4853,32 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/mmc_ops.h linux-5.10.y-b/drivers/mmc/c
 +
  #endif
  
+diff -urN linux-5.10.y-a/drivers/mmc/core/quirks.h linux-5.10.y-b/drivers/mmc/core/quirks.h
+--- linux-5.10.y-a/drivers/mmc/core/quirks.h	2024-11-26 10:44:48.669475025 +0800
++++ linux-5.10.y-b/drivers/mmc/core/quirks.h	2023-01-01 12:10:50.000000000 +0800
+@@ -100,20 +100,6 @@
+ 		  MMC_QUIRK_TRIM_BROKEN),
+ 
+ 	/*
+-	 * Kingston EMMC04G-M627 advertises TRIM but it does not seems to
+-	 * support being used to offload WRITE_ZEROES.
+-	 */
+-	MMC_FIXUP("M62704", CID_MANFID_KINGSTON, 0x0100, add_quirk_mmc,
+-		  MMC_QUIRK_TRIM_BROKEN),
+-
+-	/*
+-	 * Micron MTFC4GACAJCN-1M advertises TRIM but it does not seems to
+-	 * support being used to offload WRITE_ZEROES.
+-	 */
+-	MMC_FIXUP("Q2J54A", CID_MANFID_MICRON, 0x014e, add_quirk_mmc,
+-		  MMC_QUIRK_TRIM_BROKEN),
+-
+-	/*
+ 	 * Some SD cards reports discard support while they don't
+ 	 */
+ 	MMC_FIXUP(CID_NAME_ANY, CID_MANFID_SANDISK_SD, 0x5344, add_quirk_sd,
 diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_bus.c linux-5.10.y-b/drivers/mmc/core/sdio_bus.c
---- linux-5.10.y-a/drivers/mmc/core/sdio_bus.c	2023-06-30 15:39:09.687479310 +0800
+--- linux-5.10.y-a/drivers/mmc/core/sdio_bus.c	2024-11-26 10:45:05.789236273 +0800
 +++ linux-5.10.y-b/drivers/mmc/core/sdio_bus.c	2023-01-09 11:31:18.000000000 +0800
 @@ -295,12 +295,6 @@
  	if (!(func->card->quirks & MMC_QUIRK_NONSTD_SDIO))
@@ -4568,9 +4920,25 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_bus.c linux-5.10.y-b/drivers/mmc/
  	put_device(&func->dev);
  }
 diff -urN linux-5.10.y-a/drivers/mmc/core/sdio.c linux-5.10.y-b/drivers/mmc/core/sdio.c
---- linux-5.10.y-a/drivers/mmc/core/sdio.c	2023-06-30 15:39:09.943468719 +0800
+--- linux-5.10.y-a/drivers/mmc/core/sdio.c	2024-11-26 10:45:12.457144685 +0800
 +++ linux-5.10.y-b/drivers/mmc/core/sdio.c	2023-01-30 11:00:56.000000000 +0800
-@@ -1308,3 +1308,50 @@
+@@ -1075,14 +1075,8 @@
+ 		}
+ 		err = mmc_sdio_reinit_card(host);
+ 	} else if (mmc_card_wake_sdio_irq(host)) {
+-		/*
+-		 * We may have switched to 1-bit mode during suspend,
+-		 * need to hold retuning, because tuning only supprt
+-		 * 4-bit mode or 8 bit mode.
+-		 */
+-		mmc_retune_hold_now(host);
++		/* We may have switched to 1-bit mode during suspend */
+ 		err = sdio_enable_4bit_bus(host->card);
+-		mmc_retune_release(host);
+ 	}
+ 
+ 	if (err)
+@@ -1314,3 +1308,50 @@
  	return err;
  }
  
@@ -4622,7 +4990,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/sdio.c linux-5.10.y-b/drivers/mmc/core
 +}
 +EXPORT_SYMBOL(sdio_reset_comm);
 diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_cis.c linux-5.10.y-b/drivers/mmc/core/sdio_cis.c
---- linux-5.10.y-a/drivers/mmc/core/sdio_cis.c	2023-06-30 15:39:09.603482785 +0800
+--- linux-5.10.y-a/drivers/mmc/core/sdio_cis.c	2024-11-26 10:45:19.568047859 +0800
 +++ linux-5.10.y-b/drivers/mmc/core/sdio_cis.c	2023-01-09 11:31:36.000000000 +0800
 @@ -392,6 +392,12 @@
  		return ret;
@@ -4650,7 +5018,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_cis.c linux-5.10.y-b/drivers/mmc/
  }
  
 diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_ops.c linux-5.10.y-b/drivers/mmc/core/sdio_ops.c
---- linux-5.10.y-a/drivers/mmc/core/sdio_ops.c	2023-06-30 15:39:10.007466072 +0800
+--- linux-5.10.y-a/drivers/mmc/core/sdio_ops.c	2024-11-26 10:46:08.441405124 +0800
 +++ linux-5.10.y-b/drivers/mmc/core/sdio_ops.c	2023-01-09 11:32:56.000000000 +0800
 @@ -81,18 +81,26 @@
  	cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC;
@@ -4683,8 +5051,91 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_ops.c linux-5.10.y-b/drivers/mmc/
  	}
  
  	if (out) {
+diff -urN linux-5.10.y-a/drivers/mmc/core/slot-gpio.c linux-5.10.y-b/drivers/mmc/core/slot-gpio.c
+--- linux-5.10.y-a/drivers/mmc/core/slot-gpio.c	2024-11-26 10:46:25.657187738 +0800
++++ linux-5.10.y-b/drivers/mmc/core/slot-gpio.c	2023-01-01 12:11:04.000000000 +0800
+@@ -62,15 +62,11 @@
+ int mmc_gpio_get_ro(struct mmc_host *host)
+ {
+ 	struct mmc_gpio *ctx = host->slot.handler_priv;
+-	int cansleep;
+ 
+ 	if (!ctx || !ctx->ro_gpio)
+ 		return -ENOSYS;
+ 
+-	cansleep = gpiod_cansleep(ctx->ro_gpio);
+-	return cansleep ?
+-		gpiod_get_value_cansleep(ctx->ro_gpio) :
+-		gpiod_get_value(ctx->ro_gpio);
++	return gpiod_get_value_cansleep(ctx->ro_gpio);
+ }
+ EXPORT_SYMBOL(mmc_gpio_get_ro);
+ 
+@@ -202,26 +198,6 @@
+ }
+ EXPORT_SYMBOL(mmc_gpiod_request_cd);
+ 
+-/**
+- * mmc_gpiod_set_cd_config - set config for card-detection GPIO
+- * @host: mmc host
+- * @config: Generic pinconf config (from pinconf_to_config_packed())
+- *
+- * This can be used by mmc host drivers to fixup a card-detection GPIO's config
+- * (e.g. set PIN_CONFIG_BIAS_PULL_UP) after acquiring the GPIO descriptor
+- * through mmc_gpiod_request_cd().
+- *
+- * Returns:
+- * 0 on success, or a negative errno value on error.
+- */
+-int mmc_gpiod_set_cd_config(struct mmc_host *host, unsigned long config)
+-{
+-	struct mmc_gpio *ctx = host->slot.handler_priv;
+-
+-	return gpiod_set_config(ctx->cd_gpio, config);
+-}
+-EXPORT_SYMBOL(mmc_gpiod_set_cd_config);
+-
+ bool mmc_can_gpio_cd(struct mmc_host *host)
+ {
+ 	struct mmc_gpio *ctx = host->slot.handler_priv;
+diff -urN linux-5.10.y-a/drivers/mmc/host/dw_mmc.c linux-5.10.y-b/drivers/mmc/host/dw_mmc.c
+--- linux-5.10.y-a/drivers/mmc/host/dw_mmc.c	2024-11-26 10:47:31.082400956 +0800
++++ linux-5.10.y-b/drivers/mmc/host/dw_mmc.c	2023-01-01 12:07:06.000000000 +0800
+@@ -2826,8 +2826,8 @@
+ 	if (host->use_dma == TRANS_MODE_IDMAC) {
+ 		mmc->max_segs = host->ring_size;
+ 		mmc->max_blk_size = 65535;
+-		mmc->max_req_size = DW_MCI_DESC_DATA_LENGTH * host->ring_size;
+-		mmc->max_seg_size = mmc->max_req_size;
++		mmc->max_seg_size = 0x1000;
++		mmc->max_req_size = mmc->max_seg_size * host->ring_size;
+ 		mmc->max_blk_count = mmc->max_req_size / 512;
+ 	} else if (host->use_dma == TRANS_MODE_EDMAC) {
+ 		mmc->max_segs = 64;
+@@ -3171,10 +3171,6 @@
+ 	host->biu_clk = devm_clk_get(host->dev, "biu");
+ 	if (IS_ERR(host->biu_clk)) {
+ 		dev_dbg(host->dev, "biu clock not available\n");
+-		ret = PTR_ERR(host->biu_clk);
+-		if (ret == -EPROBE_DEFER)
+-			return ret;
+-
+ 	} else {
+ 		ret = clk_prepare_enable(host->biu_clk);
+ 		if (ret) {
+@@ -3186,10 +3182,6 @@
+ 	host->ciu_clk = devm_clk_get(host->dev, "ciu");
+ 	if (IS_ERR(host->ciu_clk)) {
+ 		dev_dbg(host->dev, "ciu clock not available\n");
+-		ret = PTR_ERR(host->ciu_clk);
+-		if (ret == -EPROBE_DEFER)
+-			goto err_clk_biu;
+-
+ 		host->bus_hz = host->pdata->bus_hz;
+ 	} else {
+ 		ret = clk_prepare_enable(host->ciu_clk);
 diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/mmc/host/meson-gx-mmc.c
---- linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c	2023-06-30 15:43:14.699814777 +0800
+--- linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c	2024-11-26 10:47:39.155307946 +0800
 +++ linux-5.10.y-b/drivers/mmc/host/meson-gx-mmc.c	2023-01-30 11:01:24.000000000 +0800
 @@ -132,6 +132,8 @@
  
@@ -4695,7 +5146,15 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  struct meson_mmc_data {
  	unsigned int tx_delay_mask;
  	unsigned int rx_delay_mask;
-@@ -972,8 +974,11 @@
+@@ -802,6 +804,7 @@
+ 
+ 	cmd_cfg |= FIELD_PREP(CMD_CFG_CMD_INDEX_MASK, cmd->opcode);
+ 	cmd_cfg |= CMD_CFG_OWNER;  /* owned by CPU */
++	cmd_cfg |= CMD_CFG_ERROR; /* stop in case of error */
+ 
+ 	meson_mmc_set_response_bits(cmd, &cmd_cfg);
+ 
+@@ -971,8 +974,11 @@
  	if (status & (IRQ_END_OF_CHAIN | IRQ_RESP_STATUS)) {
  		if (data && !cmd->error)
  			data->bytes_xfered = data->blksz * data->blocks;
@@ -4709,7 +5168,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  	}
  
  out:
-@@ -985,6 +990,9 @@
+@@ -984,6 +990,9 @@
  		writel(start, host->regs + SD_EMMC_START);
  	}
  
@@ -4719,7 +5178,94 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  	return ret;
  }
  
-@@ -1276,9 +1284,15 @@
+@@ -1123,7 +1132,7 @@
+ 	struct mmc_host *mmc;
+ 	int ret;
+ 
+-	mmc = devm_mmc_alloc_host(&pdev->dev, sizeof(struct meson_host));
++	mmc = mmc_alloc_host(sizeof(struct meson_host), &pdev->dev);
+ 	if (!mmc)
+ 		return -ENOMEM;
+ 	host = mmc_priv(mmc);
+@@ -1139,33 +1148,46 @@
+ 	host->vqmmc_enabled = false;
+ 	ret = mmc_regulator_get_supply(mmc);
+ 	if (ret)
+-		return ret;
++		goto free_host;
+ 
+ 	ret = mmc_of_parse(mmc);
+-	if (ret)
+-		return dev_err_probe(&pdev->dev, ret, "error parsing DT\n");
++	if (ret) {
++		if (ret != -EPROBE_DEFER)
++			dev_warn(&pdev->dev, "error parsing DT: %d\n", ret);
++		goto free_host;
++	}
+ 
+ 	host->data = (struct meson_mmc_data *)
+ 		of_device_get_match_data(&pdev->dev);
+-	if (!host->data)
+-		return -EINVAL;
++	if (!host->data) {
++		ret = -EINVAL;
++		goto free_host;
++	}
+ 
+ 	ret = device_reset_optional(&pdev->dev);
+-	if (ret)
+-		return dev_err_probe(&pdev->dev, ret, "device reset failed\n");
++	if (ret) {
++		dev_err_probe(&pdev->dev, ret, "device reset failed\n");
++		goto free_host;
++	}
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	host->regs = devm_ioremap_resource(&pdev->dev, res);
+-	if (IS_ERR(host->regs))
+-		return PTR_ERR(host->regs);
++	if (IS_ERR(host->regs)) {
++		ret = PTR_ERR(host->regs);
++		goto free_host;
++	}
+ 
+ 	host->irq = platform_get_irq(pdev, 0);
+-	if (host->irq < 0)
+-		return host->irq;
++	if (host->irq <= 0) {
++		ret = -EINVAL;
++		goto free_host;
++	}
+ 
+ 	host->pinctrl = devm_pinctrl_get(&pdev->dev);
+-	if (IS_ERR(host->pinctrl))
+-		return PTR_ERR(host->pinctrl);
++	if (IS_ERR(host->pinctrl)) {
++		ret = PTR_ERR(host->pinctrl);
++		goto free_host;
++	}
+ 
+ 	host->pins_clk_gate = pinctrl_lookup_state(host->pinctrl,
+ 						   "clk-gate");
+@@ -1176,12 +1198,14 @@
+ 	}
+ 
+ 	host->core_clk = devm_clk_get(&pdev->dev, "core");
+-	if (IS_ERR(host->core_clk))
+-		return PTR_ERR(host->core_clk);
++	if (IS_ERR(host->core_clk)) {
++		ret = PTR_ERR(host->core_clk);
++		goto free_host;
++	}
+ 
+ 	ret = clk_prepare_enable(host->core_clk);
+ 	if (ret)
+-		return ret;
++		goto free_host;
+ 
+ 	ret = meson_mmc_clk_init(host);
+ 	if (ret)
+@@ -1260,9 +1284,15 @@
  	}
  
  	mmc->ops = &meson_mmc_ops;
@@ -4738,7 +5284,24 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  
  	return 0;
  
-@@ -1352,13 +1366,49 @@
+@@ -1276,6 +1306,8 @@
+ 	clk_disable_unprepare(host->mmc_clk);
+ err_core_clk:
+ 	clk_disable_unprepare(host->core_clk);
++free_host:
++	mmc_free_host(mmc);
+ 	return ret;
+ }
+ 
+@@ -1299,6 +1331,7 @@
+ 	clk_disable_unprepare(host->mmc_clk);
+ 	clk_disable_unprepare(host->core_clk);
+ 
++	mmc_free_host(host->mmc);
+ 	return 0;
+ }
+ 
+@@ -1333,13 +1366,49 @@
  	.remove		= meson_mmc_remove,
  	.driver		= {
  		.name = DRIVER_NAME,
@@ -4790,7 +5353,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  MODULE_AUTHOR("Kevin Hilman <khilman@baylibre.com>");
  MODULE_LICENSE("GPL v2");
 diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/drivers/mmc/host/renesas_sdhi_core.c
---- linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c	2023-06-30 15:43:33.239404078 +0800
+--- linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c	2024-11-26 10:47:51.322169363 +0800
 +++ linux-5.10.y-b/drivers/mmc/host/renesas_sdhi_core.c	2023-01-01 12:06:42.000000000 +0800
 @@ -537,7 +537,7 @@
  			 SH_MOBILE_SDHI_SCC_TMPPORT2_HS400OSEL) &
@@ -4801,8 +5364,159 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/dri
  		renesas_sdhi_adjust_hs400_mode_disable(host);
  
  	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
+@@ -556,22 +556,20 @@
+ {
+ 	struct renesas_sdhi *priv = host_to_priv(host);
+ 
+-	if (priv->scc_ctl) {
+-		renesas_sdhi_reset_scc(host, priv);
+-		renesas_sdhi_reset_hs400_mode(host, priv);
+-		priv->needs_adjust_hs400 = false;
+-
+-		sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
+-				sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+-
+-		sd_scc_write32(host, priv, SH_MOBILE_SDHI_SCC_RVSCNTL,
+-			       ~SH_MOBILE_SDHI_SCC_RVSCNTL_RVSEN &
+-			       sd_scc_read32(host, priv, SH_MOBILE_SDHI_SCC_RVSCNTL));
+-	}
++	renesas_sdhi_reset_scc(host, priv);
++	renesas_sdhi_reset_hs400_mode(host, priv);
++	priv->needs_adjust_hs400 = false;
++
++	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
++			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
++
++	sd_scc_write32(host, priv, SH_MOBILE_SDHI_SCC_RVSCNTL,
++		       ~SH_MOBILE_SDHI_SCC_RVSCNTL_RVSEN &
++		       sd_scc_read32(host, priv, SH_MOBILE_SDHI_SCC_RVSCNTL));
+ 
+ 	if (host->pdata->flags & TMIO_MMC_MIN_RCAR2)
+ 		sd_ctrl_write32_as_16_and_16(host, CTL_IRQ_MASK,
+-					     TMIO_MASK_ALL_RCAR2);
++					     TMIO_MASK_INIT_RCAR2);
+ }
+ 
+ #define SH_MOBILE_SDHI_MIN_TAP_ROW 3
+@@ -1012,10 +1010,11 @@
+ 		host->ops.start_signal_voltage_switch =
+ 			renesas_sdhi_start_signal_voltage_switch;
+ 		host->sdcard_irq_setbit_mask = TMIO_STAT_ALWAYS_SET_27;
+-		host->sdcard_irq_mask_all = TMIO_MASK_ALL_RCAR2;
+-		host->reset = renesas_sdhi_reset;
+-	} else {
+-		host->sdcard_irq_mask_all = TMIO_MASK_ALL;
++
++		if (of_data && of_data->scc_offset) {
++			priv->scc_ctl = host->ctl + of_data->scc_offset;
++			host->reset = renesas_sdhi_reset;
++		}
+ 	}
+ 
+ 	/* Orginally registers were 16 bit apart, could be 32 or 64 nowadays */
+@@ -1071,6 +1070,10 @@
+ 			quirks->hs400_calib_table + 1);
+ 	}
+ 
++	ret = tmio_mmc_host_probe(host);
++	if (ret < 0)
++		goto edisclk;
++
+ 	/* Enable tuning iff we have an SCC and a supported mode */
+ 	if (of_data && of_data->scc_offset &&
+ 	    (host->mmc->caps & MMC_CAP_UHS_SDR104 ||
+@@ -1095,7 +1098,6 @@
+ 		if (!hit)
+ 			dev_warn(&host->pdev->dev, "Unknown clock rate for tuning\n");
+ 
+-		priv->scc_ctl = host->ctl + of_data->scc_offset;
+ 		host->check_retune = renesas_sdhi_check_scc_error;
+ 		host->ops.execute_tuning = renesas_sdhi_execute_tuning;
+ 		host->ops.prepare_hs400_tuning = renesas_sdhi_prepare_hs400_tuning;
+@@ -1103,8 +1105,6 @@
+ 		host->ops.hs400_complete = renesas_sdhi_hs400_complete;
+ 	}
+ 
+-	sd_ctrl_write32_as_16_and_16(host, CTL_IRQ_MASK, host->sdcard_irq_mask_all);
+-
+ 	num_irqs = platform_irq_count(pdev);
+ 	if (num_irqs < 0) {
+ 		ret = num_irqs;
+@@ -1130,10 +1130,6 @@
+ 			goto eirq;
+ 	}
+ 
+-	ret = tmio_mmc_host_probe(host);
+-	if (ret < 0)
+-		goto edisclk;
+-
+ 	dev_info(&pdev->dev, "%s base at %pa, max clock rate %u MHz\n",
+ 		 mmc_hostname(host->mmc), &res->start, host->mmc->f_max / 1000000);
+ 
+diff -urN linux-5.10.y-a/drivers/mmc/host/sdhci.c linux-5.10.y-b/drivers/mmc/host/sdhci.c
+--- linux-5.10.y-a/drivers/mmc/host/sdhci.c	2024-11-26 10:47:57.053104739 +0800
++++ linux-5.10.y-b/drivers/mmc/host/sdhci.c	2023-01-01 12:06:54.000000000 +0800
+@@ -1145,8 +1145,6 @@
+ 		}
+ 	}
+ 
+-	sdhci_config_dma(host);
+-
+ 	if (host->flags & SDHCI_REQ_USE_DMA) {
+ 		int sg_cnt = sdhci_pre_dma_transfer(host, data, COOKIE_MAPPED);
+ 
+@@ -1166,6 +1164,8 @@
+ 		}
+ 	}
+ 
++	sdhci_config_dma(host);
++
+ 	if (!(host->flags & SDHCI_REQ_USE_DMA)) {
+ 		int flags;
+ 
+@@ -2488,29 +2488,26 @@
+ 
+ static int sdhci_check_ro(struct sdhci_host *host)
+ {
+-	bool allow_invert = false;
++	unsigned long flags;
+ 	int is_readonly;
+ 
+-	if (host->flags & SDHCI_DEVICE_DEAD) {
++	spin_lock_irqsave(&host->lock, flags);
++
++	if (host->flags & SDHCI_DEVICE_DEAD)
+ 		is_readonly = 0;
+-	} else if (host->ops->get_ro) {
++	else if (host->ops->get_ro)
+ 		is_readonly = host->ops->get_ro(host);
+-	} else if (mmc_can_gpio_ro(host->mmc)) {
++	else if (mmc_can_gpio_ro(host->mmc))
+ 		is_readonly = mmc_gpio_get_ro(host->mmc);
+-		/* Do not invert twice */
+-		allow_invert = !(host->mmc->caps2 & MMC_CAP2_RO_ACTIVE_HIGH);
+-	} else {
++	else
+ 		is_readonly = !(sdhci_readl(host, SDHCI_PRESENT_STATE)
+ 				& SDHCI_WRITE_PROTECT);
+-		allow_invert = true;
+-	}
+ 
+-	if (is_readonly >= 0 &&
+-	    allow_invert &&
+-	    (host->quirks & SDHCI_QUIRK_INVERTED_WRITE_PROTECT))
+-		is_readonly = !is_readonly;
++	spin_unlock_irqrestore(&host->lock, flags);
+ 
+-	return is_readonly;
++	/* This quirk needs to be replaced by a callback-function later */
++	return host->quirks & SDHCI_QUIRK_INVERTED_WRITE_PROTECT ?
++		!is_readonly : is_readonly;
+ }
+ 
+ #define SAMPLE_COUNT	5
 diff -urN linux-5.10.y-a/drivers/pwm/core.c linux-5.10.y-b/drivers/pwm/core.c
---- linux-5.10.y-a/drivers/pwm/core.c	2023-06-30 15:37:31.988007479 +0800
+--- linux-5.10.y-a/drivers/pwm/core.c	2024-11-26 10:48:40.127631908 +0800
 +++ linux-5.10.y-b/drivers/pwm/core.c	2022-12-21 10:48:36.000000000 +0800
 @@ -383,6 +383,25 @@
  }
@@ -4831,7 +5545,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/core.c linux-5.10.y-b/drivers/pwm/core.c
   * pwm_request() - request a PWM device
   * @pwm: global PWM device index
 diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-meson.c
---- linux-5.10.y-a/drivers/pwm/pwm-meson.c	2023-06-30 15:37:51.451023523 +0800
+--- linux-5.10.y-a/drivers/pwm/pwm-meson.c	2024-11-26 10:48:49.693529875 +0800
 +++ linux-5.10.y-b/drivers/pwm/pwm-meson.c	2022-12-21 15:41:32.000000000 +0800
 @@ -43,8 +43,12 @@
  #include <linux/slab.h>
@@ -4881,7 +5595,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	spinlock_t lock;
  };
 +#endif
- 
++
 +static struct meson_pwm_channel_data {
 +	u8		reg_offset;
 +	u8		clk_sel_shift;
@@ -4924,7 +5638,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
 +	},
 +#endif
 +};
-+
+ 
 +#ifdef CONFIG_AMLOGIC_MODIFY
 +struct meson_pwm *to_meson_pwm(struct pwm_chip *chip)
 +#else
@@ -4972,22 +5686,36 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  	err = clk_prepare_enable(channel->clk);
  	if (err < 0) {
-@@ -147,6 +189,10 @@
+@@ -147,13 +189,16 @@
  		return err;
  	}
  
+-	return 0;
 +#ifdef CONFIG_AMLOGIC_MODIFY
 +	channel->clk_rate = clk_get_rate(channel->clk);
 +#endif
 +
- 	return pwm_set_chip_data(pwm, channel);
++	return pwm_set_chip_data(pwm, channel);
  }
  
-@@ -163,21 +209,21 @@
+ static void meson_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
  {
- 	struct meson_pwm_channel *channel = pwm_get_chip_data(pwm);
- 	unsigned int duty, period, pre_div, cnt, duty_cnt;
+-	struct meson_pwm *meson = to_meson_pwm(chip);
+-	struct meson_pwm_channel *channel = &meson->channels[pwm->hwpwm];
++	struct meson_pwm_channel *channel = pwm_get_chip_data(pwm);
+ 
+ 	if (channel)
+ 		clk_disable_unprepare(channel->clk);
+@@ -162,24 +207,23 @@
+ static int meson_pwm_calc(struct meson_pwm *meson, struct pwm_device *pwm,
+ 			  const struct pwm_state *state)
+ {
+-	struct meson_pwm_channel *channel = &meson->channels[pwm->hwpwm];
+-	unsigned int pre_div, cnt, duty_cnt;
 -	unsigned long fin_freq;
+-	u64 duty, period;
++	struct meson_pwm_channel *channel = pwm_get_chip_data(pwm);
++	unsigned int duty, period, pre_div, cnt, duty_cnt;
 +	unsigned long fin_freq = -1;
  
  	duty = state->duty_cycle;
@@ -5012,7 +5740,43 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	if (fin_freq == 0) {
  		dev_err(meson->chip.dev, "invalid source clock frequency\n");
  		return -EINVAL;
-@@ -221,10 +267,30 @@
+@@ -187,19 +231,19 @@
+ 
+ 	dev_dbg(meson->chip.dev, "fin_freq: %lu Hz\n", fin_freq);
+ 
+-	pre_div = div64_u64(fin_freq * period, NSEC_PER_SEC * 0xffffLL);
++	pre_div = div64_u64(fin_freq * (u64)period, NSEC_PER_SEC * 0xffffLL);
+ 	if (pre_div > MISC_CLK_DIV_MASK) {
+ 		dev_err(meson->chip.dev, "unable to get period pre_div\n");
+ 		return -EINVAL;
+ 	}
+ 
+-	cnt = div64_u64(fin_freq * period, NSEC_PER_SEC * (pre_div + 1));
++	cnt = div64_u64(fin_freq * (u64)period, NSEC_PER_SEC * (pre_div + 1));
+ 	if (cnt > 0xffff) {
+ 		dev_err(meson->chip.dev, "unable to get period cnt\n");
+ 		return -EINVAL;
+ 	}
+ 
+-	dev_dbg(meson->chip.dev, "period=%llu pre_div=%u cnt=%u\n", period,
++	dev_dbg(meson->chip.dev, "period=%u pre_div=%u cnt=%u\n", period,
+ 		pre_div, cnt);
+ 
+ 	if (duty == period) {
+@@ -212,29 +256,54 @@
+ 		channel->lo = cnt;
+ 	} else {
+ 		/* Then check is we can have the duty with the same pre_div */
+-		duty_cnt = div64_u64(fin_freq * duty, NSEC_PER_SEC * (pre_div + 1));
++		duty_cnt = div64_u64(fin_freq * (u64)duty,
++				     NSEC_PER_SEC * (pre_div + 1));
+ 		if (duty_cnt > 0xffff) {
+ 			dev_err(meson->chip.dev, "unable to get duty cycle\n");
+ 			return -EINVAL;
+ 		}
+ 
+-		dev_dbg(meson->chip.dev, "duty=%llu pre_div=%u duty_cnt=%u\n",
++		dev_dbg(meson->chip.dev, "duty=%u pre_div=%u duty_cnt=%u\n",
  			duty, pre_div, duty_cnt);
  
  		channel->pre_div = pre_div;
@@ -5043,7 +5807,10 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	return 0;
  }
  
-@@ -234,6 +300,10 @@
+ static void meson_pwm_enable(struct meson_pwm *meson, struct pwm_device *pwm)
+ {
+-	struct meson_pwm_channel *channel = &meson->channels[pwm->hwpwm];
++	struct meson_pwm_channel *channel = pwm_get_chip_data(pwm);
  	struct meson_pwm_channel_data *channel_data;
  	unsigned long flags;
  	u32 value;
@@ -5054,7 +5821,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  	channel_data = &meson_pwm_per_channel_data[pwm->hwpwm];
  
-@@ -254,6 +324,23 @@
+@@ -255,6 +324,23 @@
  	writel(value, meson->base + REG_MISC_AB);
  
  	spin_unlock_irqrestore(&meson->lock, flags);
@@ -5078,7 +5845,17 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  }
  
  static void meson_pwm_disable(struct meson_pwm *meson, struct pwm_device *pwm)
-@@ -333,6 +420,40 @@
+@@ -274,8 +360,8 @@
+ static int meson_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
+ 			   const struct pwm_state *state)
+ {
++	struct meson_pwm_channel *channel = pwm_get_chip_data(pwm);
+ 	struct meson_pwm *meson = to_meson_pwm(chip);
+-	struct meson_pwm_channel *channel = &meson->channels[pwm->hwpwm];
+ 	int err = 0;
+ 
+ 	if (!state)
+@@ -334,6 +420,40 @@
  	return cnt * fin_ns * (channel->pre_div + 1);
  }
  
@@ -5119,7 +5896,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  static void meson_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
  				struct pwm_state *state)
  {
-@@ -344,6 +465,12 @@
+@@ -345,6 +465,12 @@
  	if (!state)
  		return;
  
@@ -5132,7 +5909,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	channel = &meson->channels[pwm->hwpwm];
  	channel_data = &meson_pwm_per_channel_data[pwm->hwpwm];
  
-@@ -372,7 +499,6 @@
+@@ -373,7 +499,6 @@
  		state->period = 0;
  		state->duty_cycle = 0;
  	}
@@ -5140,7 +5917,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  }
  
  static const struct pwm_ops meson_pwm_ops = {
-@@ -383,83 +509,127 @@
+@@ -384,83 +509,127 @@
  	.owner = THIS_MODULE,
  };
  
@@ -5263,8 +6040,8 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
 +#ifdef CONFIG_AMLOGIC_MODIFY
 +	.double_channel = true,
 +#endif
- };
- 
++};
++
 +#ifdef CONFIG_AMLOGIC_MODIFY
 +static  char *pwm_t5d_parent_names[] __initdata = {
 +	"xtal", "clk81", "fclk_div4", "fclk_div5"
@@ -5279,15 +6056,15 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
 +static struct meson_pwm_data pwm_v2_data __initdata = {
 +	.double_channel = true,
 +	.extern_clk = true,
-+};
+ };
 +#endif
-+
+ 
  static const struct of_device_id meson_pwm_matches[] = {
 +#ifndef CONFIG_AMLOGIC_REMOVE_OLD
  	{
  		.compatible = "amlogic,meson8b-pwm",
  		.data = &pwm_meson8b_data
-@@ -480,6 +650,7 @@
+@@ -481,6 +650,7 @@
  		.compatible = "amlogic,meson-axg-ao-pwm",
  		.data = &pwm_axg_ao_data
  	},
@@ -5295,7 +6072,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	{
  		.compatible = "amlogic,meson-g12a-ee-pwm",
  		.data = &pwm_g12a_ee_data
-@@ -492,6 +663,28 @@
+@@ -493,6 +663,28 @@
  		.compatible = "amlogic,meson-g12a-ao-pwm-cd",
  		.data = &pwm_g12a_ao_cd_data
  	},
@@ -5324,7 +6101,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	{},
  };
  MODULE_DEVICE_TABLE(of, meson_pwm_matches);
-@@ -512,7 +705,7 @@
+@@ -513,7 +705,7 @@
  		init.name = name;
  		init.ops = &clk_mux_ops;
  		init.flags = 0;
@@ -5333,7 +6110,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  		init.num_parents = meson->data->num_parents;
  
  		channel->mux.reg = meson->base + REG_MISC_AB;
-@@ -541,32 +734,95 @@
+@@ -542,32 +734,95 @@
  	return 0;
  }
  
@@ -5433,7 +6210,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	if (err < 0)
  		return err;
  
-@@ -577,6 +833,11 @@
+@@ -578,6 +833,11 @@
  	}
  
  	platform_set_drvdata(pdev, meson);
@@ -5445,7 +6222,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  	return 0;
  }
-@@ -584,7 +845,10 @@
+@@ -585,7 +845,10 @@
  static int meson_pwm_remove(struct platform_device *pdev)
  {
  	struct meson_pwm *meson = platform_get_drvdata(pdev);
@@ -5457,7 +6234,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	return pwmchip_remove(&meson->chip);
  }
  
-@@ -596,7 +860,29 @@
+@@ -597,7 +860,29 @@
  	.probe = meson_pwm_probe,
  	.remove = meson_pwm_remove,
  };
@@ -5487,10 +6264,8 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  MODULE_DESCRIPTION("Amlogic Meson PWM Generator driver");
  MODULE_AUTHOR("Neil Armstrong <narmstrong@baylibre.com>");
-Binary files linux-5.10.y-a/._.DS_Store and linux-5.10.y-b/._.DS_Store differ
-Binary files linux-5.10.y-a/.DS_Store and linux-5.10.y-b/.DS_Store differ
 diff -urN linux-5.10.y-a/fs/read_write.c linux-5.10.y-b/fs/read_write.c
---- linux-5.10.y-a/fs/read_write.c	2023-01-19 12:53:24.000000000 +0800
+--- linux-5.10.y-a/fs/read_write.c	2024-11-26 10:49:29.957111545 +0800
 +++ linux-5.10.y-b/fs/read_write.c	2023-01-19 12:53:12.000000000 +0800
 @@ -503,6 +503,7 @@
  	inc_syscr(current);
@@ -5509,7 +6284,7 @@ diff -urN linux-5.10.y-a/fs/read_write.c linux-5.10.y-b/fs/read_write.c
  /* file_ppos returns &file->f_pos or NULL if file is stream */
  static inline loff_t *file_ppos(struct file *file)
 diff -urN linux-5.10.y-a/fs/stat.c linux-5.10.y-b/fs/stat.c
---- linux-5.10.y-a/fs/stat.c	2023-01-17 16:48:34.000000000 +0800
+--- linux-5.10.y-a/fs/stat.c	2024-11-26 10:49:37.073039416 +0800
 +++ linux-5.10.y-b/fs/stat.c	2023-01-19 12:40:48.000000000 +0800
 @@ -215,6 +215,7 @@
  	return vfs_statx(dfd, filename, flags | AT_NO_AUTOMOUNT,
@@ -5519,10 +6294,6 @@ diff -urN linux-5.10.y-a/fs/stat.c linux-5.10.y-b/fs/stat.c
  
  #ifdef __ARCH_WANT_OLD_STAT
  
-Binary files linux-5.10.y-a/include/._.DS_Store and linux-5.10.y-b/include/._.DS_Store differ
-Binary files linux-5.10.y-a/include/.DS_Store and linux-5.10.y-b/include/.DS_Store differ
-Binary files linux-5.10.y-a/include/dt-bindings/._.DS_Store and linux-5.10.y-b/include/dt-bindings/._.DS_Store differ
-Binary files linux-5.10.y-a/include/dt-bindings/.DS_Store and linux-5.10.y-b/include/dt-bindings/.DS_Store differ
 Binary files linux-5.10.y-a/include/dt-bindings/pwm/._meson.h and linux-5.10.y-b/include/dt-bindings/pwm/._meson.h differ
 diff -urN linux-5.10.y-a/include/dt-bindings/pwm/meson.h linux-5.10.y-b/include/dt-bindings/pwm/meson.h
 --- linux-5.10.y-a/include/dt-bindings/pwm/meson.h	1970-01-01 08:00:00.000000000 +0800
@@ -7073,12 +7844,10 @@ diff -urN linux-5.10.y-a/include/linux/dma-contiguous.h linux-5.10.y-b/include/l
 +#endif
 +
 +#endif
-Binary files linux-5.10.y-a/include/linux/._.DS_Store and linux-5.10.y-b/include/linux/._.DS_Store differ
-Binary files linux-5.10.y-a/include/linux/.DS_Store and linux-5.10.y-b/include/linux/.DS_Store differ
 Binary files linux-5.10.y-a/include/linux/mmc/._card.h and linux-5.10.y-b/include/linux/mmc/._card.h differ
 Binary files linux-5.10.y-a/include/linux/mmc/._core.h and linux-5.10.y-b/include/linux/mmc/._core.h differ
 diff -urN linux-5.10.y-a/include/linux/mmc/core.h linux-5.10.y-b/include/linux/mmc/core.h
---- linux-5.10.y-a/include/linux/mmc/core.h	2022-12-20 21:57:16.000000000 +0800
+--- linux-5.10.y-a/include/linux/mmc/core.h	2024-11-26 10:50:40.697416911 +0800
 +++ linux-5.10.y-b/include/linux/mmc/core.h	2023-01-03 16:48:32.000000000 +0800
 @@ -107,6 +107,9 @@
   */
@@ -7090,10 +7859,9 @@ diff -urN linux-5.10.y-a/include/linux/mmc/core.h linux-5.10.y-b/include/linux/m
  	struct mmc_data		*data;		/* data segment associated with cmd */
  	struct mmc_request	*mrq;		/* associated request */
  };
-Binary files linux-5.10.y-a/include/linux/mmc/._host.h and linux-5.10.y-b/include/linux/mmc/._host.h differ
 Binary files linux-5.10.y-a/include/linux/mmc/._sdio.h and linux-5.10.y-b/include/linux/mmc/._sdio.h differ
 diff -urN linux-5.10.y-a/include/linux/mmc/sdio.h linux-5.10.y-b/include/linux/mmc/sdio.h
---- linux-5.10.y-a/include/linux/mmc/sdio.h	2022-12-20 21:57:16.000000000 +0800
+--- linux-5.10.y-a/include/linux/mmc/sdio.h	2024-11-26 10:50:53.270298414 +0800
 +++ linux-5.10.y-b/include/linux/mmc/sdio.h	2022-12-29 17:55:24.000000000 +0800
 @@ -186,4 +186,7 @@
  
@@ -7104,8 +7872,19 @@ diff -urN linux-5.10.y-a/include/linux/mmc/sdio.h linux-5.10.y-b/include/linux/m
 +
  #endif /* LINUX_MMC_SDIO_H */
 diff -urN linux-5.10.y-a/include/linux/pwm.h linux-5.10.y-b/include/linux/pwm.h
---- linux-5.10.y-a/include/linux/pwm.h	2022-12-20 21:57:16.000000000 +0800
+--- linux-5.10.y-a/include/linux/pwm.h	2024-11-26 10:50:11.884693958 +0800
 +++ linux-5.10.y-b/include/linux/pwm.h	2022-12-21 10:51:08.000000000 +0800
+@@ -44,8 +44,8 @@
+ };
+ 
+ enum {
+-	PWMF_REQUESTED = 0,
+-	PWMF_EXPORTED = 1,
++	PWMF_REQUESTED = 1 << 0,
++	PWMF_EXPORTED = 1 << 1,
+ };
+ 
+ /*
 @@ -396,6 +396,7 @@
  			      enum pwm_polarity polarity);
  int pwmchip_add(struct pwm_chip *chip);

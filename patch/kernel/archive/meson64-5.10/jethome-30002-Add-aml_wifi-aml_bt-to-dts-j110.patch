@@ -1,5 +1,5 @@
 diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
---- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi	2023-06-30 15:31:52.331883829 +0800
+--- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi	2024-11-26 11:06:23.996417927 +0800
 +++ linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi	2023-01-04 17:28:42.000000000 +0800
 @@ -151,7 +151,7 @@
  		scpi_clocks: clocks {
@@ -107,9 +107,9 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi linux-5.10.y
  
  			usb2_phy1: phy@9020 {
 diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
---- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts	2023-06-30 15:31:39.719694824 +0800
-+++ linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts	2023-01-11 11:43:44.000000000 +0800
-@@ -18,23 +18,61 @@
+--- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts	2024-11-26 11:06:24.012419347 +0800
++++ linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts	2024-11-26 11:48:01.812274412 +0800
+@@ -18,23 +18,60 @@
  		device_type = "memory";
  		reg = <0x0 0x0 0x0 0x40000000>;
  	};
@@ -117,7 +117,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  
 +	aml_bt: aml_bt {
 +		compatible = "amlogic, aml-bt";
-+		status = "disabled";
++		status = "okay";
 +	};
 +
 +	aml_wifi: aml_wifi {
@@ -173,22 +173,21 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
 +};
 +
 +&aml_bt {
-+
 +	status = "okay";
 +	reset-gpios = <&gpio    GPIOX_21 GPIO_ACTIVE_HIGH>;
-+	#btwakeup-gpios = <&gpio_ao GPIOAO_8 GPIO_ACTIVE_HIGH>;
-+	#hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
++	btwakeup-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
++	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
 +};
 \ No newline at end of file
 diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
---- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi	2023-06-30 15:32:01.736024996 +0800
-+++ linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi	2023-02-01 11:40:56.000000000 +0800
+--- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi	2024-11-26 11:06:24.024420410 +0800
++++ linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi	2024-11-26 14:35:52.728358851 +0800
 @@ -16,7 +16,8 @@
  / {
  	aliases {
  		serial0 = &uart_AO;   /* Console */
 -		serial2 = &uart_AO_B; /* External UART (Wireless Module) */
-+		serial2 = &uart_A; /* External UART (Wireless Module) */
++		serial1 = &uart_A; /* UART Bluetooth */
 +		serial3 = &uart_AO_B; /* ZigBee */
  		ethernet0 = &ethmac;
  	};
@@ -271,107 +270,128 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  	pinctrl-0 = <&i2c_ao_sck_10_pins>, <&i2c_ao_sda_11_pins>;
  	pinctrl-names = "default";
  };
-@@ -237,6 +245,33 @@
+@@ -237,25 +245,10 @@
  	pinctrl-names = "default";
  };
  
+-/* wifi module */
+-&sd_emmc_b {
 +&pwm_AO_cd{
-+	status = "okay";
+ 	status = "okay";
+-	#address-cells = <1>;
+-	#size-cells = <0>;
+-
+-	pinctrl-0 = <&sdio_pins>;
+-	pinctrl-1 = <&sdio_clk_gate_pins>;
+-	pinctrl-names = "default", "clk-gate";
+-
+-	bus-width = <4>;
+-	cap-sd-highspeed;
+-	max-frequency = <50000000>;
+-	disable-wp;
+-
+-	mmc-pwrseq = <&sdio_pwrseq>;
+-
+-	vmmc-supply = <&vddao_3v3>;
+-	vqmmc-supply = <&vddio_boot>;
 +	pinctrl-0 = <&pwm_ao_c_ao8_pins>;
 +	pinctrl-names = "default";
-+};
+ };
+ 
+ /* emmc storage */
+@@ -267,7 +260,7 @@
+ 
+ 	bus-width = <8>;
+ 	cap-mmc-highspeed;
+-	max-frequency = <200000000>;
++	max-frequency = <100000000>;
+ 	non-removable;
+ 	disable-wp;
+ 	mmc-ddr-1_8v;
+@@ -279,14 +272,54 @@
+ 	vqmmc-supply = <&vccq_1v8>;
+ };
+ 
+-/* UART Bluetooth */
+-&uart_B {
++/* wifi module */
++&sd_emmc_b {
+ 	status = "okay";
+-	pinctrl-0 = <&uart_b_z_pins>, <&uart_b_z_cts_rts_pins>;
+-	pinctrl-names = "default";
+-	uart-has-rtscts;
++	#address-cells = <1>;
++	#size-cells = <0>;
 +
-+/* emmc storage */
-+&sd_emmc_c {
-+	status = "okay";
-+	pinctrl-0 = <&emmc_pins>, <&emmc_ds_pins>;
-+	pinctrl-1 = <&emmc_clk_gate_pins>;
++	pinctrl-0 = <&sdio_pins>;
++	pinctrl-1 = <&sdio_clk_gate_pins>;
 +	pinctrl-names = "default", "clk-gate";
 +
-+	bus-width = <8>;
-+	cap-mmc-highspeed;
-+	max-frequency = <100000000>;
-+	non-removable;
-+	disable-wp;
-+	mmc-ddr-1_8v;
-+	mmc-hs200-1_8v;
-+
-+	mmc-pwrseq = <&emmc_pwrseq>;
-+
-+	vmmc-supply = <&vcc_3v3>;
-+	vqmmc-supply = <&vccq_1v8>;
-+};
-+
- /* wifi module */
- &sd_emmc_b {
- 	status = "okay";
-@@ -249,36 +284,34 @@
- 
- 	bus-width = <4>;
- 	cap-sd-highspeed;
++	bus-width = <4>;
++	cap-sd-highspeed;
 +	
 +	sd-uhs-sdr12;
 +	sd-uhs-sdr25;
 +	sd-uhs-sdr50;
 +	//sd-uhs-sdr104;
 +	
- 	max-frequency = <50000000>;
- 	disable-wp;
- 
++	max-frequency = <50000000>;
++	disable-wp;
++
 +	/*
- 	mmc-pwrseq = <&sdio_pwrseq>;
++	mmc-pwrseq = <&sdio_pwrseq>;
 +	*/
- 
- 	vmmc-supply = <&vddao_3v3>;
--	vqmmc-supply = <&vddio_boot>;
--};
--
--/* emmc storage */
--&sd_emmc_c {
--	status = "okay";
--	pinctrl-0 = <&emmc_pins>, <&emmc_ds_pins>;
--	pinctrl-1 = <&emmc_clk_gate_pins>;
--	pinctrl-names = "default", "clk-gate";
++
++	vmmc-supply = <&vddao_3v3>;
 +	vqmmc-supply = <&vccq_1v8>;
- 
--	bus-width = <8>;
--	cap-mmc-highspeed;
--	max-frequency = <200000000>;
- 	non-removable;
- 	disable-wp;
--	mmc-ddr-1_8v;
--	mmc-hs200-1_8v;
--
--	mmc-pwrseq = <&emmc_pwrseq>;
++
++	non-removable;
++	disable-wp;
 +	init_core_phase = <3>;
 +	init_tx_phase = <0>;
 +	no-mmc;
 +	no-sd;
- 
--	vmmc-supply = <&vcc_3v3>;
--	vqmmc-supply = <&vccq_1v8>;
++
 +	keep-power-in-suspend;
 +	mmc_debug_flag;
  };
  
 +
- /* UART Bluetooth */
- &uart_B {
++/* UART Bluetooth */
++// &uart_B {
++// 	status = "okay";
++// 	pinctrl-0 = <&uart_b_z_pins>, <&uart_b_z_cts_rts_pins>;
++// 	pinctrl-names = "default";
++// 	uart-has-rtscts;
++// };
++
+ /* UART Console */
+ &uart_AO {
  	status = "okay";
-@@ -301,6 +334,12 @@
+@@ -294,13 +327,21 @@
  	pinctrl-names = "default";
  };
  
+-/* UART Wireless module */
++/* Zigbee */
+ &uart_AO_B {
+ 	status = "okay";
+ 	pinctrl-0 = <&uart_ao_b_pins>;
+ 	pinctrl-names = "default";
+ };
+ 
++/* UART Bluetooth */
 +&uart_A {
 +	status = "okay";
-+	pinctrl-0 = <&uart_a_pins>,<&uart_a_cts_rts_pins>;
++	pinctrl-0 = <&uart_a_pins>, <&uart_a_cts_rts_pins>;
 +	pinctrl-names = "default";
++	uart-has-rtscts;
 +};
 +
  &usb {
  	status = "okay";
  	phy-supply = <&usb_pwr>;
-@@ -316,14 +355,14 @@
+@@ -316,14 +357,14 @@
  	gpio-line-names =
  		"", "", "", "", "", // 0 - 4
  		"", "", "", "", "", // 5 - 9

@@ -1,0 +1,12 @@
+[Unit]
+Description=Amlogic W155s1 Bluetooth Initialization Service
+After=wpa_supplicant-nl80211@wlan0.service
+Requires=wpa_supplicant-nl80211@wlan0.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/firmware/w1/w1_bt_start.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
