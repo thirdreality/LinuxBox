@@ -228,6 +228,14 @@ create_board_package()
 fi
 
 	[ ! -f "/etc/network/interfaces" ] && [ -f "/etc/network/interfaces.default" ] && cp /etc/network/interfaces.default /etc/network/interfaces
+	if [ "$BOARD" = "jethubj100" ]; then
+		echo "source /etc/network/interfaces.d/*" > /etc/network/interfaces
+		echo "# Network is managed by Network manager" >> /etc/network/interfaces
+		echo "auto lo wlan0" >> /etc/network/interfaces
+		echo "iface lo inet loopback" >> /etc/network/interfaces
+		echo "iface wlan0 inet dhcp" >> /etc/network/interfaces
+	fi
+
 	ln -sf /var/run/motd /etc/motd
 	rm -f /etc/update-motd.d/00-header /etc/update-motd.d/10-help-text
 
