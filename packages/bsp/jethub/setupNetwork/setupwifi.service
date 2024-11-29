@@ -5,9 +5,9 @@ Requires=wpa_supplicant-nl80211@wlan0.service
 
 [Service]
 Type=oneshot
-ExecStartPre=/usr/lib/thirdreality/setupwifi-ap.sh check
-ExecStart=/usr/lib/thirdreality/setupwifi-ap.sh start
-ExecStop=/usr/lib/thirdreality/setupwifi-ap.sh stop
+ExecStartPre=/usr/lib/thirdreality/setupwifi.sh check
+ExecStart=/usr/lib/thirdreality/setupwifi.sh start
+ExecStop=/usr/lib/thirdreality/setupwifi.sh stop
 RemainAfterExit=yes
 
 [Install]

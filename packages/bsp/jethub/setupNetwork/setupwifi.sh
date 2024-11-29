@@ -9,8 +9,8 @@ check_network()
 	if iw dev wlan0 link | grep -q "Not connected"; then
 		exit 0
 	else
-		systemctl disable setupwifi-ap.service
-		systemctl stop setupwifi-ap.service
+		systemctl disable setupwifi.service
+		systemctl stop setupwifi.service
 		exit 1
 	fi
 }
@@ -40,29 +40,32 @@ hostapd_conf()
     echo "rsn_pairwise=CCMP" >> /etc/hostapd.conf
 }
 
-start_hostapd()
+start_service()
 {
 	hostapd_conf
 	hostapd /etc/hostapd.conf -e /etc/entropy.bin &
 	ifconfig wlan1 192.168.2.1
 	/usr/bin/dnsmasq -iwlan1 --dhcp-option=3,192.168.2.1 --dhcp-range=192.168.2.50,192.168.2.200,12h -p100 &
 	/usr/bin/tcpserver &
+
+	/usr/bin/btgatt-server &
 }
 
-stop_hostapd()
+stop_service()
 {
 	killall hostapd
 	killall tcpserver
 	killall dnsmasq
+	killall btgatt-server
 	ifconfig wlan1 down
 }
 
 case "$1" in
 	start)
-		start_hostapd
+		start_service
 	;;
 	stop)
-		stop_hostapd
+		stop_service
 	;;
 	check)
 		check_network

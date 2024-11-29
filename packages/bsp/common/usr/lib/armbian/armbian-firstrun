@@ -135,13 +135,13 @@ case "$1" in
 		systemctl enable wpa_supplicant-nl80211@wlan0.service
 		systemctl enable dhclient.service
 		systemctl enable amlogicw1-bt.service
-		systemctl enable setupwifi-ap.service
+		systemctl enable setupwifi.service
 
 		systemctl start amlogicw1.service
 		systemctl start wpa_supplicant-nl80211@wlan0.service
 		systemctl start dhclient.service
 		systemctl start amlogicw1-bt.service
-		systemctl start setupwifi-ap.service
+		systemctl start setupwifi.service
 	fi
 
 	systemctl disable armbian-firstrun
