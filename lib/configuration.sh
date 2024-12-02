@@ -139,7 +139,7 @@ case $GITHUB_MIRROR in
 		GITHUB_SOURCE='https://gitclone.com/github.com'
 		;;
 	*)
-		GITHUB_SOURCE='https://github.com'
+		GITHUB_SOURCE='git@github.com'
 		;;
 esac
 

@@ -383,39 +383,39 @@ compilation_prepare()
 
 
 
-	# Wireless drivers for Realtek 8811, 8812, 8814 and 8821 chipsets
+	# # Wireless drivers for Realtek 8811, 8812, 8814 and 8821 chipsets
 
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
+	# if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
 
-		# attach to specifics tag or branch
-		local rtl8812auver="commit:41532e3b16dcf27f06e6fe5a26314f3aa24d4f87"
+	# 	# attach to specifics tag or branch
+	# 	local rtl8812auver="commit:41532e3b16dcf27f06e6fe5a26314f3aa24d4f87"
 
-		display_alert "Adding" "Wireless drivers for Realtek 8811, 8812, 8814 and 8821 chipsets ${rtl8812auver}" "info"
+	# 	display_alert "Adding" "Wireless drivers for Realtek 8811, 8812, 8814 and 8821 chipsets ${rtl8812auver}" "info"
 
-		fetch_from_repo "$GITHUB_SOURCE/aircrack-ng/rtl8812au" "rtl8812au" "${rtl8812auver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/rtl8812au"
-		mkdir -p "$kerneldir/drivers/net/wireless/rtl8812au/"
-		cp -R "${SRC}/cache/sources/rtl8812au/${rtl8812auver#*:}"/{core,hal,include,os_dep,platform} \
-		"$kerneldir/drivers/net/wireless/rtl8812au"
+	# 	fetch_from_repo "$GITHUB_SOURCE/aircrack-ng/rtl8812au" "rtl8812au" "${rtl8812auver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/rtl8812au"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/rtl8812au/"
+	# 	cp -R "${SRC}/cache/sources/rtl8812au/${rtl8812auver#*:}"/{core,hal,include,os_dep,platform} \
+	# 	"$kerneldir/drivers/net/wireless/rtl8812au"
 
-		# Makefile
-		cp "${SRC}/cache/sources/rtl8812au/${rtl8812auver#*:}/Makefile" \
-		"$kerneldir/drivers/net/wireless/rtl8812au/Makefile"
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/rtl8812au/${rtl8812auver#*:}/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8812au/Makefile"
 
-		# Kconfig
-		cp "${SRC}/cache/sources/rtl8812au/${rtl8812auver#*:}/Kconfig" \
-		"$kerneldir/drivers/net/wireless/rtl8812au/Kconfig"
+	# 	# Kconfig
+	# 	cp "${SRC}/cache/sources/rtl8812au/${rtl8812auver#*:}/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8812au/Kconfig"
 
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_88XXAU) += rtl8812au/" >> "$kerneldir/drivers/net/wireless/Makefile"
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8812au\/Kconfig"' \
-		"$kerneldir/drivers/net/wireless/Kconfig"
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_88XXAU) += rtl8812au/" >> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8812au\/Kconfig"' \
+	# 	"$kerneldir/drivers/net/wireless/Kconfig"
 
-                # add support for 5.19.2
-                process_patch_file "${SRC}/patch/misc/wireless-rtl8812au-5.19.2.patch" "applying"
+    #             # add support for 5.19.2
+    #             process_patch_file "${SRC}/patch/misc/wireless-rtl8812au-5.19.2.patch" "applying"
 
-	fi
+	# fi
 
 
 
@@ -595,54 +595,54 @@ compilation_prepare()
 
 	# Wireless drivers for Realtek 88x2cs chipsets
 
-	if linux-version compare "${version}" ge 5.9 && [ "$EXTRAWIFI" == yes ]; then
+	# if linux-version compare "${version}" ge 5.9 && [ "$EXTRAWIFI" == yes ]; then
 
-		# attach to specifics tag or branch
-		local rtl88x2csver="branch:tune_for_jethub"
+	# 	# attach to specifics tag or branch
+	# 	local rtl88x2csver="branch:tune_for_jethub"
 
-		display_alert "Adding" "Wireless drivers for Realtek 88x2cs chipsets ${rtl88x2csver}" "info"
+	# 	display_alert "Adding" "Wireless drivers for Realtek 88x2cs chipsets ${rtl88x2csver}" "info"
 
-		fetch_from_repo "$GITHUB_SOURCE/jethome-ru/rtl88x2cs" "rtl88x2cs" "${rtl88x2csver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/rtl88x2cs"
-		mkdir -p "$kerneldir/drivers/net/wireless/rtl88x2cs/"
-		cp -R "${SRC}/cache/sources/rtl88x2cs/${rtl88x2csver#*:}"/{core,hal,include,os_dep,platform,halmac.mk,ifcfg-wlan0,rtl8822c.mk,runwpa,wlan0dhcp} \
-		"$kerneldir/drivers/net/wireless/rtl88x2cs"
+	# 	fetch_from_repo "$GITHUB_SOURCE/jethome-ru/rtl88x2cs" "rtl88x2cs" "${rtl88x2csver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/rtl88x2cs"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/rtl88x2cs/"
+	# 	cp -R "${SRC}/cache/sources/rtl88x2cs/${rtl88x2csver#*:}"/{core,hal,include,os_dep,platform,halmac.mk,ifcfg-wlan0,rtl8822c.mk,runwpa,wlan0dhcp} \
+	# 	"$kerneldir/drivers/net/wireless/rtl88x2cs"
 
-		# Makefile
-		cp "${SRC}/cache/sources/rtl88x2cs/${rtl88x2csver#*:}/Makefile" \
-		"$kerneldir/drivers/net/wireless/rtl88x2cs/Makefile"
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/rtl88x2cs/${rtl88x2csver#*:}/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/rtl88x2cs/Makefile"
 
-		# Kconfig
-		sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl88x2cs/${rtl88x2csver#*:}/Kconfig"
-		cp "${SRC}/cache/sources/rtl88x2cs/${rtl88x2csver#*:}/Kconfig" \
-		"$kerneldir/drivers/net/wireless/rtl88x2cs/Kconfig"
+	# 	# Kconfig
+	# 	sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl88x2cs/${rtl88x2csver#*:}/Kconfig"
+	# 	cp "${SRC}/cache/sources/rtl88x2cs/${rtl88x2csver#*:}/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/rtl88x2cs/Kconfig"
 
-		# Adjust path
-		sed -i 's/include $(src)\/rtl8822c.mk/include $(TopDIR)\/drivers\/net\/wireless\/rtl88x2cs\/rtl8822c.mk/' \
-		"$kerneldir/drivers/net/wireless/rtl88x2cs/Makefile"
+	# 	# Adjust path
+	# 	sed -i 's/include $(src)\/rtl8822c.mk/include $(TopDIR)\/drivers\/net\/wireless\/rtl88x2cs\/rtl8822c.mk/' \
+	# 	"$kerneldir/drivers/net/wireless/rtl88x2cs/Makefile"
 
-		# Disable debug
-		sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
-		"$kerneldir/drivers/net/wireless/rtl88x2cs/Makefile"
+	# 	# Disable debug
+	# 	sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
+	# 	"$kerneldir/drivers/net/wireless/rtl88x2cs/Makefile"
 
-		# Add to section Makefile
-		 echo "obj-\$(CONFIG_RTL8822CS) += rtl88x2cs/" >> "$kerneldir/drivers/net/wireless/Makefile"
-		 sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl88x2cs\/Kconfig"' \
-		 "$kerneldir/drivers/net/wireless/Kconfig"
-	fi
+	# 	# Add to section Makefile
+	# 	 echo "obj-\$(CONFIG_RTL8822CS) += rtl88x2cs/" >> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	 sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl88x2cs\/Kconfig"' \
+	# 	 "$kerneldir/drivers/net/wireless/Kconfig"
+	# fi
 
 
-	# Bluetooth support for Realtek 8822CS (hci_ver 0x8) chipsets
-	# For sunxi, these two patches are applied in a series.
-	if linux-version compare "${version}" ge 5.11 && [[ "$LINUXFAMILY" != sunxi* ]] ; then
+	# # Bluetooth support for Realtek 8822CS (hci_ver 0x8) chipsets
+	# # For sunxi, these two patches are applied in a series.
+	# if linux-version compare "${version}" ge 5.11 && [[ "$LINUXFAMILY" != sunxi* ]] ; then
 
-		display_alert "Adding" "Bluetooth support for Realtek 8822CS (hci_ver 0x8) chipsets" "info"
+	# 	display_alert "Adding" "Bluetooth support for Realtek 8822CS (hci_ver 0x8) chipsets" "info"
 
-		process_patch_file "${SRC}/patch/misc/bluetooth-rtl8822cs-hci_ver-0x8.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/Bluetooth-hci_h5-Add-power-reset-via-gpio-in-h5_btrt.patch" "applying"
+	# 	process_patch_file "${SRC}/patch/misc/bluetooth-rtl8822cs-hci_ver-0x8.patch" "applying"
+	# 	process_patch_file "${SRC}/patch/misc/Bluetooth-hci_h5-Add-power-reset-via-gpio-in-h5_btrt.patch" "applying"
 
-	fi
+	# fi
 
 
 	# Wireless drivers for Realtek 8723DS chipsets
