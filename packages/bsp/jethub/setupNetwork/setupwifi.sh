@@ -22,7 +22,7 @@ hostapd_conf()
 	fi
 
 	ap_name=`cat /etc/ap_name`
-	ssid=3RE-SPK-$ap_name
+	ssid=3R-$ap_name
 	password=12345678
 
 	echo 0 > /etc/hostapd.conf

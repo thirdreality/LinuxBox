@@ -13,17 +13,18 @@ GPIOS=(
   "470 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_HIGH}"
   "469 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_HIGH}"
   # Relays: 1, 2, 3
-  "456 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  "455 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  "454 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
+  # "456 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
+  # "455 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
+  # "454 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
   # Zigbee module: RESET, BOOT
   "467 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
   "462 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  # LEDs: RED, GREEN
-  "452 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_LOW}"
-  "453 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_LOW}"
+  # LEDs: RED, GREEN, BLUE
+  "414 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
+  "430 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
+  "431 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
   # Button
-  "436 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_LOW}"
+  # "436 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_LOW}"
 )
 
 
@@ -57,14 +58,15 @@ do
 done
 
 echo "${0}: Turn off LEDs ..."
-echo 0 > /sys/class/gpio/gpio452/value
-echo 0 > /sys/class/gpio/gpio453/value
+echo 1 > /sys/class/gpio/gpio414/value
+echo 1 > /sys/class/gpio/gpio430/value
+echo 0 > /sys/class/gpio/gpio431/value
 
-echo "${0}: Reset Zigbee module ..."
-echo 1 > /sys/class/gpio/gpio462/value
-echo 1 > /sys/class/gpio/gpio467/value
-sleep 1
-echo 0 > /sys/class/gpio/gpio467/value
+# echo "${0}: Reset Zigbee module ..."
+# echo 1 > /sys/class/gpio/gpio462/value
+# echo 1 > /sys/class/gpio/gpio467/value
+# sleep 1
+# echo 0 > /sys/class/gpio/gpio467/value
 
 echo "${0}: Configure 1-Wire ..."
 modprobe ds2482

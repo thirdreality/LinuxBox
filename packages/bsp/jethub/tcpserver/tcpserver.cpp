@@ -25,8 +25,15 @@
 
 #include "crypto_helper.h"
 
+#define HUB_V3_SUPPORT
+
 char host_name[20];
+
+#ifdef HUB_V3_SUPPORT
+int port = 8080;
+#else
 int port = 8090;
+#endif
 
 int main()
 {
@@ -85,6 +92,7 @@ int main()
             buf = strtok(NULL,"\n");
             strcpy(pw, buf + strlen("pw:"));
             printf("pw = %s\n",pw);
+#ifndef HUB_V3_SUPPORT            
             if (strlen(pw) > 0) {
                 // decrypt the encrypted password
                 char b64_message[128];
@@ -93,7 +101,7 @@ int main()
                 strcpy(pw, plain_pw);
                 free(plain_pw);
             }
-
+#endif
             buf = strtok(NULL,"\n");
             strcpy(thingname, buf + strlen("thingname:"));
             printf("thingname = %s\n",thingname);
@@ -116,7 +124,7 @@ int main()
             }
             send(temp_sock_descriptor,send_buf,strlen(send_buf)+1,0);  //send \0 for Android APP
             printf("\n\n\nsend_buf=%s\n\n\n",send_buf);
-#if 0
+#ifdef HUB_V3_SUPPORT
             FILE *fp2 = fopen("/data/user_thingname","w");
             if(fp2 !=NULL){
                 fprintf(fp2,"%s\n",thingname);
