@@ -1,0 +1,15 @@
+[Unit]
+Description=HubV3 LED Control Service
+Before=basic.target
+DefaultDependencies=no
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/armbian/jethub-led-ctrl start
+ExecStop=/usr/lib/armbian/jethub-led-ctrl stop
+Restart=always
+PIDFile=/run/led_control.pid
+TimeoutStartSec=10
+
+[Install]
+WantedBy=basic.target

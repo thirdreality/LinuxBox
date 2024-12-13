@@ -64,7 +64,7 @@ compilation_prepare()
 		process_patch_file "${SRC}/patch/misc/general-packaging-4.19.y.patch" "applying"
 	fi
 
-        if [[ "${version}" == "4.19."* ]] && [[ "$LINUXFAMILY" == rk35xx ]]; then
+        if [[ "${version}" == "4.19."* ]] && [[ "$LINUXFAMILY" == rk35xx ]]; then 
                 display_alert "Adjusting" "packaging" "info"
                 cd "$kerneldir" || exit
                 process_patch_file "${SRC}/patch/misc/general-packaging-4.19.y-rk35xx.patch" "applying"
@@ -258,127 +258,127 @@ compilation_prepare()
 	fi
 
 
-	# Updated USB network drivers for RTL8152/RTL8153 based dongles that also support 2.5Gbs variants
+	# # Updated USB network drivers for RTL8152/RTL8153 based dongles that also support 2.5Gbs variants
 
-	if linux-version compare "${version}" ge 5.4 && linux-version compare "${version}" le 5.12 && [ $LINUXFAMILY != mvebu64 ] && [ $LINUXFAMILY != rk322x ] && [ $LINUXFAMILY != odroidxu4 ] && [ $EXTRAWIFI == yes ]; then
+	# if linux-version compare "${version}" ge 5.4 && linux-version compare "${version}" le 5.12 && [ $LINUXFAMILY != mvebu64 ] && [ $LINUXFAMILY != rk322x ] && [ $LINUXFAMILY != odroidxu4 ] && [ $EXTRAWIFI == yes ]; then
 
-		# attach to specifics tag or branch
-		local rtl8152ver="branch:master"
+	# 	# attach to specifics tag or branch
+	# 	local rtl8152ver="branch:master"
 
-		display_alert "Adding" "Drivers for 2.5Gb RTL8152/RTL8153 USB dongles ${rtl8152ver}" "info"
-		fetch_from_repo "$GITHUB_SOURCE/igorpecovnik/realtek-r8152-linux" "rtl8152" "${rtl8152ver}" "yes"
-		cp -R "${SRC}/cache/sources/rtl8152/${rtl8152ver#*:}"/{r8152.c,compatibility.h} \
-		"$kerneldir/drivers/net/usb/"
+	# 	display_alert "Adding" "Drivers for 2.5Gb RTL8152/RTL8153 USB dongles ${rtl8152ver}" "info"
+	# 	fetch_from_repo "$GITHUB_SOURCE/igorpecovnik/realtek-r8152-linux" "rtl8152" "${rtl8152ver}" "yes"
+	# 	cp -R "${SRC}/cache/sources/rtl8152/${rtl8152ver#*:}"/{r8152.c,compatibility.h} \
+	# 	"$kerneldir/drivers/net/usb/"
 
-	fi
+	# fi
 
-	# Wireless drivers for Realtek 8189ES chipsets
+	# # Wireless drivers for Realtek 8189ES chipsets
 
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
+	# if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
 
-		# attach to specifics tag or branch
-		local rtl8189esver="branch:master"
+	# 	# attach to specifics tag or branch
+	# 	local rtl8189esver="branch:master"
 
-		display_alert "Adding" "Wireless drivers for Realtek 8189ES chipsets ${rtl8189esver}" "info"
+	# 	display_alert "Adding" "Wireless drivers for Realtek 8189ES chipsets ${rtl8189esver}" "info"
 
-		fetch_from_repo "$GITHUB_SOURCE/jwrdegoede/rtl8189ES_linux" "rtl8189es" "${rtl8189esver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/rtl8189es"
-		mkdir -p "$kerneldir/drivers/net/wireless/rtl8189es/"
-		cp -R "${SRC}/cache/sources/rtl8189es/${rtl8189esver#*:}"/{core,hal,include,os_dep,platform} \
-		"$kerneldir/drivers/net/wireless/rtl8189es"
-		sed -i '223s/.*/#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))/g' \
-		"$kerneldir/drivers/net/wireless/rtl8189es/include/osdep_service_linux.h"
+	# 	fetch_from_repo "$GITHUB_SOURCE/jwrdegoede/rtl8189ES_linux" "rtl8189es" "${rtl8189esver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/rtl8189es"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/rtl8189es/"
+	# 	cp -R "${SRC}/cache/sources/rtl8189es/${rtl8189esver#*:}"/{core,hal,include,os_dep,platform} \
+	# 	"$kerneldir/drivers/net/wireless/rtl8189es"
+	# 	sed -i '223s/.*/#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))/g' \
+	# 	"$kerneldir/drivers/net/wireless/rtl8189es/include/osdep_service_linux.h"
 
-		# Makefile
-		cp "${SRC}/cache/sources/rtl8189es/${rtl8189esver#*:}/Makefile" \
-		"$kerneldir/drivers/net/wireless/rtl8189es/Makefile"
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/rtl8189es/${rtl8189esver#*:}/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8189es/Makefile"
 
-		# Kconfig
-		sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8189es/${rtl8189esver#*:}/Kconfig"
-		cp "${SRC}/cache/sources/rtl8189es/${rtl8189esver#*:}/Kconfig" \
-		"$kerneldir/drivers/net/wireless/rtl8189es/Kconfig"
+	# 	# Kconfig
+	# 	sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8189es/${rtl8189esver#*:}/Kconfig"
+	# 	cp "${SRC}/cache/sources/rtl8189es/${rtl8189esver#*:}/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8189es/Kconfig"
 
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_RTL8189ES) += rtl8189es/" >> "$kerneldir/drivers/net/wireless/Makefile"
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8189es\/Kconfig"' \
-		"$kerneldir/drivers/net/wireless/Kconfig"
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_RTL8189ES) += rtl8189es/" >> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8189es\/Kconfig"' \
+	# 	"$kerneldir/drivers/net/wireless/Kconfig"
 
-	fi
-
-
-
-
-	# Wireless drivers for Realtek 8189FS chipsets
-
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
-
-		# attach to specifics tag or branch
-		local rtl8189fsver="branch:rtl8189fs"
-
-		display_alert "Adding" "Wireless drivers for Realtek 8189FS chipsets ${rtl8189fsver}" "info"
-
-		fetch_from_repo "$GITHUB_SOURCE/jwrdegoede/rtl8189ES_linux" "rtl8189fs" "${rtl8189fsver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/rtl8189fs"
-		mkdir -p "$kerneldir/drivers/net/wireless/rtl8189fs/"
-		cp -R "${SRC}/cache/sources/rtl8189fs/${rtl8189fsver#*:}"/{core,hal,include,os_dep,platform} \
-		"$kerneldir/drivers/net/wireless/rtl8189fs"
-		sed -i '222s/.*/#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))/g' \
-		"$kerneldir/drivers/net/wireless/rtl8189fs/include/osdep_service_linux.h"
-
-		# Makefile
-		cp "${SRC}/cache/sources/rtl8189fs/${rtl8189fsver#*:}/Makefile" \
-		"$kerneldir/drivers/net/wireless/rtl8189fs/Makefile"
-
-		# Kconfig
-		sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8189fs/${rtl8189fsver#*:}/Kconfig"
-		cp "${SRC}/cache/sources/rtl8189fs/${rtl8189fsver#*:}/Kconfig" \
-		"$kerneldir/drivers/net/wireless/rtl8189fs/Kconfig"
-
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_RTL8189FS) += rtl8189fs/" >> "$kerneldir/drivers/net/wireless/Makefile"
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8189fs\/Kconfig"' \
-		"$kerneldir/drivers/net/wireless/Kconfig"
-
-	fi
+	# fi
 
 
 
 
-	# Wireless drivers for Realtek 8192EU chipsets
+	# # Wireless drivers for Realtek 8189FS chipsets
 
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
+	# if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
 
-		# attach to specifics tag or branch
-		local rtl8192euver="branch:realtek-4.4.x"
+	# 	# attach to specifics tag or branch
+	# 	local rtl8189fsver="branch:rtl8189fs"
 
-		display_alert "Adding" "Wireless drivers for Realtek 8192EU chipsets ${rtl8192euver}" "info"
+	# 	display_alert "Adding" "Wireless drivers for Realtek 8189FS chipsets ${rtl8189fsver}" "info"
 
-		fetch_from_repo "$GITHUB_SOURCE/Mange/rtl8192eu-linux-driver" "rtl8192eu" "${rtl8192euver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/rtl8192eu"
-		mkdir -p "$kerneldir/drivers/net/wireless/rtl8192eu/"
-		cp -R "${SRC}/cache/sources/rtl8192eu/${rtl8192euver#*:}"/{core,hal,include,os_dep,platform} \
-		"$kerneldir/drivers/net/wireless/rtl8192eu"
-		sed -i '220s/.*/#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))/g' \
-		"$kerneldir/drivers/net/wireless/rtl8192eu/include/osdep_service_linux.h"
+	# 	fetch_from_repo "$GITHUB_SOURCE/jwrdegoede/rtl8189ES_linux" "rtl8189fs" "${rtl8189fsver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/rtl8189fs"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/rtl8189fs/"
+	# 	cp -R "${SRC}/cache/sources/rtl8189fs/${rtl8189fsver#*:}"/{core,hal,include,os_dep,platform} \
+	# 	"$kerneldir/drivers/net/wireless/rtl8189fs"
+	# 	sed -i '222s/.*/#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))/g' \
+	# 	"$kerneldir/drivers/net/wireless/rtl8189fs/include/osdep_service_linux.h"
 
-		# Makefile
-		cp "${SRC}/cache/sources/rtl8192eu/${rtl8192euver#*:}/Makefile" \
-		"$kerneldir/drivers/net/wireless/rtl8192eu/Makefile"
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/rtl8189fs/${rtl8189fsver#*:}/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8189fs/Makefile"
 
-		# Kconfig
-		sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8192eu/${rtl8192euver#*:}/Kconfig"
-		cp "${SRC}/cache/sources/rtl8192eu/${rtl8192euver#*:}/Kconfig" \
-		"$kerneldir/drivers/net/wireless/rtl8192eu/Kconfig"
+	# 	# Kconfig
+	# 	sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8189fs/${rtl8189fsver#*:}/Kconfig"
+	# 	cp "${SRC}/cache/sources/rtl8189fs/${rtl8189fsver#*:}/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8189fs/Kconfig"
 
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_RTL8192EU) += rtl8192eu/" >> "$kerneldir/drivers/net/wireless/Makefile"
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8192eu\/Kconfig"' \
-		"$kerneldir/drivers/net/wireless/Kconfig"
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_RTL8189FS) += rtl8189fs/" >> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8189fs\/Kconfig"' \
+	# 	"$kerneldir/drivers/net/wireless/Kconfig"
 
-	fi
+	# fi
+
+
+
+
+	# # Wireless drivers for Realtek 8192EU chipsets
+
+	# if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
+
+	# 	# attach to specifics tag or branch
+	# 	local rtl8192euver="branch:realtek-4.4.x"
+
+	# 	display_alert "Adding" "Wireless drivers for Realtek 8192EU chipsets ${rtl8192euver}" "info"
+
+	# 	fetch_from_repo "$GITHUB_SOURCE/Mange/rtl8192eu-linux-driver" "rtl8192eu" "${rtl8192euver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/rtl8192eu"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/rtl8192eu/"
+	# 	cp -R "${SRC}/cache/sources/rtl8192eu/${rtl8192euver#*:}"/{core,hal,include,os_dep,platform} \
+	# 	"$kerneldir/drivers/net/wireless/rtl8192eu"
+	# 	sed -i '220s/.*/#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))/g' \
+	# 	"$kerneldir/drivers/net/wireless/rtl8192eu/include/osdep_service_linux.h"
+
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/rtl8192eu/${rtl8192euver#*:}/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8192eu/Makefile"
+
+	# 	# Kconfig
+	# 	sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8192eu/${rtl8192euver#*:}/Kconfig"
+	# 	cp "${SRC}/cache/sources/rtl8192eu/${rtl8192euver#*:}/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8192eu/Kconfig"
+
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_RTL8192EU) += rtl8192eu/" >> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8192eu\/Kconfig"' \
+	# 	"$kerneldir/drivers/net/wireless/Kconfig"
+
+	# fi
 
 
 
@@ -420,177 +420,177 @@ compilation_prepare()
 
 
 
-	# Wireless drivers for Xradio XR819 chipsets
-	if linux-version compare "${version}" ge 4.19 && linux-version compare "${version}" le 5.19 && \
-		[[ "$LINUXFAMILY" == sunxi* ]] && [[ "$EXTRAWIFI" == yes ]]; then
+	# # Wireless drivers for Xradio XR819 chipsets
+	# if linux-version compare "${version}" ge 4.19 && linux-version compare "${version}" le 5.19 && \
+	# 	[[ "$LINUXFAMILY" == sunxi* ]] && [[ "$EXTRAWIFI" == yes ]]; then
 
-		display_alert "Adding" "Wireless drivers for Xradio XR819 chipsets" "info"
+	# 	display_alert "Adding" "Wireless drivers for Xradio XR819 chipsets" "info"
 
-		fetch_from_repo "$GITHUB_SOURCE/dbeinder/xradio" "xradio" "branch:karabek_rebase" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/xradio"
-		mkdir -p "$kerneldir/drivers/net/wireless/xradio/"
-		cp "${SRC}"/cache/sources/xradio/karabek_rebase/*.{h,c} \
-		"$kerneldir/drivers/net/wireless/xradio/"
+	# 	fetch_from_repo "$GITHUB_SOURCE/dbeinder/xradio" "xradio" "branch:karabek_rebase" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/xradio"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/xradio/"
+	# 	cp "${SRC}"/cache/sources/xradio/karabek_rebase/*.{h,c} \
+	# 	"$kerneldir/drivers/net/wireless/xradio/"
 
-		# Makefile
-		cp "${SRC}/cache/sources/xradio/karabek_rebase/Makefile" \
-		"$kerneldir/drivers/net/wireless/xradio/Makefile"
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/xradio/karabek_rebase/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/xradio/Makefile"
 
-		# Kconfig
-		sed -i 's/---help---/help/g' "${SRC}/cache/sources/xradio/karabek_rebase/Kconfig"
-		cp "${SRC}/cache/sources/xradio/karabek_rebase/Kconfig" \
-		"$kerneldir/drivers/net/wireless/xradio/Kconfig"
+	# 	# Kconfig
+	# 	sed -i 's/---help---/help/g' "${SRC}/cache/sources/xradio/karabek_rebase/Kconfig"
+	# 	cp "${SRC}/cache/sources/xradio/karabek_rebase/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/xradio/Kconfig"
 
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_WLAN_VENDOR_XRADIO) += xradio/" \
-		>> "$kerneldir/drivers/net/wireless/Makefile"
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/xradio\/Kconfig"' \
-		"$kerneldir/drivers/net/wireless/Kconfig"
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_WLAN_VENDOR_XRADIO) += xradio/" \
+	# 	>> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/xradio\/Kconfig"' \
+	# 	"$kerneldir/drivers/net/wireless/Kconfig"
 
-		# add support for K5.13+
-                process_patch_file "${SRC}/patch/misc/wireless-xradio-5.13.patch" "applying"
+	# 	# add support for K5.13+
+    #             process_patch_file "${SRC}/patch/misc/wireless-xradio-5.13.patch" "applying"
 
-		# add support for aarch64
-		if [[ $ARCH == arm64 ]]; then
-		process_patch_file "${SRC}/patch/misc/wireless-xradio-aarch64.patch" "applying"
-		fi
+	# 	# add support for aarch64
+	# 	if [[ $ARCH == arm64 ]]; then
+	# 	process_patch_file "${SRC}/patch/misc/wireless-xradio-aarch64.patch" "applying"
+	# 	fi
 
-	fi
-
-
-
-
-	# Wireless drivers for Realtek RTL8811CU and RTL8821C chipsets
-
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
-
-		# attach to specifics tag or branch
-		local rtl8811cuver="commit:8c2226a74ae718439d56248bd2e44ccf717086d5"
-
-		display_alert "Adding" "Wireless drivers for Realtek RTL8811CU and RTL8821C chipsets ${rtl8811cuver}" "info"
-
-		fetch_from_repo "$GITHUB_SOURCE/brektrou/rtl8821CU" "rtl8811cu" "${rtl8811cuver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/rtl8811cu"
-		mkdir -p "$kerneldir/drivers/net/wireless/rtl8811cu/"
-		cp -R "${SRC}/cache/sources/rtl8811cu/${rtl8811cuver#*:}"/{core,hal,include,os_dep,platform,rtl8821c.mk} \
-		"$kerneldir/drivers/net/wireless/rtl8811cu"
-
-		# Makefile
-		cp "${SRC}/cache/sources/rtl8811cu/${rtl8811cuver#*:}/Makefile" \
-		"$kerneldir/drivers/net/wireless/rtl8811cu/Makefile"
-
-		# Kconfig
-		sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8811cu/${rtl8811cuver#*:}/Kconfig"
-		cp "${SRC}/cache/sources/rtl8811cu/${rtl8811cuver#*:}/Kconfig" \
-		"$kerneldir/drivers/net/wireless/rtl8811cu/Kconfig"
-
-		# Disable debug
-		sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
-		"$kerneldir/drivers/net/wireless/rtl8811cu/Makefile"
-
-		# Address ARM related bug $GITHUB_SOURCE/aircrack-ng/rtl8812au/issues/233
-		sed -i "s/^CONFIG_MP_VHT_HW_TX_MODE.*/CONFIG_MP_VHT_HW_TX_MODE = n/" \
-		"$kerneldir/drivers/net/wireless/rtl8811cu/Makefile"
-
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_RTL8821CU) += rtl8811cu/" >> "$kerneldir/drivers/net/wireless/Makefile"
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8811cu\/Kconfig"' \
-		"$kerneldir/drivers/net/wireless/Kconfig"
-
-		# add support for 5.18.y
-		process_patch_file "${SRC}/patch/misc/wireless-rtl8821cu.patch" "applying"
-
-		# add support for 5.19.2
-                process_patch_file "${SRC}/patch/misc/wireless-rtl8811cu-5.19.2.patch" "applying"
-
-	fi
+	# fi
 
 
 
 
-	# Wireless drivers for Realtek 8188EU 8188EUS and 8188ETV chipsets
+	# # Wireless drivers for Realtek RTL8811CU and RTL8821C chipsets
 
-	if linux-version compare "${version}" ge 3.14 \
-		&& linux-version compare "${version}" lt 5.15 \
-		&& [ "$EXTRAWIFI" == yes ]; then
+	# if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
 
-		# attach to specifics tag or branch
-		local rtl8188euver="branch:v5.7.6.1"
+	# 	# attach to specifics tag or branch
+	# 	local rtl8811cuver="commit:8c2226a74ae718439d56248bd2e44ccf717086d5"
 
-		display_alert "Adding" "Wireless drivers for Realtek 8188EU 8188EUS and 8188ETV chipsets ${rtl8188euver}" "info"
+	# 	display_alert "Adding" "Wireless drivers for Realtek RTL8811CU and RTL8821C chipsets ${rtl8811cuver}" "info"
 
-		fetch_from_repo "$GITHUB_SOURCE/aircrack-ng/rtl8188eus" "rtl8188eu" "${rtl8188euver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/rtl8188eu"
-		mkdir -p "$kerneldir/drivers/net/wireless/rtl8188eu/"
-		cp -R "${SRC}/cache/sources/rtl8188eu/${rtl8188euver#*:}"/{core,hal,include,os_dep,platform} \
-		"$kerneldir/drivers/net/wireless/rtl8188eu"
+	# 	fetch_from_repo "$GITHUB_SOURCE/brektrou/rtl8821CU" "rtl8811cu" "${rtl8811cuver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/rtl8811cu"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/rtl8811cu/"
+	# 	cp -R "${SRC}/cache/sources/rtl8811cu/${rtl8811cuver#*:}"/{core,hal,include,os_dep,platform,rtl8821c.mk} \
+	# 	"$kerneldir/drivers/net/wireless/rtl8811cu"
 
-		# Makefile
-		cp "${SRC}/cache/sources/rtl8188eu/${rtl8188euver#*:}/Makefile" \
-		"$kerneldir/drivers/net/wireless/rtl8188eu/Makefile"
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/rtl8811cu/${rtl8811cuver#*:}/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8811cu/Makefile"
 
-		# Kconfig
-		sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8188eu/${rtl8188euver#*:}/Kconfig"
-		cp "${SRC}/cache/sources/rtl8188eu/${rtl8188euver#*:}/Kconfig" \
-		"$kerneldir/drivers/net/wireless/rtl8188eu/Kconfig"
+	# 	# Kconfig
+	# 	sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8811cu/${rtl8811cuver#*:}/Kconfig"
+	# 	cp "${SRC}/cache/sources/rtl8811cu/${rtl8811cuver#*:}/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8811cu/Kconfig"
 
-		# Disable debug
-		sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
-		"$kerneldir/drivers/net/wireless/rtl8188eu/Makefile"
+	# 	# Disable debug
+	# 	sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8811cu/Makefile"
 
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_RTL8188EU) += rtl8188eu/" >> "$kerneldir/drivers/net/wireless/Makefile"
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8188eu\/Kconfig"' \
-		"$kerneldir/drivers/net/wireless/Kconfig"
+	# 	# Address ARM related bug $GITHUB_SOURCE/aircrack-ng/rtl8812au/issues/233
+	# 	sed -i "s/^CONFIG_MP_VHT_HW_TX_MODE.*/CONFIG_MP_VHT_HW_TX_MODE = n/" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8811cu/Makefile"
 
-		process_patch_file "${SRC}/patch/misc/wireless-rtl8188eu.patch" "applying"
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_RTL8821CU) += rtl8811cu/" >> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8811cu\/Kconfig"' \
+	# 	"$kerneldir/drivers/net/wireless/Kconfig"
 
-		# add support for K5.12+
-		process_patch_file "${SRC}/patch/misc/wireless-realtek-8188eu-5.12.patch" "applying"
+	# 	# add support for 5.18.y
+	# 	process_patch_file "${SRC}/patch/misc/wireless-rtl8821cu.patch" "applying"
 
-	fi
+	# 	# add support for 5.19.2
+    #             process_patch_file "${SRC}/patch/misc/wireless-rtl8811cu-5.19.2.patch" "applying"
+
+	# fi
 
 
 
 
-	# Wireless drivers for Realtek 88x2bu chipsets
+	# # Wireless drivers for Realtek 8188EU 8188EUS and 8188ETV chipsets
 
-	if linux-version compare "${version}" ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
+	# if linux-version compare "${version}" ge 3.14 \
+	# 	&& linux-version compare "${version}" lt 5.15 \
+	# 	&& [ "$EXTRAWIFI" == yes ]; then
 
-		# attach to specifics tag or branch
-		local rtl88x2buver="commit:00f51d93fe8309b0e23782ad621a038c98c7f031"
+	# 	# attach to specifics tag or branch
+	# 	local rtl8188euver="branch:v5.7.6.1"
 
-		display_alert "Adding" "Wireless drivers for Realtek 88x2bu chipsets ${rtl88x2buver}" "info"
+	# 	display_alert "Adding" "Wireless drivers for Realtek 8188EU 8188EUS and 8188ETV chipsets ${rtl8188euver}" "info"
 
-		fetch_from_repo "$GITHUB_SOURCE/cilynx/rtl88x2bu" "rtl88x2bu" "${rtl88x2buver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/rtl88x2bu"
-		mkdir -p "$kerneldir/drivers/net/wireless/rtl88x2bu/"
-		cp -R "${SRC}/cache/sources/rtl88x2bu/${rtl88x2buver#*:}"/{core,hal,include,os_dep,platform,halmac.mk,rtl8822b.mk} \
-		"$kerneldir/drivers/net/wireless/rtl88x2bu"
+	# 	fetch_from_repo "$GITHUB_SOURCE/aircrack-ng/rtl8188eus" "rtl8188eu" "${rtl8188euver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/rtl8188eu"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/rtl8188eu/"
+	# 	cp -R "${SRC}/cache/sources/rtl8188eu/${rtl8188euver#*:}"/{core,hal,include,os_dep,platform} \
+	# 	"$kerneldir/drivers/net/wireless/rtl8188eu"
 
-		# Makefile
-		cp "${SRC}/cache/sources/rtl88x2bu/${rtl88x2buver#*:}/Makefile" \
-		"$kerneldir/drivers/net/wireless/rtl88x2bu/Makefile"
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/rtl8188eu/${rtl8188euver#*:}/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8188eu/Makefile"
 
-		# Kconfig
-		sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl88x2bu/${rtl88x2buver#*:}/Kconfig"
-		cp "${SRC}/cache/sources/rtl88x2bu/${rtl88x2buver#*:}/Kconfig" \
-		"$kerneldir/drivers/net/wireless/rtl88x2bu/Kconfig"
+	# 	# Kconfig
+	# 	sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8188eu/${rtl8188euver#*:}/Kconfig"
+	# 	cp "${SRC}/cache/sources/rtl8188eu/${rtl8188euver#*:}/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8188eu/Kconfig"
 
-		# Adjust path
-		sed -i 's/include $(src)\/rtl8822b.mk /include $(TopDIR)\/drivers\/net\/wireless\/rtl88x2bu\/rtl8822b.mk/' \
-		"$kerneldir/drivers/net/wireless/rtl88x2bu/Makefile"
+	# 	# Disable debug
+	# 	sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8188eu/Makefile"
 
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_RTL8822BU) += rtl88x2bu/" >> "$kerneldir/drivers/net/wireless/Makefile"
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl88x2bu\/Kconfig"' \
-		"$kerneldir/drivers/net/wireless/Kconfig"
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_RTL8188EU) += rtl8188eu/" >> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8188eu\/Kconfig"' \
+	# 	"$kerneldir/drivers/net/wireless/Kconfig"
 
-	fi
+	# 	process_patch_file "${SRC}/patch/misc/wireless-rtl8188eu.patch" "applying"
+
+	# 	# add support for K5.12+
+	# 	process_patch_file "${SRC}/patch/misc/wireless-realtek-8188eu-5.12.patch" "applying"
+
+	# fi
+
+
+
+
+	# # Wireless drivers for Realtek 88x2bu chipsets
+
+	# if linux-version compare "${version}" ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
+
+	# 	# attach to specifics tag or branch
+	# 	local rtl88x2buver="commit:00f51d93fe8309b0e23782ad621a038c98c7f031"
+
+	# 	display_alert "Adding" "Wireless drivers for Realtek 88x2bu chipsets ${rtl88x2buver}" "info"
+
+	# 	fetch_from_repo "$GITHUB_SOURCE/cilynx/rtl88x2bu" "rtl88x2bu" "${rtl88x2buver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/rtl88x2bu"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/rtl88x2bu/"
+	# 	cp -R "${SRC}/cache/sources/rtl88x2bu/${rtl88x2buver#*:}"/{core,hal,include,os_dep,platform,halmac.mk,rtl8822b.mk} \
+	# 	"$kerneldir/drivers/net/wireless/rtl88x2bu"
+
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/rtl88x2bu/${rtl88x2buver#*:}/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/rtl88x2bu/Makefile"
+
+	# 	# Kconfig
+	# 	sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl88x2bu/${rtl88x2buver#*:}/Kconfig"
+	# 	cp "${SRC}/cache/sources/rtl88x2bu/${rtl88x2buver#*:}/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/rtl88x2bu/Kconfig"
+
+	# 	# Adjust path
+	# 	sed -i 's/include $(src)\/rtl8822b.mk /include $(TopDIR)\/drivers\/net\/wireless\/rtl88x2bu\/rtl8822b.mk/' \
+	# 	"$kerneldir/drivers/net/wireless/rtl88x2bu/Makefile"
+
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_RTL8822BU) += rtl88x2bu/" >> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl88x2bu\/Kconfig"' \
+	# 	"$kerneldir/drivers/net/wireless/Kconfig"
+
+	# fi
 
 
 	# Wireless drivers for Realtek 88x2cs chipsets
@@ -645,77 +645,77 @@ compilation_prepare()
 	# fi
 
 
-	# Wireless drivers for Realtek 8723DS chipsets
+	# # Wireless drivers for Realtek 8723DS chipsets
 
-	if linux-version compare "${version}" ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
+	# if linux-version compare "${version}" ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
 
-		# attach to specifics tag or branch
-		local rtl8723dsver="branch:master"
+	# 	# attach to specifics tag or branch
+	# 	local rtl8723dsver="branch:master"
 
-		display_alert "Adding" "Wireless drivers for Realtek 8723DS chipsets ${rtl8723dsver}" "info"
+	# 	display_alert "Adding" "Wireless drivers for Realtek 8723DS chipsets ${rtl8723dsver}" "info"
 
-		fetch_from_repo "$GITHUB_SOURCE/lwfinger/rtl8723ds" "rtl8723ds" "${rtl8723dsver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/drivers/net/wireless/rtl8723ds"
-		mkdir -p "$kerneldir/drivers/net/wireless/rtl8723ds/"
-		cp -R "${SRC}/cache/sources/rtl8723ds/${rtl8723dsver#*:}"/{core,hal,include,os_dep,platform} \
-		"$kerneldir/drivers/net/wireless/rtl8723ds"
+	# 	fetch_from_repo "$GITHUB_SOURCE/lwfinger/rtl8723ds" "rtl8723ds" "${rtl8723dsver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf "$kerneldir/drivers/net/wireless/rtl8723ds"
+	# 	mkdir -p "$kerneldir/drivers/net/wireless/rtl8723ds/"
+	# 	cp -R "${SRC}/cache/sources/rtl8723ds/${rtl8723dsver#*:}"/{core,hal,include,os_dep,platform} \
+	# 	"$kerneldir/drivers/net/wireless/rtl8723ds"
 
-		# Makefile
-		cp "${SRC}/cache/sources/rtl8723ds/${rtl8723dsver#*:}/Makefile" \
-		"$kerneldir/drivers/net/wireless/rtl8723ds/Makefile"
+	# 	# Makefile
+	# 	cp "${SRC}/cache/sources/rtl8723ds/${rtl8723dsver#*:}/Makefile" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8723ds/Makefile"
 
-		# Kconfig
-		sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8723ds/${rtl8723dsver#*:}/Kconfig"
-		cp "${SRC}/cache/sources/rtl8723ds/${rtl8723dsver#*:}/Kconfig" \
-		"$kerneldir/drivers/net/wireless/rtl8723ds/Kconfig"
+	# 	# Kconfig
+	# 	sed -i 's/---help---/help/g' "${SRC}/cache/sources/rtl8723ds/${rtl8723dsver#*:}/Kconfig"
+	# 	cp "${SRC}/cache/sources/rtl8723ds/${rtl8723dsver#*:}/Kconfig" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8723ds/Kconfig"
 
-		# Disable debug
-		sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
-		"$kerneldir/drivers/net/wireless/rtl8723ds/Makefile"
+	# 	# Disable debug
+	# 	sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
+	# 	"$kerneldir/drivers/net/wireless/rtl8723ds/Makefile"
 
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_RTL8723DS) += rtl8723ds/" >> "$kerneldir/drivers/net/wireless/Makefile"
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8723ds\/Kconfig"' \
-		"$kerneldir/drivers/net/wireless/Kconfig"
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_RTL8723DS) += rtl8723ds/" >> "$kerneldir/drivers/net/wireless/Makefile"
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8723ds\/Kconfig"' \
+	# 	"$kerneldir/drivers/net/wireless/Kconfig"
 
-		process_patch_file "${SRC}/patch/misc/wireless-rtl8723ds-5.19.2.patch" "applying"
+	# 	process_patch_file "${SRC}/patch/misc/wireless-rtl8723ds-5.19.2.patch" "applying"
 
-	fi
-
-
+	# fi
 
 
-	# Wireless drivers for Realtek 8723DU chipsets
 
-	if linux-version compare $version ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
 
-		local rtl8723duver="branch:master"
+	# # Wireless drivers for Realtek 8723DU chipsets
 
-		display_alert "Adding" "Wireless drivers for Realtek 8723DU chipsets ${rtl8723duver}" "info"
+	# if linux-version compare $version ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
 
-		fetch_from_repo "$GITHUB_SOURCE/lwfinger/rtl8723du" "rtl8723du" "${rtl8723duver}" "yes"
-		cd "$kerneldir" || exit
-		rm -rf $kerneldir/drivers/net/wireless/rtl8723du
-		mkdir -p $kerneldir/drivers/net/wireless/rtl8723du/
-		cp -R ${SRC}/cache/sources/rtl8723du/${rtl8723duver#*:}/{core,hal,include,os_dep,platform} \
-		$kerneldir/drivers/net/wireless/rtl8723du
+	# 	local rtl8723duver="branch:master"
 
-		# Makefile
-		cp ${SRC}/cache/sources/rtl8723du/${rtl8723duver#*:}/Makefile \
-		$kerneldir/drivers/net/wireless/rtl8723du/Makefile
+	# 	display_alert "Adding" "Wireless drivers for Realtek 8723DU chipsets ${rtl8723duver}" "info"
 
-		# Disable debug
-		sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
-		$kerneldir/drivers/net/wireless/rtl8723du/Makefile
+	# 	fetch_from_repo "$GITHUB_SOURCE/lwfinger/rtl8723du" "rtl8723du" "${rtl8723duver}" "yes"
+	# 	cd "$kerneldir" || exit
+	# 	rm -rf $kerneldir/drivers/net/wireless/rtl8723du
+	# 	mkdir -p $kerneldir/drivers/net/wireless/rtl8723du/
+	# 	cp -R ${SRC}/cache/sources/rtl8723du/${rtl8723duver#*:}/{core,hal,include,os_dep,platform} \
+	# 	$kerneldir/drivers/net/wireless/rtl8723du
 
-		# Add to section Makefile
-		echo "obj-\$(CONFIG_RTL8723DU) += rtl8723du/" >> $kerneldir/drivers/net/wireless/Makefile
-		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8723du\/Kconfig"' \
-		$kerneldir/drivers/net/wireless/Kconfig
+	# 	# Makefile
+	# 	cp ${SRC}/cache/sources/rtl8723du/${rtl8723duver#*:}/Makefile \
+	# 	$kerneldir/drivers/net/wireless/rtl8723du/Makefile
 
-		process_patch_file "${SRC}/patch/misc/wireless-rtl8723du-5.19.2.patch" "applying"
-	fi
+	# 	# Disable debug
+	# 	sed -i "s/^CONFIG_RTW_DEBUG.*/CONFIG_RTW_DEBUG = n/" \
+	# 	$kerneldir/drivers/net/wireless/rtl8723du/Makefile
+
+	# 	# Add to section Makefile
+	# 	echo "obj-\$(CONFIG_RTL8723DU) += rtl8723du/" >> $kerneldir/drivers/net/wireless/Makefile
+	# 	sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8723du\/Kconfig"' \
+	# 	$kerneldir/drivers/net/wireless/Kconfig
+
+	# 	process_patch_file "${SRC}/patch/misc/wireless-rtl8723du-5.19.2.patch" "applying"
+	# fi
 
 	if linux-version compare "${version}" ge 4.9 && linux-version compare "${version}" le 5.4; then
 

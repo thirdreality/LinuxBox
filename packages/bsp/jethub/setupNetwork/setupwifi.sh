@@ -42,6 +42,10 @@ hostapd_conf()
 
 start_service()
 {
+	if [ -e "/usr/lib/armbian/jethub-led-ctrl" ]; then
+  		/usr/lib/armbian/jethub-led-ctrl setstate Y
+	fi
+
 	hostapd_conf
 	hostapd /etc/hostapd.conf -e /etc/entropy.bin &
 	ifconfig wlan1 192.168.2.1

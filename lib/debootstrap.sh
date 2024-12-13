@@ -440,7 +440,7 @@ prepare_partitions()
 	# metadata_csum and 64bit may need to be disabled explicitly when migrating to newer supported host OS releases
 	# add -N number of inodes to keep mount from running out
 	# create bigger number for desktop builds
-	if [[ $BUILD_DESKTOP == yes ]]; then local node_number=4096; else local node_number=1024; fi
+	if [[ $BUILD_DESKTOP == yes ]]; then local node_number=4096; else local node_number=1280; fi
 	if [[ $HOSTRELEASE =~ buster|bullseye|focal|jammy|sid ]]; then
 		mkopts[ext4]="-q -m 2 -O ^64bit,^metadata_csum -N $((128*${node_number}))"
 	fi
@@ -515,7 +515,8 @@ PRE_PREPARE_PARTITIONS
 		&& local rootpart=$(( next++ ))
 
 	# stage: calculate rootfs size
-	export rootfs_size=$(du -sm $SDCARD/ | cut -f1) # MiB
+	#export rootfs_size=$(du -sm $SDCARD/ | cut -f1) # MiB
+	export rootfs_size=$(du --apparent-size -sm "${SDCARD}"/ | cut -f1) # MiB
 	display_alert "Current rootfs size" "$rootfs_size MiB" "info"
 
 	call_extension_method "prepare_image_size" "config_prepare_image_size" << 'PREPARE_IMAGE_SIZE'
