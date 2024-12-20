@@ -5,8 +5,9 @@ current_dir=$(pwd)
 if [ ! -d "$current_dir/userpatches" ]; then
     mkdir -p $current_dir/userpatches/overlay/
 
-    if [ -d "$current_dir/userpatch.hubv3/" ]; then
+    if [ -d "$current_dir/custom/" ]; then
         cp $current_dir/custom/config-hubv3-images.conf $current_dir/userpatches
+		cp $current_dir/custom/customize-image.sh $current_dir/userpatches
         cp $current_dir/custom/*.deb $current_dir/userpatches/overlay/
     fi
 fi
