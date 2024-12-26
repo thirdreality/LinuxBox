@@ -1,0 +1,12 @@
+diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
+--- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts	2024-12-26 11:20:35.384539551 +0800
++++ linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts	2024-12-26 11:02:50.009747952 +0800
+@@ -16,7 +16,7 @@
+ 	/* 1024MB RAM */
+ 	memory@0 {
+ 		device_type = "memory";
+-		reg = <0x0 0x0 0x0 0x40000000>;
++		reg = <0x0 0x0 0x0 0x80000000>;
+ 	};
+ 
+ 	aml_bt: aml_bt {
