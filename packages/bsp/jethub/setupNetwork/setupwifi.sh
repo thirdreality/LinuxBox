@@ -17,11 +17,31 @@ check_network()
 
 hostapd_conf()
 {
-	if [ ! -f /etc/ap_name ]; then
-		cat /sys/class/net/wlan0/address |sed 's/\://g' |tr 'a-z' 'A-Z' > /etc/ap_name
+	ap_name_file="/etc/ap_name"
+
+	# Ensure /etc/ap_name exists and is not empty
+	if [ ! -e "$ap_name_file" ] || [ ! -s "$ap_name_file" ]; then
+		cat /sys/class/net/wlan0/address | sed 's/://g' | tr 'a-z' 'A-Z' > "$ap_name_file"
 	fi
 
-	ap_name=`cat /etc/ap_name`
+	# Retry if ap_name is empty
+	max_retries=5
+	retry_count=0
+
+	while [ $retry_count -lt $max_retries ]; do
+		ap_name=$(cat "$ap_name_file")
+		
+		if [ -n "$ap_name" ]; then
+			echo "AP name successfully retrieved: $ap_name"
+			break
+		fi
+
+		sleep 1
+		echo "Warning: Empty /etc/ap_name, retrying... ($((retry_count + 1))/$max_retries)"
+		cat /sys/class/net/wlan0/address | sed 's/://g' | tr 'a-z' 'A-Z' > "$ap_name_file"
+		retry_count=$((retry_count + 1))
+	done
+
 	ssid=3R-$ap_name
 	password=12345678
 
