@@ -234,7 +234,8 @@ install_common()
 	# initial date for fake-hwclock
 	date -u '+%Y-%m-%d %H:%M:%S' > "${SDCARD}"/etc/fake-hwclock.data
 
-	echo "${HOST}" > "${SDCARD}"/etc/hostname
+	#echo "${HOST}" > "${SDCARD}"/etc/hostname
+	echo "localhost" > "${SDCARD}"/etc/hostname
 
 	# set hostname in hosts file
 	cat <<-EOF > "${SDCARD}"/etc/hosts

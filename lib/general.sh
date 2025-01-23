@@ -152,6 +152,10 @@ get_package_list_hash()
 {
 	local package_arr exclude_arr
 	local list_content
+
+	display_alert "get_package_list_hash" "${DEBOOTSTRAP_LIST} ${PACKAGE_LIST}"
+	display_alert "get_package_list_hash" "${PACKAGE_LIST_EXCLUDE}"
+
 	read -ra package_arr <<< "${DEBOOTSTRAP_LIST} ${PACKAGE_LIST}"
 	read -ra exclude_arr <<< "${PACKAGE_LIST_EXCLUDE}"
 	(
@@ -188,7 +192,7 @@ create_sources_list()
 	EOF
 	;;
 
-	bullseye|bookworm|trixie)
+	bullseye|trixie)
 	cat <<-EOF > "${basedir}"/etc/apt/sources.list
 	deb http://${DEBIAN_MIRROR} $release main contrib non-free
 	#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free
@@ -201,6 +205,19 @@ create_sources_list()
 
 	deb http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
 	#deb-src http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
+	EOF
+	;;
+
+	bookworm)
+	cat <<-EOF > "${basedir}"/etc/apt/sources.list
+	deb http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
+	#deb-src http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
+
+	deb http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
+	#deb-src http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
+
+	deb http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
+	#deb-src http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
 	EOF
 	;;
 
@@ -1429,7 +1446,7 @@ prepare_host()
   fi
 
 	# Add support for Ubuntu 20.04, 21.04 and Mint 20.x
-	if [[ $HOSTRELEASE =~ ^(focal|impish|hirsute|jammy|ulyana|ulyssa|bullseye|uma|una)$ ]]; then
+	if [[ $HOSTRELEASE =~ ^(focal|impish|hirsute|jammy|ulyana|ulyssa|bookworm|bullseye|uma|una)$ ]]; then
 		hostdeps+=" python2 python3"
 		ln -fs /usr/bin/python2.7 /usr/bin/python2
 		ln -fs /usr/bin/python2.7 /usr/bin/python
@@ -1444,7 +1461,7 @@ prepare_host()
 	#
 	# NO_HOST_RELEASE_CHECK overrides the check for a supported host system
 	# Disable host OS check at your own risk. Any issues reported with unsupported releases will be closed without discussion
-	if [[ -z $HOSTRELEASE || "buster bullseye focal impish hirsute jammy debbie tricia ulyana ulyssa uma una" != *"$HOSTRELEASE"* ]]; then
+	if [[ -z $HOSTRELEASE || "buster bookworm bullseye focal impish hirsute jammy debbie tricia ulyana ulyssa uma una" != *"$HOSTRELEASE"* ]]; then
 		if [[ $NO_HOST_RELEASE_CHECK == yes ]]; then
 			display_alert "You are running on an unsupported system" "${HOSTRELEASE:-(unknown)}" "wrn"
 			display_alert "Do not report any errors, warnings or other issues encountered beyond this point" "" "wrn"
@@ -1720,7 +1737,7 @@ download_and_verify()
 		--timeout=10
 		--allow-piece-length-change=true
 		--max-connection-per-server=2
-		--lowest-speed-limit=500K
+		--lowest-speed-limit=50K
 
 		# BT
 		--seed-time=0

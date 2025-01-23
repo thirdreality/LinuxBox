@@ -151,9 +151,22 @@ create_rootfs_cache()
 	[[ ${BUILD_MINIMAL} == yes ]] && local cache_type="minimal"
 
 	# seek last cache, proceed to previous otherwise build it
+	
+	# arm64-bookworm-cli-82dbab57-0122.tar.zst
+	# arm64-jammy-cli-0f824db8-0122.tar.zst
+	if [ ${RELEASE} == "bookworm" ]; then
+		packages_hash="82dbab57"
+	elif [ ${RELEASE} == "jammy" ]; then
+		packages_hash="0f824db8"
+	fi
+
+	display_alert "packages_hash" "$packages_hash" "info"
+
 	local cache_list
 	readarray -t cache_list <<<"$(get_rootfs_cache_list "$cache_type" "$packages_hash" | sort -r)"
 	for ROOTFSCACHE_VERSION in "${cache_list[@]}"; do
+		
+		ROOTFSCACHE_VERSION="0122"
 
 		local cache_name=${ARCH}-${RELEASE}-${cache_type}-${packages_hash}-${ROOTFSCACHE_VERSION}.tar.zst
 		local cache_fname=${SRC}/cache/rootfs/${cache_name}
