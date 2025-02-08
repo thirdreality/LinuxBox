@@ -63,8 +63,6 @@ InstallForHubV3() {
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/system.conf
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/user.conf
 	
-	#apt remove python3-distutils python3-lib2to3
-
 	if [ -f "/tmp/overlay/python3.deb" ]; then
 		dpkg -i "/tmp/overlay/python3.deb" || sudo apt-get install -f
 	fi
@@ -76,12 +74,6 @@ InstallForHubV3() {
 	if [ -f "/tmp/overlay/hub_service.deb" ]; then
 		dpkg -i "/tmp/overlay/hub_service.deb" || sudo apt-get install -f
 	fi
-
-	#apt remove cmake gcc-11-arm-linux-gnueabi gcc-12 gcc-11 build-essential cmake gdb g++ gcc cpp -y
-
-	#apt remove cmake gcc-11-arm-linux-gnueabi gcc-12 gcc-11 -y
-	
-	# apt remove emacs git gitweb perl perl5 libperl5 -y
 
 	apt autoremove -y 
 

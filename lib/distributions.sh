@@ -151,6 +151,10 @@ install_common()
 	echo "${VENDOR} ${REVISION} ${RELEASE^}" > "${SDCARD}"/etc/issue.net
 	sed -i "s/^PRETTY_NAME=.*/PRETTY_NAME=\"${VENDOR} $REVISION "${RELEASE^}"\"/" "${SDCARD}"/etc/os-release
 
+	if [ ${RELEASE} == "bookworm" ]; then
+		sed -i "2a \\VERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"" "${SDCARD}"/etc/os-release
+	fi
+
 	# enable few bash aliases enabled in Ubuntu by default to make it even
 	sed "s/#alias ll='ls -l'/alias ll='ls -l'/" -i "${SDCARD}"/etc/skel/.bashrc
 	sed "s/#alias la='ls -A'/alias la='ls -A'/" -i "${SDCARD}"/etc/skel/.bashrc

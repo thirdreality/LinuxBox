@@ -1,0 +1,12 @@
+[Unit]
+Description=Hubv3 Boot wifi Monitor
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/lib/armbian/check-wifi-and-start-service.sh wlan0
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+

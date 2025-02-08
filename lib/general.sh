@@ -164,9 +164,18 @@ get_package_list_hash()
 	) | sort -u | md5sum | cut -d' ' -f 1
 }
 
+	# deb http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
+	# #deb-src http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
+
+	# deb http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
+	# #deb-src http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
+
+	# deb http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
+	# #deb-src http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
+
 # create_sources_list <release> <basedir>
 #
-# <release>: bullseye|focal|jammy|sid
+# <release>: bullseye|focal|jammy|sid|bookworm
 # <basedir>: path to root directory
 #
 create_sources_list()
@@ -210,14 +219,17 @@ create_sources_list()
 
 	bookworm)
 	cat <<-EOF > "${basedir}"/etc/apt/sources.list
-	deb http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
-	#deb-src http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
+	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
+	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
 
-	deb http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
-	#deb-src http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
+	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
+	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
 
-	deb http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
-	#deb-src http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
+	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
+	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
+
+	deb https://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+	# deb-src https://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
 	EOF
 	;;
 
@@ -916,7 +928,7 @@ addtorepo()
 # parameter "delete" remove incoming directory if publishing is succesful
 # function: cycle trough distributions
 
-	local distributions=("stretch" "bionic" "buster" "bullseye" "focal" "hirsute" "impish" "jammy" "sid")
+	local distributions=("stretch" "bionic" "buster" "bullseye" "bookworm" "focal" "hirsute" "impish" "jammy" "sid")
 	#local distributions=($(grep -rw config/distributions/*/ -e 'supported' | cut -d"/" -f3))
 	local errors=0
 
@@ -1054,7 +1066,7 @@ repo-manipulate()
 # "update" search for new files in output/debs* to add them to repository
 # "purge" leave only last 5 versions
 
-	local DISTROS=("stretch" "bionic" "buster" "bullseye" "focal" "hirsute" "impish" "jammy" "sid")
+	local DISTROS=("stretch" "bionic" "buster" "bullseye" "bookworm" "focal" "hirsute" "impish" "jammy" "sid")
 	#local DISTROS=($(grep -rw config/distributions/*/ -e 'supported' | cut -d"/" -f3))
 
 	case $@ in

@@ -1,0 +1,16 @@
+[Unit]
+Description=Hubv3 Factory-reset
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/lib/armbian/factory_reset.sh
+RemainAfterExit=true
+TimeoutStartSec=60
+StandardOutput=console
+StandardError=console
+
+
+[Install]
+WantedBy=multi-user.target
+

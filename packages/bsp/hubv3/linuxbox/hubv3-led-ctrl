@@ -51,20 +51,33 @@ start() {
         # 动态读取 LED 状态
         LED_STATE=$(cat "$STATE_FILE")
 
+        if [ "$LED_STATE" = "B-" ]; then
+            echo 1 > "/sys/class/gpio/gpio$GPIO_BLUE/value"
+            sleep 1
+            continue  # 继续下一次循环，不执行熄灭逻辑
+        fi
+
         case "$LED_STATE" in
             R)
                 echo 1 > "/sys/class/gpio/gpio$GPIO_RED/value"
+                echo 0 > "/sys/class/gpio/gpio$GPIO_GREEN/value"
+                echo 0 > "/sys/class/gpio/gpio$GPIO_BLUE/value"
                 ;;
             G)
+                echo 0 > "/sys/class/gpio/gpio$GPIO_RED/value"
                 echo 1 > "/sys/class/gpio/gpio$GPIO_GREEN/value"
+                echo 0 > "/sys/class/gpio/gpio$GPIO_BLUE/value"
                 ;;
             B)
+                echo 0 > "/sys/class/gpio/gpio$GPIO_RED/value"
+                echo 0 > "/sys/class/gpio/gpio$GPIO_GREEN/value"
                 echo 1 > "/sys/class/gpio/gpio$GPIO_BLUE/value"
                 ;;
             Y)
                 echo 1 > "/sys/class/gpio/gpio$GPIO_RED/value"
                 echo 1 > "/sys/class/gpio/gpio$GPIO_GREEN/value"
-                ;;                
+                echo 0 > "/sys/class/gpio/gpio$GPIO_BLUE/value"
+                ;;
             W)
                 echo 1 > "/sys/class/gpio/gpio$GPIO_RED/value"
                 echo 1 > "/sys/class/gpio/gpio$GPIO_GREEN/value"
@@ -101,12 +114,12 @@ stop() {
 # 修改 LED 状态
 setstate() {
     case $1 in
-        R|G|B|W|Y)
+        R|G|B|W|Y|B-)
             echo "$1" > "$STATE_FILE"
             echo "LED颜色已设置为 $1"
             ;;
         *)
-            echo "无效的颜色设置。请使用 'R', 'G', 'B', 'Y' 或 'W'."
+            echo "无效的颜色设置。请使用 'R', 'G', 'B', 'Y', 'W' 或 'B-'."
             ;;
     esac
 }
@@ -124,7 +137,8 @@ case $1 in
         setstate "$2"
         ;;
     *)
-        echo "用法: $0 {start|stop|setstate [R|G|B|Y|W]}"
+        echo "用法: $0 {start|stop|setstate [R|G|B|Y|W|B-]}"
         exit 1
         ;;
 esac
+

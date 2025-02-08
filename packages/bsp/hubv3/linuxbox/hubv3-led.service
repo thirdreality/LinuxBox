@@ -5,8 +5,8 @@ DefaultDependencies=no
 
 [Service]
 Type=simple
-ExecStart=/usr/lib/armbian/jethub-led-ctrl start
-ExecStop=/usr/lib/armbian/jethub-led-ctrl stop
+ExecStart=/usr/lib/armbian/hubv3-led-ctrl start
+ExecStop=/usr/lib/armbian/hubv3-led-ctrl stop
 Restart=always
 PIDFile=/run/led_control.pid
 TimeoutStartSec=10

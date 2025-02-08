@@ -1,0 +1,78 @@
+#!/bin/bash
+
+GPIO_PIN=422
+GPIO_PATH="/sys/class/gpio/gpio$GPIO_PIN"
+LED_STATE_FILE="/run/led_state"
+RESET_SCRIPT="/lib/armbian/factory_reset.sh"
+
+PID_FILE="/run/button_check.pid"
+
+
+# 启动 LED 定时开关
+start() {
+    if [ -f "$PID_FILE" ]; then
+        echo "脚本已在运行中!"
+        exit 1
+    fi
+
+    if [ ! -d /sys/class/gpio/gpio422 ]; then
+        echo 422 > /sys/class/gpio/export
+    fi
+    echo in > /sys/class/gpio/gpio422/direction
+
+    echo $$ > "$PID_FILE"
+
+    trap "echo cleanup_gpio; exit 1" INT TERM
+
+    counter=0
+    while true; do
+        value=$(cat "/sys/class/gpio/gpio422/value")
+
+        if [ "$value" -eq 1 ]; then
+            counter=$((counter + 1))
+            echo "GPIO $GPIO_PIN value: $value, Counter: $counter"
+        else
+            counter=0
+        fi
+
+        #echo "GPIO $GPIO_PIN value: $value, Counter: $counter"
+
+        if [ "$counter" -ge 15 ]; then
+            echo "R" > "$LED_STATE_FILE"
+            echo "Executing factory reset script..."
+            bash "$RESET_SCRIPT"
+            exit 0
+        fi
+
+        sleep 1
+    done
+}
+
+# 停止 LED 控制
+stop() {
+    if [ ! -f "$PID_FILE" ]; then
+        echo "脚本未运行"
+        exit 1
+    fi
+
+    PID=$(cat "$PID_FILE")
+    kill "$PID" 2>/dev/null
+    rm -f "$PID_FILE"
+    exit 0
+}
+
+# 主入口
+case $1 in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    *)
+        echo "用法: $0 {start|stop|setstate [R|G|B|Y|W|B-]}"
+        exit 1
+        ;;
+esac
+
+

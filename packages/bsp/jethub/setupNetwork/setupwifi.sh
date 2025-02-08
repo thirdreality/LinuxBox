@@ -62,8 +62,8 @@ hostapd_conf()
 
 start_service()
 {
-	if [ -e "/usr/lib/armbian/jethub-led-ctrl" ]; then
-  		/usr/lib/armbian/jethub-led-ctrl setstate Y
+	if [ -e "/usr/lib/armbian/hubv3-led-ctrl" ]; then
+  		/usr/lib/armbian/hubv3-led-ctrl setstate Y
 	fi
 
 	hostapd_conf

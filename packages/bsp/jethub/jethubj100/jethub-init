@@ -52,10 +52,10 @@ configure_gpio() {
 
 echo "${0}: Configure GPIOs ..."
 
-for gpio_parameters in "${GPIOS[@]}"
-do
-  configure_gpio ${gpio_parameters}
-done
+#for gpio_parameters in "${GPIOS[@]}"
+#do
+#  configure_gpio ${gpio_parameters}
+#done
 
 # echo "${0}: Turn off LEDs ..."
 # echo 1 > /sys/class/gpio/gpio414/value
@@ -68,13 +68,13 @@ done
 # sleep 1
 # echo 0 > /sys/class/gpio/gpio467/value
 
-echo "${0}: Configure 1-Wire ..."
-modprobe ds2482
-if [ ${?} != 0 ]; then
-  echo "${0}: *** Error: Failed to load DS2482 kernel module"
-  exit 1
-fi
+#echo "${0}: Configure 1-Wire ..."
+#modprobe ds2482
+#if [ ${?} != 0 ]; then
+#  echo "${0}: *** Error: Failed to load DS2482 kernel module"
+#  exit 1
+#fi
 
-sh -c "echo ds2482 0x18 > /sys/bus/i2c/devices/i2c-0/new_device"
+#sh -c "echo ds2482 0x18 > /sys/bus/i2c/devices/i2c-0/new_device"
 
 exit 0
