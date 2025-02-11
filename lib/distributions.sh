@@ -149,10 +149,20 @@ install_common()
 	# change console welcome text
 	echo -e "${VENDOR} ${REVISION} ${RELEASE^} \\l \n" > "${SDCARD}"/etc/issue
 	echo "${VENDOR} ${REVISION} ${RELEASE^}" > "${SDCARD}"/etc/issue.net
-	sed -i "s/^PRETTY_NAME=.*/PRETTY_NAME=\"${VENDOR} $REVISION "${RELEASE^}"\"/" "${SDCARD}"/etc/os-release
+	#sed -i "s/^PRETTY_NAME=.*/PRETTY_NAME=\"${VENDOR} $REVISION "${RELEASE^}"\"/" "${SDCARD}"/etc/os-release
 
-	if [ ${RELEASE} == "bookworm" ]; then
-		sed -i "2a \\VERSION_ID=\"12\"\nVERSION=\"12 (bookworm)\"" "${SDCARD}"/etc/os-release
+	if [ "${RELEASE}" == "bookworm" ]; then
+		cat <<-EOF > "${SDCARD}/etc/os-release"
+		PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"
+		NAME="Debian GNU/Linux"
+		VERSION_ID="12"
+		VERSION="12 (bookworm)"
+		VERSION_CODENAME=bookworm
+		ID=debian
+		HOME_URL="https://www.debian.org/"
+		SUPPORT_URL="https://www.debian.org/support"
+		BUG_REPORT_URL="https://bugs.debian.org/"
+		EOF
 	fi
 
 	# enable few bash aliases enabled in Ubuntu by default to make it even
