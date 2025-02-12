@@ -1,6 +1,397 @@
-diff -urN linux-5.10.y-a/drivers/amlogic/bluetooth/bt_device.c linux-5.10.y-b/drivers/amlogic/bluetooth/bt_device.c
---- linux-5.10.y-a/drivers/amlogic/bluetooth/bt_device.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/bluetooth/bt_device.c	2022-11-27 09:30:02.000000000 +0800
+From 0125caef260d99a565b7a12a8da7a19b7bc64e28 Mon Sep 17 00:00:00 2001
+From: liuguoping1024 <liuguoping@gmail.com>
+Date: Wed, 12 Feb 2025 03:37:19 -0500
+Subject: [PATCH 30000/30003] Add Amlogic minimal drivers
+
+---
+ drivers/Kconfig                               |    2 +
+ drivers/Makefile                              |    2 +
+ drivers/amlogic/Kconfig                       |  171 +++
+ drivers/amlogic/Makefile                      |   80 ++
+ drivers/amlogic/bluetooth/Kconfig             |    8 +
+ drivers/amlogic/bluetooth/Makefile            |    1 +
+ drivers/amlogic/bluetooth/bt_device.c         |  749 ++++++++++++
+ drivers/amlogic/pwm/Makefile                  |    1 +
+ drivers/amlogic/pwm/pwm-meson-sysfs.c         |  392 +++++++
+ drivers/amlogic/wifi/Kconfig                  |   23 +
+ drivers/amlogic/wifi/Makefile                 |    5 +
+ drivers/amlogic/wifi/dhd_static_buf.c         |  610 ++++++++++
+ drivers/amlogic/wifi/wifi_dt.c                | 1041 +++++++++++++++++
+ drivers/base/dd.c                             |   41 +-
+ drivers/mmc/core/block.c                      |   71 +-
+ drivers/mmc/core/core.c                       |   61 +-
+ drivers/mmc/core/host.c                       |    4 +-
+ drivers/mmc/core/mmc.c                        |    2 -
+ drivers/mmc/core/mmc_ops.c                    |    8 +-
+ drivers/mmc/core/mmc_ops.h                    |    3 +-
+ drivers/mmc/core/quirks.h                     |   14 -
+ drivers/mmc/core/sdio.c                       |   55 +-
+ drivers/mmc/core/sdio_bus.c                   |   17 +-
+ drivers/mmc/core/sdio_cis.c                   |   12 +
+ drivers/mmc/core/sdio_ops.c                   |   16 +-
+ drivers/mmc/core/slot-gpio.c                  |   26 +-
+ drivers/mmc/host/meson-gx-mmc.c               |  115 +-
+ drivers/mmc/host/renesas_sdhi_core.c          |   42 +-
+ drivers/mmc/host/sdhci.c                      |   29 +-
+ drivers/pwm/core.c                            |   19 +
+ drivers/pwm/pwm-meson.c                       |  435 +++++--
+ fs/read_write.c                               |    2 +
+ fs/stat.c                                     |    1 +
+ include/dt-bindings/pwm/meson.h               |   30 +
+ include/linux/amlogic/aml_gpio_consumer.h     |   43 +
+ include/linux/amlogic/aml_sd.h                |  439 +++++++
+ include/linux/amlogic/bt_device.h             |   26 +
+ include/linux/amlogic/cpu_version.h           |    5 +
+ include/linux/amlogic/dhd_buf.h               |    9 +
+ include/linux/amlogic/iomap.h                 |   78 ++
+ include/linux/amlogic/key_manage.h            |   28 +
+ .../amlogic/media/registers/cpu_version.h     |  293 +++++
+ .../amlogic/media/registers/register_map.h    |  105 ++
+ include/linux/amlogic/pm.h                    |   79 ++
+ include/linux/amlogic/pwm-meson.h             |  153 +++
+ include/linux/amlogic/wifi_dt.h               |   27 +
+ include/linux/dma-contiguous.h                |  176 +++
+ include/linux/mmc/core.h                      |    3 +
+ include/linux/mmc/sdio.h                      |    3 +
+ include/linux/pwm.h                           |    5 +-
+ 50 files changed, 5258 insertions(+), 302 deletions(-)
+ create mode 100644 drivers/amlogic/Kconfig
+ create mode 100644 drivers/amlogic/Makefile
+ create mode 100644 drivers/amlogic/bluetooth/Kconfig
+ create mode 100644 drivers/amlogic/bluetooth/Makefile
+ create mode 100644 drivers/amlogic/bluetooth/bt_device.c
+ create mode 100644 drivers/amlogic/pwm/Makefile
+ create mode 100644 drivers/amlogic/pwm/pwm-meson-sysfs.c
+ create mode 100644 drivers/amlogic/wifi/Kconfig
+ create mode 100644 drivers/amlogic/wifi/Makefile
+ create mode 100644 drivers/amlogic/wifi/dhd_static_buf.c
+ create mode 100644 drivers/amlogic/wifi/wifi_dt.c
+ create mode 100644 include/dt-bindings/pwm/meson.h
+ create mode 100644 include/linux/amlogic/aml_gpio_consumer.h
+ create mode 100644 include/linux/amlogic/aml_sd.h
+ create mode 100644 include/linux/amlogic/bt_device.h
+ create mode 100644 include/linux/amlogic/cpu_version.h
+ create mode 100644 include/linux/amlogic/dhd_buf.h
+ create mode 100644 include/linux/amlogic/iomap.h
+ create mode 100644 include/linux/amlogic/key_manage.h
+ create mode 100644 include/linux/amlogic/media/registers/cpu_version.h
+ create mode 100644 include/linux/amlogic/media/registers/register_map.h
+ create mode 100644 include/linux/amlogic/pm.h
+ create mode 100644 include/linux/amlogic/pwm-meson.h
+ create mode 100644 include/linux/amlogic/wifi_dt.h
+ create mode 100644 include/linux/dma-contiguous.h
+
+diff --git a/drivers/Kconfig b/drivers/Kconfig
+index dcecc9f6e33f..f5ca552c059a 100644
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@ -235,4 +235,6 @@ source "drivers/interconnect/Kconfig"
+ source "drivers/counter/Kconfig"
+ 
+ source "drivers/most/Kconfig"
++
++source "drivers/amlogic/Kconfig"
+ endmenu
+diff --git a/drivers/Makefile b/drivers/Makefile
+index 576228037718..939191cda9ba 100644
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@ -189,3 +189,5 @@ obj-$(CONFIG_GNSS)		+= gnss/
+ obj-$(CONFIG_INTERCONNECT)	+= interconnect/
+ obj-$(CONFIG_COUNTER)		+= counter/
+ obj-$(CONFIG_MOST)		+= most/
++
++obj-$(CONFIG_AMLOGIC_MODIFY)	+= amlogic/
+\ No newline at end of file
+diff --git a/drivers/amlogic/Kconfig b/drivers/amlogic/Kconfig
+new file mode 100644
+index 000000000000..0e19965265ef
+--- /dev/null
++++ b/drivers/amlogic/Kconfig
+@@ -0,0 +1,171 @@
++config AMLOGIC_GKI
++	bool "Amlogic GKI macro"
++	default n
++	help
++		This macro controls GKI module build behavior, if enabled
++		some internal code will be build as external module
++
++config AMLOGIC_MODIFY
++	bool "Amlogic modify for kernel code"
++	default y
++	help
++		This option is set up for AMLOGIC modify of standard
++		kernel source code. All modify of kernel standard code
++		should be wrapped by this config
++
++config AMLOGIC_ANDROIDP
++	bool "Amlogic modify kernel in project androidp"
++	default n
++	help
++		This option is set up for AMLOGIC modify of standard
++		kernel source code in project androidp.
++
++config AMLOGIC_REMOVE_OLD
++	bool "Amlogic remove old soc code for g12a previous"
++	default n
++	help
++		This option is set up for removing code for G12A
++		previous.All modify of not used code should be
++		wrapped by this config
++
++config AMLOGIC_ARMV8_AARCH64
++	bool "AARCH64 kernel support for Amlogic ARMv8 Soc"
++	depends on AMLOGIC_MODIFY || COMPILE_TEST
++	default y
++	help
++	  aarch32 and aarch64 kernels are supported for armv8 socs.
++	  enable this config to select 64 bit kernel.
++	  Select Y if doult.
++
++config AMLOGIC_DRIVER
++	bool "Amlogic Peripheral drivers"
++	depends on AMLOGIC_MODIFY
++	default y
++	help
++		this option is provided for control amlogic
++		drivers, if you want to use amlogic driver
++		please open it.
++		Note: All amlogic driver should be placed in
++		this directory
++
++config AMLOGIC_ALLYESCONFIG
++	bool "Amlogic compile config option"
++	default n
++	help
++		This option is set up for masking frame size
++		limit in drivers/Makefile file. When we compile
++		kernel with --allyesconfig, we not limit the
++		frame size.
++
++config AMLOGIC_MEDIA_V4L_DEC
++	bool "enable amlogic v4l decode module."
++	default n
++	help
++		Support v4L protocol based decoding components.
++		Decoding is done by AmLogic hardware, and if you
++		need to support this feature, you need to enable
++		this configuration item.
++
++
++#
++# Amlogic DVB configuration
++#
++
++menu "Amlogic dvb configuration"
++
++config AMLOGIC_DVB
++	tristate "Amlogic dvb support"
++	depends on DVB_CORE && AMLOGIC_DVB_COMPAT
++	default n
++	help
++		This option is used only to control the
++		compilation of dvb related driver code, for
++		example hw_demux, it is enabled by default,
++		When it is turned on,it will automatically
++		select DVB_CORE and AMLOGIC_DVB_COMPAT.
++
++config AMLOGIC_DVB_COMPAT
++	tristate "Compat amlogic dvb"
++	depends on DVB_CORE
++	default n
++	help
++		This option is used only to compatible with
++		amlogic dvb related code, for example dvb-core,
++		it is enabled by default,depending on
++		AMLOGIC_DVB and DVB_CORE.
++
++config AMLOGIC_MFD
++	tristate "Compat amlogic mfd"
++	default n
++	help
++		This option is used only to compatible with
++		amlogic dvb related code,it is enabled by
++		default,depending on
++		AMLOGIC_MFD.
++
++config AMLOGIC_REGULATOR
++	tristate "Compat amlogic mfd"
++	default n
++	help
++		This option is used only to compatible with
++		amlogic mfd related code,it is enabled
++		by default,depending on
++		AMLOGIC_REGULATOR.
++
++endmenu
++
++if AMLOGIC_DRIVER
++menu "Amlogic Device Drivers"
++# Please add folders in alphabetical order
++
++#source "drivers/amlogic/algorithm/Kconfig"
++#source "drivers/amlogic/cpufreq/Kconfig"
++#source "drivers/amlogic/efuse_unifykey/Kconfig"
++#source "drivers/amlogic/ddr_tool/Kconfig"
++#source "drivers/amlogic/crypto/Kconfig"
++#source "drivers/amlogic/secmon/Kconfig"
++#source "drivers/amlogic/mailbox/Kconfig"
++#source "drivers/amlogic/reg_access/Kconfig"
++#source "drivers/amlogic/media/Kconfig"
++#source "drivers/amlogic/pci/Kconfig"
++#source "drivers/amlogic/thermal/Kconfig"
++#source "drivers/amlogic/clk_debug/Kconfig"
++#source "drivers/amlogic/input/Kconfig"
++#source "drivers/amlogic/tee/Kconfig"
++#source "drivers/amlogic/jtag/Kconfig"
++#source "drivers/amlogic/reboot/Kconfig"
++#source "drivers/amlogic/gki_tool/Kconfig"
++#source "drivers/amlogic/hifi4dsp/Kconfig"
++#source "drivers/amlogic/dvb/Kconfig"
++#source "drivers/amlogic/drm/Kconfig"
++#source "drivers/amlogic/irblaster/Kconfig"
++
++#source "drivers/amlogic/cpuidle/Kconfig"
++#source "drivers/amlogic/defendkey/Kconfig"
++#source "drivers/amlogic/free_reserved/Kconfig"
++#source "drivers/amlogic/usb/Kconfig"
++#source "drivers/amlogic/pm/Kconfig"
++#source "drivers/amlogic/power/Kconfig"
++#source "drivers/amlogic/debug/Kconfig"
++#source "drivers/amlogic/memory_ext/Kconfig"
++source "drivers/amlogic/bluetooth/Kconfig"
++source "drivers/amlogic/wifi/Kconfig"
++#source "drivers/amlogic/uart/Kconfig"
++#source "drivers/amlogic/smartcard_sc2/Kconfig"
++#source "drivers/amlogic/mtd/Kconfig"
++#source "drivers/amlogic/led/Kconfig"
++#source "drivers/amlogic/amaudio/Kconfig"
++#source "drivers/amlogic/audiodsp/Kconfig"
++#source "drivers/amlogic/audioinfo/Kconfig"
++#source "drivers/amlogic/dolby_fw/Kconfig"
++#source "drivers/amlogic/cpu_info/Kconfig"
++#source "drivers/amlogic/ethernet/phy/Kconfig"
++#source "drivers/amlogic/soc_info/Kconfig"
++#source "drivers/amlogic/gator-driver/Kconfig"
++#source "drivers/amlogic/global_timer/Kconfig"
++#source "drivers/amlogic/mfd/Kconfig"
++#source "drivers/amlogic/regulator/Kconfig"
++#source "drivers/amlogic/mfh/Kconfig"
++
++endmenu
++endif
+diff --git a/drivers/amlogic/Makefile b/drivers/amlogic/Makefile
+new file mode 100644
+index 000000000000..90b76a2142b2
+--- /dev/null
++++ b/drivers/amlogic/Makefile
+@@ -0,0 +1,80 @@
++
++##########################################
++########## Amlogic Drivers ###############
++##########################################
++
++
++# GKI extern modules if enabled AMLOGIC_GKI
++#obj-$(CONFIG_AMLOGIC_MESON_CPUFREQ)	+= cpufreq/
++#obj-$(CONFIG_AMLOGIC_SEC)               += secmon/
++#obj-$(CONFIG_AMLOGIC_EFUSE_UNIFYKEY)    += efuse_unifykey/
++#obj-$(CONFIG_AMLOGIC_DDR_TOOL)		+= ddr_tool/
++#obj-$(CONFIG_AMLOGIC_CRYPTO_DMA)	+= crypto/
++#obj-$(CONFIG_AMLOGIC_MHU_MBOX)		+= mailbox/
++#obj-$(CONFIG_AMLOGIC_REG_ACCESS)	+= reg_access/
++#obj-$(CONFIG_AMLOGIC_MEDIA_ENABLE)	+= media/
++#obj-$(CONFIG_AMLOGIC_PCIE)		+= pci/
++#obj-$(CONFIG_AMLOGIC_THERMAL)		+= thermal/
++#obj-$(CONFIG_AMLOGIC_CLK_DEBUG)		+= clk_debug/
++#obj-$(CONFIG_AMLOGIC_INPUT)		+= input/
++#obj-$(CONFIG_AMLOGIC_TEE)		+= tee/
++#obj-$(CONFIG_AMLOGIC_JTAG_MESON)	+= jtag/
++#obj-$(CONFIG_AMLOGIC_GX_REBOOT)		+= reboot/
++#obj-$(CONFIG_AMLOGIC_GKI_TOOL)		+= gki_tool/
++#obj-$(CONFIG_AMLOGIC_HIFI4DSP)          += hifi4dsp/
++#obj-$(CONFIG_AMLOGIC_DVB_COMPAT)        += dvb/
++#obj-$(CONFIG_AMLOGIC_DRM)		+= drm/
++#obj-$(CONFIG_AMLOGIC_IRBLASTER)		+= irblaster/
++#obj-$(CONFIG_MTD_NAND_MESON)		+= mtd/nand/
++#obj-$(CONFIG_MTD_RESV_MESON)		+= mtd/reserve/
++#obj-$(CONFIG_MTD_SPI_NAND_MESON)	+= mtd/spi_nand/
++#obj-$(CONFIG_AMLOGIC_AUDIO_DSP)  	+= audiodsp/
++#obj-$(CONFIG_AMLOGIC_AMAUDIO)		+= amaudio/
++#obj-$(CONFIG_AMLOGIC_AUDIO_INFO) 	+= audioinfo/
++#obj-$(CONFIG_AMLOGIC_ETH_PRIVE)		+= ethernet/phy/
++#obj-$(CONFIG_AMLOGIC_MEDIA_ALGORITHM)	+= algorithm/
++#obj-$(CONFIG_AMLOGIC_GLOBAL_TIMER)	+= global_timer/
++
++#Always build in code/modules
++#obj-$(CONFIG_AMLOGIC_CPUIDLE)		+= cpuidle/
++#obj-$(CONFIG_AMLOGIC_DEFENDKEY)		+= defendkey/
++#obj-$(CONFIG_AMLOGIC_AUTO_CAPTURE)	+= free_reserved/
++#obj-$(CONFIG_AMLOGIC_GX_SUSPEND)	+= pm/
++#obj-$(CONFIG_AMLOGIC_POWER)		+= power/
++#obj-$(CONFIG_AMLOGIC_DEBUG)		+= debug/
++obj-$(CONFIG_PWM_MESON)			+= pwm/
++#obj-$(CONFIG_AMLOGIC_LED)    		+= led/
++#obj-$(CONFIG_AMLOGIC_MEMORY_EXTEND)	+= memory_ext/
++obj-$(CONFIG_AMLOGIC_WIFI)		+= wifi/
++#obj-$(CONFIG_AMLOGIC_UART)		+= uart/
++obj-$(CONFIG_AMLOGIC_BT_DEVICE)		+= bluetooth/
++#obj-$(CONFIG_AMLOGIC_SMARTCARD)		+= smartcard/
++#obj-$(CONFIG_AMLOGIC_SMARTCARD)		+= smartcard_sc2/
++#obj-$(CONFIG_MMC_MESON_GX)		+= mmc/
++#obj-$(CONFIG_AMLOGIC_USB)               += usb/
++#obj-$(CONFIG_AMLOGIC_DVB_DMX)		+= dvb/
++#obj-$(CONFIG_DOLBY_FW) += dolby_fw/
++#obj-$(CONFIG_AMLOGIC_CPU_INFO)          += cpu_info/
++#obj-$(CONFIG_AMLOGIC_SOC_INFO) 		+= soc_info/
++#obj-$(CONFIG_GATOR)	+= gator-driver/
++#obj-$(CONFIG_AMLOGIC_MFD) += mfd/
++#obj-$(CONFIG_AMLOGIC_REGULATOR) += regulator/
++#obj-$(CONFIG_AMLOGIC_MFH_MODULE)     += mfh/
++
++KBUILD_CFLAGS_MODULE += $(GKI_EXT_MODULE_PREDEFINE)
++
++all:
++	@$(MAKE) -C $(KERNEL_SRC) M=$(M)  modules $(GKI_EXT_MODULE_CONFIG)
++
++modules_install:
++	@echo "$(MAKE) INSTALL_MOD_STRIP=1 M=$(M) -C $(KERNEL_SRC) modules_install"
++#	@$(MAKE) INSTALL_MOD_STRIP=1 M=$(M) -C $(KERNEL_SRC) modules_install
++#	mkdir -p ${OUT_DIR}/../vendor_lib/modules
++#	cd ${OUT_DIR}/$(M)/; find -name "*.ko" -exec cp {} ${OUT_DIR}/../vendor_lib/modules/ \;
++	mkdir -p ${OUT_DIR}/../vendor_lib/modules
++	(cd ${OUT_DIR}/$(M)/; find -name "dvb_demux.ko" -exec cp {} ${OUT_DIR}/../vendor_lib/modules/ \;)
++	(cd ${OUT_DIR}/$(M)/; find -name "aml_aucpu.ko" -exec cp {} ${OUT_DIR}/../vendor_lib/modules/ \;)
++
++clean:
++	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean
++
+diff --git a/drivers/amlogic/bluetooth/Kconfig b/drivers/amlogic/bluetooth/Kconfig
+new file mode 100644
+index 000000000000..d3228a7caace
+--- /dev/null
++++ b/drivers/amlogic/bluetooth/Kconfig
+@@ -0,0 +1,8 @@
++# Amlogic Bluetooth
++
++config AMLOGIC_BT_DEVICE
++    bool "BT Device support"
++    depends on BT && RFKILL
++    default y
++    help
++      Say Y here if you want to use the BT device.
+diff --git a/drivers/amlogic/bluetooth/Makefile b/drivers/amlogic/bluetooth/Makefile
+new file mode 100644
+index 000000000000..3478e7af4fa0
+--- /dev/null
++++ b/drivers/amlogic/bluetooth/Makefile
+@@ -0,0 +1 @@
++obj-$(CONFIG_AMLOGIC_BT_DEVICE) += bt_device.o
+diff --git a/drivers/amlogic/bluetooth/bt_device.c b/drivers/amlogic/bluetooth/bt_device.c
+new file mode 100644
+index 000000000000..9eba5c825354
+--- /dev/null
++++ b/drivers/amlogic/bluetooth/bt_device.c
 @@ -0,0 +1,749 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
@@ -751,290 +1142,18 @@ diff -urN linux-5.10.y-a/drivers/amlogic/bluetooth/bt_device.c linux-5.10.y-b/dr
 +
 +__setup("mac_bt=", mac_addr_set);
 +
-diff -urN linux-5.10.y-a/drivers/amlogic/bluetooth/Kconfig linux-5.10.y-b/drivers/amlogic/bluetooth/Kconfig
---- linux-5.10.y-a/drivers/amlogic/bluetooth/Kconfig	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/bluetooth/Kconfig	2022-11-27 09:30:04.000000000 +0800
-@@ -0,0 +1,8 @@
-+# Amlogic Bluetooth
-+
-+config AMLOGIC_BT_DEVICE
-+    bool "BT Device support"
-+    depends on BT && RFKILL
-+    default y
-+    help
-+      Say Y here if you want to use the BT device.
-diff -urN linux-5.10.y-a/drivers/amlogic/bluetooth/Makefile linux-5.10.y-b/drivers/amlogic/bluetooth/Makefile
---- linux-5.10.y-a/drivers/amlogic/bluetooth/Makefile	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/bluetooth/Makefile	2024-11-26 11:42:21.695212495 +0800
-@@ -0,0 +1 @@
-+obj-$(CONFIG_AMLOGIC_BT_DEVICE) += bt_device.o
-diff -urN linux-5.10.y-a/drivers/amlogic/Kconfig linux-5.10.y-b/drivers/amlogic/Kconfig
---- linux-5.10.y-a/drivers/amlogic/Kconfig	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/Kconfig	2022-11-27 09:30:04.000000000 +0800
-@@ -0,0 +1,171 @@
-+config AMLOGIC_GKI
-+	bool "Amlogic GKI macro"
-+	default n
-+	help
-+		This macro controls GKI module build behavior, if enabled
-+		some internal code will be build as external module
-+
-+config AMLOGIC_MODIFY
-+	bool "Amlogic modify for kernel code"
-+	default y
-+	help
-+		This option is set up for AMLOGIC modify of standard
-+		kernel source code. All modify of kernel standard code
-+		should be wrapped by this config
-+
-+config AMLOGIC_ANDROIDP
-+	bool "Amlogic modify kernel in project androidp"
-+	default n
-+	help
-+		This option is set up for AMLOGIC modify of standard
-+		kernel source code in project androidp.
-+
-+config AMLOGIC_REMOVE_OLD
-+	bool "Amlogic remove old soc code for g12a previous"
-+	default n
-+	help
-+		This option is set up for removing code for G12A
-+		previous.All modify of not used code should be
-+		wrapped by this config
-+
-+config AMLOGIC_ARMV8_AARCH64
-+	bool "AARCH64 kernel support for Amlogic ARMv8 Soc"
-+	depends on AMLOGIC_MODIFY || COMPILE_TEST
-+	default y
-+	help
-+	  aarch32 and aarch64 kernels are supported for armv8 socs.
-+	  enable this config to select 64 bit kernel.
-+	  Select Y if doult.
-+
-+config AMLOGIC_DRIVER
-+	bool "Amlogic Peripheral drivers"
-+	depends on AMLOGIC_MODIFY
-+	default y
-+	help
-+		this option is provided for control amlogic
-+		drivers, if you want to use amlogic driver
-+		please open it.
-+		Note: All amlogic driver should be placed in
-+		this directory
-+
-+config AMLOGIC_ALLYESCONFIG
-+	bool "Amlogic compile config option"
-+	default n
-+	help
-+		This option is set up for masking frame size
-+		limit in drivers/Makefile file. When we compile
-+		kernel with --allyesconfig, we not limit the
-+		frame size.
-+
-+config AMLOGIC_MEDIA_V4L_DEC
-+	bool "enable amlogic v4l decode module."
-+	default n
-+	help
-+		Support v4L protocol based decoding components.
-+		Decoding is done by AmLogic hardware, and if you
-+		need to support this feature, you need to enable
-+		this configuration item.
-+
-+
-+#
-+# Amlogic DVB configuration
-+#
-+
-+menu "Amlogic dvb configuration"
-+
-+config AMLOGIC_DVB
-+	tristate "Amlogic dvb support"
-+	depends on DVB_CORE && AMLOGIC_DVB_COMPAT
-+	default n
-+	help
-+		This option is used only to control the
-+		compilation of dvb related driver code, for
-+		example hw_demux, it is enabled by default,
-+		When it is turned on,it will automatically
-+		select DVB_CORE and AMLOGIC_DVB_COMPAT.
-+
-+config AMLOGIC_DVB_COMPAT
-+	tristate "Compat amlogic dvb"
-+	depends on DVB_CORE
-+	default n
-+	help
-+		This option is used only to compatible with
-+		amlogic dvb related code, for example dvb-core,
-+		it is enabled by default,depending on
-+		AMLOGIC_DVB and DVB_CORE.
-+
-+config AMLOGIC_MFD
-+	tristate "Compat amlogic mfd"
-+	default n
-+	help
-+		This option is used only to compatible with
-+		amlogic dvb related code,it is enabled by
-+		default,depending on
-+		AMLOGIC_MFD.
-+
-+config AMLOGIC_REGULATOR
-+	tristate "Compat amlogic mfd"
-+	default n
-+	help
-+		This option is used only to compatible with
-+		amlogic mfd related code,it is enabled
-+		by default,depending on
-+		AMLOGIC_REGULATOR.
-+
-+endmenu
-+
-+if AMLOGIC_DRIVER
-+menu "Amlogic Device Drivers"
-+# Please add folders in alphabetical order
-+
-+#source "drivers/amlogic/algorithm/Kconfig"
-+#source "drivers/amlogic/cpufreq/Kconfig"
-+#source "drivers/amlogic/efuse_unifykey/Kconfig"
-+#source "drivers/amlogic/ddr_tool/Kconfig"
-+#source "drivers/amlogic/crypto/Kconfig"
-+#source "drivers/amlogic/secmon/Kconfig"
-+#source "drivers/amlogic/mailbox/Kconfig"
-+#source "drivers/amlogic/reg_access/Kconfig"
-+#source "drivers/amlogic/media/Kconfig"
-+#source "drivers/amlogic/pci/Kconfig"
-+#source "drivers/amlogic/thermal/Kconfig"
-+#source "drivers/amlogic/clk_debug/Kconfig"
-+#source "drivers/amlogic/input/Kconfig"
-+#source "drivers/amlogic/tee/Kconfig"
-+#source "drivers/amlogic/jtag/Kconfig"
-+#source "drivers/amlogic/reboot/Kconfig"
-+#source "drivers/amlogic/gki_tool/Kconfig"
-+#source "drivers/amlogic/hifi4dsp/Kconfig"
-+#source "drivers/amlogic/dvb/Kconfig"
-+#source "drivers/amlogic/drm/Kconfig"
-+#source "drivers/amlogic/irblaster/Kconfig"
-+
-+#source "drivers/amlogic/cpuidle/Kconfig"
-+#source "drivers/amlogic/defendkey/Kconfig"
-+#source "drivers/amlogic/free_reserved/Kconfig"
-+#source "drivers/amlogic/usb/Kconfig"
-+#source "drivers/amlogic/pm/Kconfig"
-+#source "drivers/amlogic/power/Kconfig"
-+#source "drivers/amlogic/debug/Kconfig"
-+#source "drivers/amlogic/memory_ext/Kconfig"
-+source "drivers/amlogic/bluetooth/Kconfig"
-+source "drivers/amlogic/wifi/Kconfig"
-+#source "drivers/amlogic/uart/Kconfig"
-+#source "drivers/amlogic/smartcard_sc2/Kconfig"
-+#source "drivers/amlogic/mtd/Kconfig"
-+#source "drivers/amlogic/led/Kconfig"
-+#source "drivers/amlogic/amaudio/Kconfig"
-+#source "drivers/amlogic/audiodsp/Kconfig"
-+#source "drivers/amlogic/audioinfo/Kconfig"
-+#source "drivers/amlogic/dolby_fw/Kconfig"
-+#source "drivers/amlogic/cpu_info/Kconfig"
-+#source "drivers/amlogic/ethernet/phy/Kconfig"
-+#source "drivers/amlogic/soc_info/Kconfig"
-+#source "drivers/amlogic/gator-driver/Kconfig"
-+#source "drivers/amlogic/global_timer/Kconfig"
-+#source "drivers/amlogic/mfd/Kconfig"
-+#source "drivers/amlogic/regulator/Kconfig"
-+#source "drivers/amlogic/mfh/Kconfig"
-+
-+endmenu
-+endif
-diff -urN linux-5.10.y-a/drivers/amlogic/Makefile linux-5.10.y-b/drivers/amlogic/Makefile
---- linux-5.10.y-a/drivers/amlogic/Makefile	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/Makefile	2022-12-25 16:42:50.000000000 +0800
-@@ -0,0 +1,80 @@
-+
-+##########################################
-+########## Amlogic Drivers ###############
-+##########################################
-+
-+
-+# GKI extern modules if enabled AMLOGIC_GKI
-+#obj-$(CONFIG_AMLOGIC_MESON_CPUFREQ)	+= cpufreq/
-+#obj-$(CONFIG_AMLOGIC_SEC)               += secmon/
-+#obj-$(CONFIG_AMLOGIC_EFUSE_UNIFYKEY)    += efuse_unifykey/
-+#obj-$(CONFIG_AMLOGIC_DDR_TOOL)		+= ddr_tool/
-+#obj-$(CONFIG_AMLOGIC_CRYPTO_DMA)	+= crypto/
-+#obj-$(CONFIG_AMLOGIC_MHU_MBOX)		+= mailbox/
-+#obj-$(CONFIG_AMLOGIC_REG_ACCESS)	+= reg_access/
-+#obj-$(CONFIG_AMLOGIC_MEDIA_ENABLE)	+= media/
-+#obj-$(CONFIG_AMLOGIC_PCIE)		+= pci/
-+#obj-$(CONFIG_AMLOGIC_THERMAL)		+= thermal/
-+#obj-$(CONFIG_AMLOGIC_CLK_DEBUG)		+= clk_debug/
-+#obj-$(CONFIG_AMLOGIC_INPUT)		+= input/
-+#obj-$(CONFIG_AMLOGIC_TEE)		+= tee/
-+#obj-$(CONFIG_AMLOGIC_JTAG_MESON)	+= jtag/
-+#obj-$(CONFIG_AMLOGIC_GX_REBOOT)		+= reboot/
-+#obj-$(CONFIG_AMLOGIC_GKI_TOOL)		+= gki_tool/
-+#obj-$(CONFIG_AMLOGIC_HIFI4DSP)          += hifi4dsp/
-+#obj-$(CONFIG_AMLOGIC_DVB_COMPAT)        += dvb/
-+#obj-$(CONFIG_AMLOGIC_DRM)		+= drm/
-+#obj-$(CONFIG_AMLOGIC_IRBLASTER)		+= irblaster/
-+#obj-$(CONFIG_MTD_NAND_MESON)		+= mtd/nand/
-+#obj-$(CONFIG_MTD_RESV_MESON)		+= mtd/reserve/
-+#obj-$(CONFIG_MTD_SPI_NAND_MESON)	+= mtd/spi_nand/
-+#obj-$(CONFIG_AMLOGIC_AUDIO_DSP)  	+= audiodsp/
-+#obj-$(CONFIG_AMLOGIC_AMAUDIO)		+= amaudio/
-+#obj-$(CONFIG_AMLOGIC_AUDIO_INFO) 	+= audioinfo/
-+#obj-$(CONFIG_AMLOGIC_ETH_PRIVE)		+= ethernet/phy/
-+#obj-$(CONFIG_AMLOGIC_MEDIA_ALGORITHM)	+= algorithm/
-+#obj-$(CONFIG_AMLOGIC_GLOBAL_TIMER)	+= global_timer/
-+
-+#Always build in code/modules
-+#obj-$(CONFIG_AMLOGIC_CPUIDLE)		+= cpuidle/
-+#obj-$(CONFIG_AMLOGIC_DEFENDKEY)		+= defendkey/
-+#obj-$(CONFIG_AMLOGIC_AUTO_CAPTURE)	+= free_reserved/
-+#obj-$(CONFIG_AMLOGIC_GX_SUSPEND)	+= pm/
-+#obj-$(CONFIG_AMLOGIC_POWER)		+= power/
-+#obj-$(CONFIG_AMLOGIC_DEBUG)		+= debug/
-+obj-$(CONFIG_PWM_MESON)			+= pwm/
-+#obj-$(CONFIG_AMLOGIC_LED)    		+= led/
-+#obj-$(CONFIG_AMLOGIC_MEMORY_EXTEND)	+= memory_ext/
-+obj-$(CONFIG_AMLOGIC_WIFI)		+= wifi/
-+#obj-$(CONFIG_AMLOGIC_UART)		+= uart/
-+obj-$(CONFIG_AMLOGIC_BT_DEVICE)		+= bluetooth/
-+#obj-$(CONFIG_AMLOGIC_SMARTCARD)		+= smartcard/
-+#obj-$(CONFIG_AMLOGIC_SMARTCARD)		+= smartcard_sc2/
-+#obj-$(CONFIG_MMC_MESON_GX)		+= mmc/
-+#obj-$(CONFIG_AMLOGIC_USB)               += usb/
-+#obj-$(CONFIG_AMLOGIC_DVB_DMX)		+= dvb/
-+#obj-$(CONFIG_DOLBY_FW) += dolby_fw/
-+#obj-$(CONFIG_AMLOGIC_CPU_INFO)          += cpu_info/
-+#obj-$(CONFIG_AMLOGIC_SOC_INFO) 		+= soc_info/
-+#obj-$(CONFIG_GATOR)	+= gator-driver/
-+#obj-$(CONFIG_AMLOGIC_MFD) += mfd/
-+#obj-$(CONFIG_AMLOGIC_REGULATOR) += regulator/
-+#obj-$(CONFIG_AMLOGIC_MFH_MODULE)     += mfh/
-+
-+KBUILD_CFLAGS_MODULE += $(GKI_EXT_MODULE_PREDEFINE)
-+
-+all:
-+	@$(MAKE) -C $(KERNEL_SRC) M=$(M)  modules $(GKI_EXT_MODULE_CONFIG)
-+
-+modules_install:
-+	@echo "$(MAKE) INSTALL_MOD_STRIP=1 M=$(M) -C $(KERNEL_SRC) modules_install"
-+#	@$(MAKE) INSTALL_MOD_STRIP=1 M=$(M) -C $(KERNEL_SRC) modules_install
-+#	mkdir -p ${OUT_DIR}/../vendor_lib/modules
-+#	cd ${OUT_DIR}/$(M)/; find -name "*.ko" -exec cp {} ${OUT_DIR}/../vendor_lib/modules/ \;
-+	mkdir -p ${OUT_DIR}/../vendor_lib/modules
-+	(cd ${OUT_DIR}/$(M)/; find -name "dvb_demux.ko" -exec cp {} ${OUT_DIR}/../vendor_lib/modules/ \;)
-+	(cd ${OUT_DIR}/$(M)/; find -name "aml_aucpu.ko" -exec cp {} ${OUT_DIR}/../vendor_lib/modules/ \;)
-+
-+clean:
-+	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean
-+
-diff -urN linux-5.10.y-a/drivers/amlogic/pwm/Makefile linux-5.10.y-b/drivers/amlogic/pwm/Makefile
---- linux-5.10.y-a/drivers/amlogic/pwm/Makefile	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/pwm/Makefile	2022-11-01 20:35:46.000000000 +0800
+diff --git a/drivers/amlogic/pwm/Makefile b/drivers/amlogic/pwm/Makefile
+new file mode 100644
+index 000000000000..933d7ba9e47e
+--- /dev/null
++++ b/drivers/amlogic/pwm/Makefile
 @@ -0,0 +1 @@
 +obj-$(CONFIG_PWM_MESON) += pwm-meson-sysfs.o
-diff -urN linux-5.10.y-a/drivers/amlogic/pwm/pwm-meson-sysfs.c linux-5.10.y-b/drivers/amlogic/pwm/pwm-meson-sysfs.c
---- linux-5.10.y-a/drivers/amlogic/pwm/pwm-meson-sysfs.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/pwm/pwm-meson-sysfs.c	2022-11-01 20:35:46.000000000 +0800
+diff --git a/drivers/amlogic/pwm/pwm-meson-sysfs.c b/drivers/amlogic/pwm/pwm-meson-sysfs.c
+new file mode 100644
+index 000000000000..fb086b10b326
+--- /dev/null
++++ b/drivers/amlogic/pwm/pwm-meson-sysfs.c
 @@ -0,0 +1,392 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
@@ -1428,9 +1547,51 @@ diff -urN linux-5.10.y-a/drivers/amlogic/pwm/pwm-meson-sysfs.c linux-5.10.y-b/dr
 +{
 +	sysfs_remove_group(&dev->kobj, &pwm_attr_group);
 +}
-diff -urN linux-5.10.y-a/drivers/amlogic/wifi/dhd_static_buf.c linux-5.10.y-b/drivers/amlogic/wifi/dhd_static_buf.c
---- linux-5.10.y-a/drivers/amlogic/wifi/dhd_static_buf.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/wifi/dhd_static_buf.c	2022-11-27 09:30:02.000000000 +0800
+diff --git a/drivers/amlogic/wifi/Kconfig b/drivers/amlogic/wifi/Kconfig
+new file mode 100644
+index 000000000000..7cb70da8913f
+--- /dev/null
++++ b/drivers/amlogic/wifi/Kconfig
+@@ -0,0 +1,23 @@
++menuconfig AMLOGIC_WIFI
++	tristate "WiFi support"
++	select WIRELESS_EXT
++	select WEXT_PRIV
++	default y
++	help
++		select y to support wifi
++
++if AMLOGIC_WIFI
++
++config AMLOGIC_PWM_32K
++	bool "amlogic soc pwm 32k support"
++	depends on PWM_MESON
++	default y
++	help
++		WiFi usually needs a 32K frequency clock signal.
++		There are three possibilities:
++		using the internal 32K clock or using the 32K input from our SOC,
++		or using the onboard active 32K crystal oscillator.
++		By default,32K of SOC input is enabled,
++		if not, you can disable it by selecting n.
++
++endif
+diff --git a/drivers/amlogic/wifi/Makefile b/drivers/amlogic/wifi/Makefile
+new file mode 100644
+index 000000000000..a4f78248622c
+--- /dev/null
++++ b/drivers/amlogic/wifi/Makefile
+@@ -0,0 +1,5 @@
++MODULE_NAME = aml_wifi
++
++#obj-$(CONFIG_AMLOGIC_WIFI) = $(MODULE_NAME).o
++obj-y = $(MODULE_NAME).o
++$(MODULE_NAME)-y = wifi_dt.o dhd_static_buf.o
+diff --git a/drivers/amlogic/wifi/dhd_static_buf.c b/drivers/amlogic/wifi/dhd_static_buf.c
+new file mode 100644
+index 000000000000..1843e235aa93
+--- /dev/null
++++ b/drivers/amlogic/wifi/dhd_static_buf.c
 @@ -0,0 +1,610 @@
 +/*
 + * drivers/amlogic/wifi/dhd_static_buf.c
@@ -2042,45 +2203,11 @@ diff -urN linux-5.10.y-a/drivers/amlogic/wifi/dhd_static_buf.c linux-5.10.y-b/dr
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("AMLOGIC");
 +MODULE_DESCRIPTION("wifi device tree driver");
-diff -urN linux-5.10.y-a/drivers/amlogic/wifi/Kconfig linux-5.10.y-b/drivers/amlogic/wifi/Kconfig
---- linux-5.10.y-a/drivers/amlogic/wifi/Kconfig	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/wifi/Kconfig	2022-11-27 09:30:04.000000000 +0800
-@@ -0,0 +1,23 @@
-+menuconfig AMLOGIC_WIFI
-+	tristate "WiFi support"
-+	select WIRELESS_EXT
-+	select WEXT_PRIV
-+	default y
-+	help
-+		select y to support wifi
-+
-+if AMLOGIC_WIFI
-+
-+config AMLOGIC_PWM_32K
-+	bool "amlogic soc pwm 32k support"
-+	depends on PWM_MESON
-+	default y
-+	help
-+		WiFi usually needs a 32K frequency clock signal.
-+		There are three possibilities:
-+		using the internal 32K clock or using the 32K input from our SOC,
-+		or using the onboard active 32K crystal oscillator.
-+		By default,32K of SOC input is enabled,
-+		if not, you can disable it by selecting n.
-+
-+endif
-diff -urN linux-5.10.y-a/drivers/amlogic/wifi/Makefile linux-5.10.y-b/drivers/amlogic/wifi/Makefile
---- linux-5.10.y-a/drivers/amlogic/wifi/Makefile	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/wifi/Makefile	2023-01-06 16:03:32.000000000 +0800
-@@ -0,0 +1,5 @@
-+MODULE_NAME = aml_wifi
-+
-+#obj-$(CONFIG_AMLOGIC_WIFI) = $(MODULE_NAME).o
-+obj-y = $(MODULE_NAME).o
-+$(MODULE_NAME)-y = wifi_dt.o dhd_static_buf.o
-diff -urN linux-5.10.y-a/drivers/amlogic/wifi/wifi_dt.c linux-5.10.y-b/drivers/amlogic/wifi/wifi_dt.c
---- linux-5.10.y-a/drivers/amlogic/wifi/wifi_dt.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/amlogic/wifi/wifi_dt.c	2023-01-11 11:53:32.000000000 +0800
+diff --git a/drivers/amlogic/wifi/wifi_dt.c b/drivers/amlogic/wifi/wifi_dt.c
+new file mode 100644
+index 000000000000..e23819a0e8e5
+--- /dev/null
++++ b/drivers/amlogic/wifi/wifi_dt.c
 @@ -0,0 +1,1041 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
@@ -3123,10 +3250,11 @@ diff -urN linux-5.10.y-a/drivers/amlogic/wifi/wifi_dt.c linux-5.10.y-b/drivers/a
 +MODULE_DESCRIPTION("Amlogic S912/wifi driver");
 +MODULE_AUTHOR("Kevin Hilman <khilman@baylibre.com>");
 +MODULE_LICENSE("GPL");
-diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
---- linux-5.10.y-a/drivers/base/dd.c	2024-11-26 10:42:36.909504748 +0800
-+++ linux-5.10.y-b/drivers/base/dd.c	2022-12-25 17:04:50.000000000 +0800
-@@ -501,6 +501,7 @@
+diff --git a/drivers/base/dd.c b/drivers/base/dd.c
+index 1e8318acf621..ca47a65a5804 100644
+--- a/drivers/base/dd.c
++++ b/drivers/base/dd.c
+@@ -501,6 +501,7 @@ static int really_probe(struct device *dev, struct device_driver *drv)
  	bool test_remove = IS_ENABLED(CONFIG_DEBUG_TEST_DRIVER_REMOVE) &&
  			   !drv->suppress_bind_attrs;
  
@@ -3134,7 +3262,7 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  	if (defer_all_probes) {
  		/*
  		 * Value of defer_all_probes can be set only by
-@@ -532,13 +533,16 @@
+@@ -532,13 +533,16 @@ static int really_probe(struct device *dev, struct device_driver *drv)
  
  	/* If using pinctrl, bind pins now before probing */
  	ret = pinctrl_bind_pins(dev);
@@ -3152,7 +3280,7 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  	}
  
  	ret = driver_sysfs_add(dev);
-@@ -550,23 +554,30 @@
+@@ -550,23 +554,30 @@ static int really_probe(struct device *dev, struct device_driver *drv)
  
  	if (dev->pm_domain && dev->pm_domain->activate) {
  		ret = dev->pm_domain->activate(dev);
@@ -3186,7 +3314,7 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  		goto dev_groups_failed;
  	}
  
-@@ -574,6 +585,7 @@
+@@ -574,6 +585,7 @@ static int really_probe(struct device *dev, struct device_driver *drv)
  		ret = device_create_file(dev, &dev_attr_state_synced);
  		if (ret) {
  			dev_err(dev, "state_synced sysfs add failed\n");
@@ -3194,7 +3322,7 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  			goto dev_sysfs_state_synced_failed;
  		}
  	}
-@@ -599,10 +611,10 @@
+@@ -599,10 +611,10 @@ static int really_probe(struct device *dev, struct device_driver *drv)
  		if (dev->pm_domain && dev->pm_domain->dismiss)
  			dev->pm_domain->dismiss(dev);
  		pm_runtime_reinit(dev);
@@ -3207,7 +3335,7 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  	pinctrl_init_done(dev);
  
  	if (dev->pm_domain && dev->pm_domain->sync)
-@@ -677,12 +689,7 @@
+@@ -677,12 +689,7 @@ static int really_probe_debug(struct device *dev, struct device_driver *drv)
  	calltime = ktime_get();
  	ret = really_probe(dev, drv);
  	rettime = ktime_get();
@@ -3221,7 +3349,7 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  		 dev_name(dev), ret, ktime_us_delta(rettime, calltime));
  	return ret;
  }
-@@ -1093,11 +1100,7 @@
+@@ -1093,11 +1100,7 @@ static int __driver_attach(struct device *dev, void *data)
  		return 0;
  	} else if (ret < 0) {
  		dev_dbg(dev, "Bus failed to match device: %d\n", ret);
@@ -3234,7 +3362,7 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  	} /* ret > 0 means positive match */
  
  	if (driver_allows_async_probing(drv)) {
-@@ -1187,6 +1190,8 @@
+@@ -1187,6 +1190,8 @@ static void __device_release_driver(struct device *dev, struct device *parent)
  		else if (drv->remove)
  			drv->remove(dev);
  
@@ -3243,7 +3371,7 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  		devres_release_all(dev);
  		arch_teardown_dma_ops(dev);
  		kfree(dev->dma_range_map);
-@@ -1198,8 +1203,6 @@
+@@ -1198,8 +1203,6 @@ static void __device_release_driver(struct device *dev, struct device *parent)
  		pm_runtime_reinit(dev);
  		dev_pm_set_driver_flags(dev, 0);
  
@@ -3252,30 +3380,11 @@ diff -urN linux-5.10.y-a/drivers/base/dd.c linux-5.10.y-b/drivers/base/dd.c
  		klist_remove(&dev->p->knode_driver);
  		device_pm_check_callbacks(dev);
  		if (dev->bus)
-diff -urN linux-5.10.y-a/drivers/Kconfig linux-5.10.y-b/drivers/Kconfig
---- linux-5.10.y-a/drivers/Kconfig	2024-11-26 10:43:18.906818220 +0800
-+++ linux-5.10.y-b/drivers/Kconfig	2022-12-21 07:30:00.000000000 +0800
-@@ -235,4 +235,6 @@
- source "drivers/counter/Kconfig"
- 
- source "drivers/most/Kconfig"
-+
-+source "drivers/amlogic/Kconfig"
- endmenu
-diff -urN linux-5.10.y-a/drivers/Makefile linux-5.10.y-b/drivers/Makefile
---- linux-5.10.y-a/drivers/Makefile	2024-11-26 10:43:21.909770630 +0800
-+++ linux-5.10.y-b/drivers/Makefile	2022-12-21 07:30:18.000000000 +0800
-@@ -189,3 +189,5 @@
- obj-$(CONFIG_INTERCONNECT)	+= interconnect/
- obj-$(CONFIG_COUNTER)		+= counter/
- obj-$(CONFIG_MOST)		+= most/
-+
-+obj-$(CONFIG_AMLOGIC_MODIFY)	+= amlogic/
-\ No newline at end of file
-diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/core/block.c
---- linux-5.10.y-a/drivers/mmc/core/block.c	2024-11-26 10:43:50.333329627 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/block.c	2023-01-30 10:58:54.000000000 +0800
-@@ -253,7 +253,6 @@
+diff --git a/drivers/mmc/core/block.c b/drivers/mmc/core/block.c
+index 71ecdb13477a..6622e3262187 100644
+--- a/drivers/mmc/core/block.c
++++ b/drivers/mmc/core/block.c
+@@ -253,7 +253,6 @@ static ssize_t power_ro_lock_store(struct device *dev,
  		goto out_put;
  	}
  	req_to_mmc_queue_req(req)->drv_op = MMC_DRV_OP_BOOT_WP;
@@ -3283,7 +3392,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	blk_execute_rq(mq->queue, NULL, req, 0);
  	ret = req_to_mmc_queue_req(req)->drv_op_result;
  	blk_put_request(req);
-@@ -346,10 +345,6 @@
+@@ -346,10 +345,6 @@ struct mmc_blk_ioc_data {
  	struct mmc_ioc_cmd ic;
  	unsigned char *buf;
  	u64 buf_bytes;
@@ -3294,7 +3403,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	struct mmc_rpmb_data *rpmb;
  };
  
-@@ -359,7 +354,7 @@
+@@ -359,7 +354,7 @@ static struct mmc_blk_ioc_data *mmc_blk_ioctl_copy_from_user(
  	struct mmc_blk_ioc_data *idata;
  	int err;
  
@@ -3303,7 +3412,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	if (!idata) {
  		err = -ENOMEM;
  		goto out;
-@@ -451,7 +446,7 @@
+@@ -451,7 +446,7 @@ static int card_busy_detect(struct mmc_card *card, unsigned int timeout_ms,
  }
  
  static int __mmc_blk_ioctl_cmd(struct mmc_card *card, struct mmc_blk_data *md,
@@ -3312,7 +3421,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  {
  	struct mmc_command cmd = {}, sbc = {};
  	struct mmc_data data = {};
-@@ -459,18 +454,10 @@
+@@ -459,18 +454,10 @@ static int __mmc_blk_ioctl_cmd(struct mmc_card *card, struct mmc_blk_data *md,
  	struct scatterlist sg;
  	int err;
  	unsigned int target_part;
@@ -3331,7 +3440,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	/*
  	 * The RPMB accesses comes in from the character device, so we
  	 * need to target these explicitly. Else we just target the
-@@ -537,7 +524,7 @@
+@@ -537,7 +524,7 @@ static int __mmc_blk_ioctl_cmd(struct mmc_card *card, struct mmc_blk_data *md,
  			return err;
  	}
  
@@ -3340,7 +3449,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  		sbc.opcode = MMC_SET_BLOCK_COUNT;
  		/*
  		 * We don't do any blockcount validation because the max size
-@@ -545,8 +532,6 @@
+@@ -545,8 +532,6 @@ static int __mmc_blk_ioctl_cmd(struct mmc_card *card, struct mmc_blk_data *md,
  		 * 'Reliable Write' bit here.
  		 */
  		sbc.arg = data.blocks | (idata->ic.write_flag & BIT(31));
@@ -3349,7 +3458,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  		sbc.flags = MMC_RSP_R1 | MMC_CMD_AC;
  		mrq.sbc = &sbc;
  	}
-@@ -558,15 +543,6 @@
+@@ -558,15 +543,6 @@ static int __mmc_blk_ioctl_cmd(struct mmc_card *card, struct mmc_blk_data *md,
  	mmc_wait_for_req(card->host, &mrq);
  	memcpy(&idata->ic.response, cmd.resp, sizeof(cmd.resp));
  
@@ -3365,7 +3474,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	if (cmd.error) {
  		dev_err(mmc_dev(card->host), "%s: cmd error %d\n",
  						__func__, cmd.error);
-@@ -662,7 +638,6 @@
+@@ -662,7 +638,6 @@ static int mmc_blk_ioctl_cmd(struct mmc_blk_data *md,
  	idatas[0] = idata;
  	req_to_mmc_queue_req(req)->drv_op =
  		rpmb ? MMC_DRV_OP_IOCTL_RPMB : MMC_DRV_OP_IOCTL;
@@ -3373,7 +3482,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	req_to_mmc_queue_req(req)->drv_op_data = idatas;
  	req_to_mmc_queue_req(req)->ioc_count = 1;
  	blk_execute_rq(mq->queue, NULL, req, 0);
-@@ -732,7 +707,6 @@
+@@ -732,7 +707,6 @@ static int mmc_blk_ioctl_multi_cmd(struct mmc_blk_data *md,
  	}
  	req_to_mmc_queue_req(req)->drv_op =
  		rpmb ? MMC_DRV_OP_IOCTL_RPMB : MMC_DRV_OP_IOCTL;
@@ -3381,7 +3490,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	req_to_mmc_queue_req(req)->drv_op_data = idata;
  	req_to_mmc_queue_req(req)->ioc_count = num_of_cmds;
  	blk_execute_rq(mq->queue, NULL, req, 0);
-@@ -823,11 +797,9 @@
+@@ -823,11 +797,9 @@ static const struct block_device_operations mmc_bdops = {
  static int mmc_blk_part_switch_pre(struct mmc_card *card,
  				   unsigned int part_type)
  {
@@ -3394,7 +3503,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  		if (card->ext_csd.cmdq_en) {
  			ret = mmc_cmdq_disable(card);
  			if (ret)
-@@ -842,11 +814,9 @@
+@@ -842,11 +814,9 @@ static int mmc_blk_part_switch_pre(struct mmc_card *card,
  static int mmc_blk_part_switch_post(struct mmc_card *card,
  				    unsigned int part_type)
  {
@@ -3407,7 +3516,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  		mmc_retune_unpause(card->host);
  		if (card->reenable_cmdq && !card->ext_csd.cmdq_en)
  			ret = mmc_cmdq_enable(card);
-@@ -1010,20 +980,6 @@
+@@ -1010,20 +980,6 @@ static inline void mmc_blk_reset_success(struct mmc_blk_data *md, int type)
  	md->reset_done &= ~type;
  }
  
@@ -3428,7 +3537,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  /*
   * The non-block commands come back from the block layer after it queued it and
   * processed it with all other requests and then they get issued in this
-@@ -1051,14 +1007,11 @@
+@@ -1051,14 +1007,11 @@ static void mmc_blk_issue_drv_op(struct mmc_queue *mq, struct request *req)
  			if (ret)
  				break;
  		}
@@ -3444,7 +3553,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  			if (ret)
  				break;
  		}
-@@ -1462,8 +1415,6 @@
+@@ -1462,8 +1415,6 @@ static void mmc_blk_cqe_complete_rq(struct mmc_queue *mq, struct request *req)
  			blk_mq_requeue_request(req, true);
  		else
  			__blk_mq_end_request(req, BLK_STS_OK);
@@ -3453,7 +3562,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	} else {
  		blk_mq_end_request(req, BLK_STS_OK);
  	}
-@@ -2026,14 +1977,14 @@
+@@ -2026,14 +1977,14 @@ static void mmc_blk_mq_poll_completion(struct mmc_queue *mq,
  	mmc_blk_urgent_bkops(mq, mqrq);
  }
  
@@ -3470,7 +3579,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  
  	put_card = (mmc_tot_in_flight(mq) == 0);
  
-@@ -2045,7 +1996,6 @@
+@@ -2045,7 +1996,6 @@ static void mmc_blk_mq_dec_in_flight(struct mmc_queue *mq, enum mmc_issue_type i
  
  static void mmc_blk_mq_post_req(struct mmc_queue *mq, struct request *req)
  {
@@ -3478,7 +3587,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	struct mmc_queue_req *mqrq = req_to_mmc_queue_req(req);
  	struct mmc_request *mrq = &mqrq->brq.mrq;
  	struct mmc_host *host = mq->card->host;
-@@ -2061,7 +2011,7 @@
+@@ -2061,7 +2011,7 @@ static void mmc_blk_mq_post_req(struct mmc_queue *mq, struct request *req)
  	else if (likely(!blk_should_fake_timeout(req->q)))
  		blk_mq_complete_request(req);
  
@@ -3487,7 +3596,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  }
  
  void mmc_blk_mq_recovery(struct mmc_queue *mq)
-@@ -2799,7 +2749,6 @@
+@@ -2799,7 +2749,6 @@ static int mmc_dbg_card_status_get(void *data, u64 *val)
  	if (IS_ERR(req))
  		return PTR_ERR(req);
  	req_to_mmc_queue_req(req)->drv_op = MMC_DRV_OP_GET_CARD_STATUS;
@@ -3495,7 +3604,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	blk_execute_rq(mq->queue, NULL, req, 0);
  	ret = req_to_mmc_queue_req(req)->drv_op_result;
  	if (ret >= 0) {
-@@ -2838,7 +2787,6 @@
+@@ -2838,7 +2787,6 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
  		goto out_free;
  	}
  	req_to_mmc_queue_req(req)->drv_op = MMC_DRV_OP_GET_EXT_CSD;
@@ -3503,15 +3612,16 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/block.c linux-5.10.y-b/drivers/mmc/cor
  	req_to_mmc_queue_req(req)->drv_op_data = &ext_csd;
  	blk_execute_rq(mq->queue, NULL, req, 0);
  	err = req_to_mmc_queue_req(req)->drv_op_result;
-@@ -3146,3 +3094,4 @@
+@@ -3146,3 +3094,4 @@ module_exit(mmc_blk_exit);
  
  MODULE_LICENSE("GPL");
  MODULE_DESCRIPTION("Multimedia Card (MMC) block device driver");
 +
-diff -urN linux-5.10.y-a/drivers/mmc/core/core.c linux-5.10.y-b/drivers/mmc/core/core.c
---- linux-5.10.y-a/drivers/mmc/core/core.c	2024-11-26 10:44:04.094122083 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/core.c	2023-01-30 11:00:10.000000000 +0800
-@@ -394,6 +394,7 @@
+diff --git a/drivers/mmc/core/core.c b/drivers/mmc/core/core.c
+index 0f73ee841574..fc4a8e5f299e 100644
+--- a/drivers/mmc/core/core.c
++++ b/drivers/mmc/core/core.c
+@@ -394,6 +394,7 @@ static int __mmc_start_req(struct mmc_host *host, struct mmc_request *mrq)
  	return err;
  }
  
@@ -3519,7 +3629,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/core.c linux-5.10.y-b/drivers/mmc/core
  void mmc_wait_for_req_done(struct mmc_host *host, struct mmc_request *mrq)
  {
  	struct mmc_command *cmd;
-@@ -418,6 +419,49 @@
+@@ -418,6 +419,49 @@ void mmc_wait_for_req_done(struct mmc_host *host, struct mmc_request *mrq)
  
  	mmc_retune_release(host);
  }
@@ -3569,7 +3679,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/core.c linux-5.10.y-b/drivers/mmc/core
  EXPORT_SYMBOL(mmc_wait_for_req_done);
  
  /*
-@@ -547,27 +591,22 @@
+@@ -547,27 +591,22 @@ int mmc_cqe_recovery(struct mmc_host *host)
  	host->cqe_ops->cqe_recovery_start(host);
  
  	memset(&cmd, 0, sizeof(cmd));
@@ -3603,10 +3713,11 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/core.c linux-5.10.y-b/drivers/mmc/core
  	mmc_retune_release(host);
  
  	return err;
-diff -urN linux-5.10.y-a/drivers/mmc/core/host.c linux-5.10.y-b/drivers/mmc/core/host.c
---- linux-5.10.y-a/drivers/mmc/core/host.c	2024-11-26 10:44:10.665024310 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/host.c	2023-01-01 12:09:28.000000000 +0800
-@@ -114,12 +114,13 @@
+diff --git a/drivers/mmc/core/host.c b/drivers/mmc/core/host.c
+index 5598f8490726..2a95b6b62fd2 100644
+--- a/drivers/mmc/core/host.c
++++ b/drivers/mmc/core/host.c
+@@ -114,12 +114,13 @@ void mmc_retune_enable(struct mmc_host *host)
  
  /*
   * Pause re-tuning for a small set of operations.  The pause begins after the
@@ -3621,40 +3732,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/host.c linux-5.10.y-b/drivers/mmc/core
  		mmc_retune_hold(host);
  	}
  }
-@@ -512,32 +513,6 @@
- 
- EXPORT_SYMBOL(mmc_alloc_host);
- 
--static void devm_mmc_host_release(struct device *dev, void *res)
--{
--	mmc_free_host(*(struct mmc_host **)res);
--}
--
--struct mmc_host *devm_mmc_alloc_host(struct device *dev, int extra)
--{
--	struct mmc_host **dr, *host;
--
--	dr = devres_alloc(devm_mmc_host_release, sizeof(*dr), GFP_KERNEL);
--	if (!dr)
--		return ERR_PTR(-ENOMEM);
--
--	host = mmc_alloc_host(extra, dev);
--	if (IS_ERR(host)) {
--		devres_free(dr);
--		return host;
--	}
--
--	*dr = host;
--	devres_add(dev, dr);
--
--	return host;
--}
--EXPORT_SYMBOL(devm_mmc_alloc_host);
--
- static int mmc_validate_host_caps(struct mmc_host *host)
- {
- 	if (host->caps & MMC_CAP_SDIO_IRQ && !host->ops->enable_sdio_irq) {
-@@ -611,7 +586,6 @@
+@@ -611,7 +612,6 @@ EXPORT_SYMBOL(mmc_remove_host);
   */
  void mmc_free_host(struct mmc_host *host)
  {
@@ -3662,95 +3740,11 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/host.c linux-5.10.y-b/drivers/mmc/core
  	mmc_pwrseq_free(host);
  	put_device(&host->class_dev);
  }
-diff -urN linux-5.10.y-a/drivers/mmc/core/host.h linux-5.10.y-b/drivers/mmc/core/host.h
---- linux-5.10.y-a/drivers/mmc/core/host.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/host.h	2023-01-01 12:09:38.000000000 +0800
-@@ -0,0 +1,81 @@
-+/* SPDX-License-Identifier: GPL-2.0-only */
-+/*
-+ *  linux/drivers/mmc/core/host.h
-+ *
-+ *  Copyright (C) 2003 Russell King, All Rights Reserved.
-+ *  Copyright 2007 Pierre Ossman
-+ */
-+#ifndef _MMC_CORE_HOST_H
-+#define _MMC_CORE_HOST_H
-+
-+#include <linux/mmc/host.h>
-+
-+int mmc_register_host_class(void);
-+void mmc_unregister_host_class(void);
-+
-+void mmc_retune_enable(struct mmc_host *host);
-+void mmc_retune_disable(struct mmc_host *host);
-+void mmc_retune_hold(struct mmc_host *host);
-+void mmc_retune_release(struct mmc_host *host);
-+int mmc_retune(struct mmc_host *host);
-+void mmc_retune_pause(struct mmc_host *host);
-+void mmc_retune_unpause(struct mmc_host *host);
-+
-+static inline void mmc_retune_hold_now(struct mmc_host *host)
-+{
-+	host->retune_now = 0;
-+	host->hold_retune += 1;
-+}
-+
-+static inline void mmc_retune_recheck(struct mmc_host *host)
-+{
-+	if (host->hold_retune <= 1)
-+		host->retune_now = 1;
-+}
-+
-+static inline int mmc_host_cmd23(struct mmc_host *host)
-+{
-+	return host->caps & MMC_CAP_CMD23;
-+}
-+
-+static inline bool mmc_host_done_complete(struct mmc_host *host)
-+{
-+	return host->caps & MMC_CAP_DONE_COMPLETE;
-+}
-+
-+static inline int mmc_boot_partition_access(struct mmc_host *host)
-+{
-+	return !(host->caps2 & MMC_CAP2_BOOTPART_NOACC);
-+}
-+
-+static inline int mmc_host_uhs(struct mmc_host *host)
-+{
-+	return host->caps &
-+		(MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
-+		 MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104 |
-+		 MMC_CAP_UHS_DDR50) &&
-+	       host->caps & MMC_CAP_4_BIT_DATA;
-+}
-+
-+static inline bool mmc_card_hs200(struct mmc_card *card)
-+{
-+	return card->host->ios.timing == MMC_TIMING_MMC_HS200;
-+}
-+
-+static inline bool mmc_card_ddr52(struct mmc_card *card)
-+{
-+	return card->host->ios.timing == MMC_TIMING_MMC_DDR52;
-+}
-+
-+static inline bool mmc_card_hs400(struct mmc_card *card)
-+{
-+	return card->host->ios.timing == MMC_TIMING_MMC_HS400;
-+}
-+
-+static inline bool mmc_card_hs400es(struct mmc_card *card)
-+{
-+	return card->host->ios.enhanced_strobe;
-+}
-+
-+#endif
-+
-diff -urN linux-5.10.y-a/drivers/mmc/core/mmc.c linux-5.10.y-b/drivers/mmc/core/mmc.c
---- linux-5.10.y-a/drivers/mmc/core/mmc.c	2024-11-26 10:44:22.027857213 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/mmc.c	2023-01-01 12:10:00.000000000 +0800
-@@ -997,12 +997,10 @@
+diff --git a/drivers/mmc/core/mmc.c b/drivers/mmc/core/mmc.c
+index 2059cd226cbd..87807ef010a9 100644
+--- a/drivers/mmc/core/mmc.c
++++ b/drivers/mmc/core/mmc.c
+@@ -997,12 +997,10 @@ static int mmc_select_bus_width(struct mmc_card *card)
  	static unsigned ext_csd_bits[] = {
  		EXT_CSD_BUS_WIDTH_8,
  		EXT_CSD_BUS_WIDTH_4,
@@ -3763,1081 +3757,51 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/mmc.c linux-5.10.y-b/drivers/mmc/core/
  	};
  	struct mmc_host *host = card->host;
  	unsigned idx, bus_width = 0;
-diff -urN linux-5.10.y-a/drivers/mmc/core/mmc_ops.c linux-5.10.y-b/drivers/mmc/core/mmc_ops.c
---- linux-5.10.y-a/drivers/mmc/core/mmc_ops.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/mmc_ops.c	2023-01-03 16:51:32.000000000 +0800
-@@ -0,0 +1,1067 @@
-+// SPDX-License-Identifier: GPL-2.0-or-later
-+/*
-+ *  linux/drivers/mmc/core/mmc_ops.h
-+ *
-+ *  Copyright 2006-2007 Pierre Ossman
-+ */
-+
-+#include <linux/slab.h>
-+#include <linux/export.h>
-+#include <linux/types.h>
-+#include <linux/scatterlist.h>
-+
-+#include <linux/mmc/host.h>
-+#include <linux/mmc/card.h>
-+#include <linux/mmc/mmc.h>
-+
-+#include "core.h"
-+#include "card.h"
-+#include "host.h"
-+#include "mmc_ops.h"
-+
-+#define MMC_BKOPS_TIMEOUT_MS		(120 * 1000) /* 120s */
-+#define MMC_CACHE_FLUSH_TIMEOUT_MS	(30 * 1000) /* 30s */
-+#define MMC_SANITIZE_TIMEOUT_MS		(240 * 1000) /* 240s */
-+
-+static const u8 tuning_blk_pattern_4bit[] = {
-+	0xff, 0x0f, 0xff, 0x00, 0xff, 0xcc, 0xc3, 0xcc,
-+	0xc3, 0x3c, 0xcc, 0xff, 0xfe, 0xff, 0xfe, 0xef,
-+	0xff, 0xdf, 0xff, 0xdd, 0xff, 0xfb, 0xff, 0xfb,
-+	0xbf, 0xff, 0x7f, 0xff, 0x77, 0xf7, 0xbd, 0xef,
-+	0xff, 0xf0, 0xff, 0xf0, 0x0f, 0xfc, 0xcc, 0x3c,
-+	0xcc, 0x33, 0xcc, 0xcf, 0xff, 0xef, 0xff, 0xee,
-+	0xff, 0xfd, 0xff, 0xfd, 0xdf, 0xff, 0xbf, 0xff,
-+	0xbb, 0xff, 0xf7, 0xff, 0xf7, 0x7f, 0x7b, 0xde,
-+};
-+
-+static const u8 tuning_blk_pattern_8bit[] = {
-+	0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00,
-+	0xff, 0xff, 0xcc, 0xcc, 0xcc, 0x33, 0xcc, 0xcc,
-+	0xcc, 0x33, 0x33, 0xcc, 0xcc, 0xcc, 0xff, 0xff,
-+	0xff, 0xee, 0xff, 0xff, 0xff, 0xee, 0xee, 0xff,
-+	0xff, 0xff, 0xdd, 0xff, 0xff, 0xff, 0xdd, 0xdd,
-+	0xff, 0xff, 0xff, 0xbb, 0xff, 0xff, 0xff, 0xbb,
-+	0xbb, 0xff, 0xff, 0xff, 0x77, 0xff, 0xff, 0xff,
-+	0x77, 0x77, 0xff, 0x77, 0xbb, 0xdd, 0xee, 0xff,
-+	0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0x00,
-+	0x00, 0xff, 0xff, 0xcc, 0xcc, 0xcc, 0x33, 0xcc,
-+	0xcc, 0xcc, 0x33, 0x33, 0xcc, 0xcc, 0xcc, 0xff,
-+	0xff, 0xff, 0xee, 0xff, 0xff, 0xff, 0xee, 0xee,
-+	0xff, 0xff, 0xff, 0xdd, 0xff, 0xff, 0xff, 0xdd,
-+	0xdd, 0xff, 0xff, 0xff, 0xbb, 0xff, 0xff, 0xff,
-+	0xbb, 0xbb, 0xff, 0xff, 0xff, 0x77, 0xff, 0xff,
-+	0xff, 0x77, 0x77, 0xff, 0x77, 0xbb, 0xdd, 0xee,
-+};
-+
-+int __mmc_send_status(struct mmc_card *card, u32 *status, unsigned int retries)
-+{
-+	int err;
-+	struct mmc_command cmd = {};
-+
-+	cmd.opcode = MMC_SEND_STATUS;
-+	if (!mmc_host_is_spi(card->host))
-+		cmd.arg = card->rca << 16;
-+	cmd.flags = MMC_RSP_SPI_R2 | MMC_RSP_R1 | MMC_CMD_AC;
-+
-+	err = mmc_wait_for_cmd(card->host, &cmd, retries);
-+	if (err)
-+		return err;
-+
-+	/* NOTE: callers are required to understand the difference
-+	 * between "native" and SPI format status words!
-+	 */
-+	if (status)
-+		*status = cmd.resp[0];
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(__mmc_send_status);
-+
-+int mmc_send_status(struct mmc_card *card, u32 *status)
-+{
-+	return __mmc_send_status(card, status, MMC_CMD_RETRIES);
-+}
-+EXPORT_SYMBOL_GPL(mmc_send_status);
-+
-+static int _mmc_select_card(struct mmc_host *host, struct mmc_card *card)
-+{
-+	struct mmc_command cmd = {};
-+
-+	cmd.opcode = MMC_SELECT_CARD;
-+
-+	if (card) {
-+		cmd.arg = card->rca << 16;
-+		cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
-+	} else {
-+		cmd.arg = 0;
-+		cmd.flags = MMC_RSP_NONE | MMC_CMD_AC;
-+	}
-+
-+	return mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
-+}
-+
-+int mmc_select_card(struct mmc_card *card)
-+{
-+
-+	return _mmc_select_card(card->host, card);
-+}
-+
-+int mmc_deselect_cards(struct mmc_host *host)
-+{
-+	return _mmc_select_card(host, NULL);
-+}
-+
-+/*
-+ * Write the value specified in the device tree or board code into the optional
-+ * 16 bit Driver Stage Register. This can be used to tune raise/fall times and
-+ * drive strength of the DAT and CMD outputs. The actual meaning of a given
-+ * value is hardware dependant.
-+ * The presence of the DSR register can be determined from the CSD register,
-+ * bit 76.
-+ */
-+int mmc_set_dsr(struct mmc_host *host)
-+{
-+	struct mmc_command cmd = {};
-+
-+	cmd.opcode = MMC_SET_DSR;
-+
-+	cmd.arg = (host->dsr << 16) | 0xffff;
-+	cmd.flags = MMC_RSP_NONE | MMC_CMD_AC;
-+
-+	return mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
-+}
-+
-+int mmc_go_idle(struct mmc_host *host)
-+{
-+	int err;
-+	struct mmc_command cmd = {};
-+
-+	/*
-+	 * Non-SPI hosts need to prevent chipselect going active during
-+	 * GO_IDLE; that would put chips into SPI mode.  Remind them of
-+	 * that in case of hardware that won't pull up DAT3/nCS otherwise.
-+	 *
-+	 * SPI hosts ignore ios.chip_select; it's managed according to
-+	 * rules that must accommodate non-MMC slaves which this layer
-+	 * won't even know about.
-+	 */
-+	if (!mmc_host_is_spi(host)) {
-+		mmc_set_chip_select(host, MMC_CS_HIGH);
-+		mmc_delay(1);
-+	}
-+
-+	cmd.opcode = MMC_GO_IDLE_STATE;
-+	cmd.arg = 0;
-+	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_NONE | MMC_CMD_BC;
-+
-+	err = mmc_wait_for_cmd(host, &cmd, 0);
-+
-+	mmc_delay(1);
-+
-+	if (!mmc_host_is_spi(host)) {
-+		mmc_set_chip_select(host, MMC_CS_DONTCARE);
-+		mmc_delay(1);
-+	}
-+
-+	host->use_spi_crc = 0;
-+
-+	return err;
-+}
-+
-+int mmc_send_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
-+{
-+	struct mmc_command cmd = {};
-+	int i, err = 0;
-+
-+	cmd.opcode = MMC_SEND_OP_COND;
-+	cmd.arg = mmc_host_is_spi(host) ? 0 : ocr;
-+	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R3 | MMC_CMD_BCR;
-+
-+	for (i = 100; i; i--) {
-+		err = mmc_wait_for_cmd(host, &cmd, 0);
-+		if (err)
-+			break;
-+
-+		/* wait until reset completes */
-+		if (mmc_host_is_spi(host)) {
-+			if (!(cmd.resp[0] & R1_SPI_IDLE))
-+				break;
-+		} else {
-+			if (cmd.resp[0] & MMC_CARD_BUSY)
-+				break;
-+		}
-+
-+		err = -ETIMEDOUT;
-+
-+		mmc_delay(10);
-+
-+		/*
-+		 * According to eMMC specification v5.1 section 6.4.3, we
-+		 * should issue CMD1 repeatedly in the idle state until
-+		 * the eMMC is ready. Otherwise some eMMC devices seem to enter
-+		 * the inactive mode after mmc_init_card() issued CMD0 when
-+		 * the eMMC device is busy.
-+		 */
-+		if (!ocr && !mmc_host_is_spi(host))
-+			cmd.arg = cmd.resp[0] | BIT(30);
-+	}
-+
-+	if (rocr && !mmc_host_is_spi(host))
-+		*rocr = cmd.resp[0];
-+
-+	return err;
-+}
-+
-+int mmc_set_relative_addr(struct mmc_card *card)
-+{
-+	struct mmc_command cmd = {};
-+
-+	cmd.opcode = MMC_SET_RELATIVE_ADDR;
-+	cmd.arg = card->rca << 16;
-+	cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
-+
-+	return mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
-+}
-+
-+static int
-+mmc_send_cxd_native(struct mmc_host *host, u32 arg, u32 *cxd, int opcode)
-+{
-+	int err;
-+	struct mmc_command cmd = {};
-+
-+	cmd.opcode = opcode;
-+	cmd.arg = arg;
-+	cmd.flags = MMC_RSP_R2 | MMC_CMD_AC;
-+
-+	err = mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
-+	if (err)
-+		return err;
-+
-+	memcpy(cxd, cmd.resp, sizeof(u32) * 4);
-+
-+	return 0;
-+}
-+
-+/*
-+ * NOTE: void *buf, caller for the buf is required to use DMA-capable
-+ * buffer or on-stack buffer (with some overhead in callee).
-+ */
-+static int
-+mmc_send_cxd_data(struct mmc_card *card, struct mmc_host *host,
-+		u32 opcode, void *buf, unsigned len)
-+{
-+	struct mmc_request mrq = {};
-+	struct mmc_command cmd = {};
-+	struct mmc_data data = {};
-+	struct scatterlist sg;
-+
-+	mrq.cmd = &cmd;
-+	mrq.data = &data;
-+
-+	cmd.opcode = opcode;
-+	cmd.arg = 0;
-+
-+	/* NOTE HACK:  the MMC_RSP_SPI_R1 is always correct here, but we
-+	 * rely on callers to never use this with "native" calls for reading
-+	 * CSD or CID.  Native versions of those commands use the R2 type,
-+	 * not R1 plus a data block.
-+	 */
-+	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_ADTC;
-+
-+	data.blksz = len;
-+	data.blocks = 1;
-+	data.flags = MMC_DATA_READ;
-+	data.sg = &sg;
-+	data.sg_len = 1;
-+
-+	sg_init_one(&sg, buf, len);
-+
-+	if (opcode == MMC_SEND_CSD || opcode == MMC_SEND_CID) {
-+		/*
-+		 * The spec states that CSR and CID accesses have a timeout
-+		 * of 64 clock cycles.
-+		 */
-+		data.timeout_ns = 0;
-+		data.timeout_clks = 64;
-+	} else
-+		mmc_set_data_timeout(&data, card);
-+
-+	mmc_wait_for_req(host, &mrq);
-+
-+	if (cmd.error)
-+		return cmd.error;
-+	if (data.error)
-+		return data.error;
-+
-+	return 0;
-+}
-+
-+static int mmc_spi_send_csd(struct mmc_card *card, u32 *csd)
-+{
-+	int ret, i;
-+	__be32 *csd_tmp;
-+
-+	csd_tmp = kzalloc(16, GFP_KERNEL);
-+	if (!csd_tmp)
-+		return -ENOMEM;
-+
-+	ret = mmc_send_cxd_data(card, card->host, MMC_SEND_CSD, csd_tmp, 16);
-+	if (ret)
-+		goto err;
-+
-+	for (i = 0; i < 4; i++)
-+		csd[i] = be32_to_cpu(csd_tmp[i]);
-+
-+err:
-+	kfree(csd_tmp);
-+	return ret;
-+}
-+
-+int mmc_send_csd(struct mmc_card *card, u32 *csd)
-+{
-+	if (mmc_host_is_spi(card->host))
-+		return mmc_spi_send_csd(card, csd);
-+
-+	return mmc_send_cxd_native(card->host, card->rca << 16,	csd,
-+				MMC_SEND_CSD);
-+}
-+
-+static int mmc_spi_send_cid(struct mmc_host *host, u32 *cid)
-+{
-+	int ret, i;
-+	__be32 *cid_tmp;
-+
-+	cid_tmp = kzalloc(16, GFP_KERNEL);
-+	if (!cid_tmp)
-+		return -ENOMEM;
-+
-+	ret = mmc_send_cxd_data(NULL, host, MMC_SEND_CID, cid_tmp, 16);
-+	if (ret)
-+		goto err;
-+
-+	for (i = 0; i < 4; i++)
-+		cid[i] = be32_to_cpu(cid_tmp[i]);
-+
-+err:
-+	kfree(cid_tmp);
-+	return ret;
-+}
-+
-+int mmc_send_cid(struct mmc_host *host, u32 *cid)
-+{
-+	if (mmc_host_is_spi(host))
-+		return mmc_spi_send_cid(host, cid);
-+
-+	return mmc_send_cxd_native(host, 0, cid, MMC_ALL_SEND_CID);
-+}
-+
-+int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
-+{
-+	int err;
-+	u8 *ext_csd;
-+
-+	if (!card || !new_ext_csd)
-+		return -EINVAL;
-+
-+	if (!mmc_can_ext_csd(card))
-+		return -EOPNOTSUPP;
-+
-+	/*
-+	 * As the ext_csd is so large and mostly unused, we don't store the
-+	 * raw block in mmc_card.
-+	 */
-+	ext_csd = kzalloc(512, GFP_KERNEL);
-+	if (!ext_csd)
-+		return -ENOMEM;
-+
-+	err = mmc_send_cxd_data(card, card->host, MMC_SEND_EXT_CSD, ext_csd,
-+				512);
-+	if (err)
-+		kfree(ext_csd);
-+	else
-+		*new_ext_csd = ext_csd;
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mmc_get_ext_csd);
-+
-+int mmc_spi_read_ocr(struct mmc_host *host, int highcap, u32 *ocrp)
-+{
-+	struct mmc_command cmd = {};
-+	int err;
-+
-+	cmd.opcode = MMC_SPI_READ_OCR;
-+	cmd.arg = highcap ? (1 << 30) : 0;
-+	cmd.flags = MMC_RSP_SPI_R3;
-+
-+	err = mmc_wait_for_cmd(host, &cmd, 0);
-+
-+	*ocrp = cmd.resp[1];
-+	return err;
-+}
-+
-+int mmc_spi_set_crc(struct mmc_host *host, int use_crc)
-+{
-+	struct mmc_command cmd = {};
-+	int err;
-+
-+	cmd.opcode = MMC_SPI_CRC_ON_OFF;
-+	cmd.flags = MMC_RSP_SPI_R1;
-+	cmd.arg = use_crc;
-+
-+	err = mmc_wait_for_cmd(host, &cmd, 0);
-+	if (!err)
-+		host->use_spi_crc = use_crc;
-+	return err;
-+}
-+
-+static int mmc_switch_status_error(struct mmc_host *host, u32 status)
-+{
-+	if (mmc_host_is_spi(host)) {
-+		if (status & R1_SPI_ILLEGAL_COMMAND)
-+			return -EBADMSG;
-+	} else {
-+		if (R1_STATUS(status))
-+			pr_warn("%s: unexpected status %#x after switch\n",
-+				mmc_hostname(host), status);
-+		if (status & R1_SWITCH_ERROR)
-+			return -EBADMSG;
-+	}
-+	return 0;
-+}
-+
-+/* Caller must hold re-tuning */
-+int mmc_switch_status(struct mmc_card *card, bool crc_err_fatal)
-+{
-+	u32 status;
-+	int err;
-+
-+	err = mmc_send_status(card, &status);
-+	if (!crc_err_fatal && err == -EILSEQ)
-+		return 0;
-+	if (err)
-+		return err;
-+
-+	return mmc_switch_status_error(card->host, status);
-+}
-+
-+static int mmc_busy_status(struct mmc_card *card, bool retry_crc_err,
-+			   enum mmc_busy_cmd busy_cmd, bool *busy)
-+{
-+	struct mmc_host *host = card->host;
-+	u32 status = 0;
-+	int err;
-+
+diff --git a/drivers/mmc/core/mmc_ops.c b/drivers/mmc/core/mmc_ops.c
+index b6bb7f7faee2..9988cc8985d7 100644
+--- a/drivers/mmc/core/mmc_ops.c
++++ b/drivers/mmc/core/mmc_ops.c
+@@ -452,7 +452,7 @@ static int mmc_busy_status(struct mmc_card *card, bool retry_crc_err,
+ 	u32 status = 0;
+ 	int err;
+ 
+-	if (busy_cmd != MMC_BUSY_IO && host->ops->card_busy) {
 +	if (host->ops->card_busy) {
-+		*busy = host->ops->card_busy(host);
-+		return 0;
-+	}
-+
-+	err = mmc_send_status(card, &status);
-+	if (retry_crc_err && err == -EILSEQ) {
-+		*busy = true;
-+		return 0;
-+	}
-+	if (err)
-+		return err;
-+
-+	switch (busy_cmd) {
-+	case MMC_BUSY_CMD6:
-+		err = mmc_switch_status_error(card->host, status);
-+		break;
-+	case MMC_BUSY_ERASE:
-+		err = R1_STATUS(status) ? -EIO : 0;
-+		break;
-+	case MMC_BUSY_HPI:
-+		break;
-+	default:
-+		err = -EINVAL;
-+	}
-+
-+	if (err)
-+		return err;
-+
-+	*busy = !mmc_ready_for_data(status);
-+	return 0;
-+}
-+
-+static int __mmc_poll_for_busy(struct mmc_card *card, unsigned int timeout_ms,
-+			       bool send_status, bool retry_crc_err,
-+			       enum mmc_busy_cmd busy_cmd)
-+{
-+	struct mmc_host *host = card->host;
-+	int err;
-+	unsigned long timeout;
-+	unsigned int udelay = 32, udelay_max = 32768;
-+	bool expired = false;
-+	bool busy = false;
-+
-+	/*
-+	 * In cases when not allowed to poll by using CMD13 or because we aren't
-+	 * capable of polling by using ->card_busy(), then rely on waiting the
-+	 * stated timeout to be sufficient.
-+	 */
-+	if (!send_status && !host->ops->card_busy) {
-+		mmc_delay(timeout_ms);
-+		return 0;
-+	}
-+
-+	timeout = jiffies + msecs_to_jiffies(timeout_ms) + 1;
-+	do {
-+		/*
-+		 * Due to the possibility of being preempted while polling,
-+		 * check the expiration time first.
-+		 */
-+		expired = time_after(jiffies, timeout);
-+
-+		err = mmc_busy_status(card, retry_crc_err, busy_cmd, &busy);
-+		if (err)
-+			return err;
-+
-+		/* Timeout if the device still remains busy. */
-+		if (expired && busy) {
-+			pr_err("%s: Card stuck being busy! %s\n",
-+				mmc_hostname(host), __func__);
-+			return -ETIMEDOUT;
-+		}
-+
-+		/* Throttle the polling rate to avoid hogging the CPU. */
-+		if (busy) {
-+			usleep_range(udelay, udelay * 2);
-+			if (udelay < udelay_max)
-+				udelay *= 2;
-+		}
-+	} while (busy);
-+
-+	return 0;
-+}
-+
-+int mmc_poll_for_busy(struct mmc_card *card, unsigned int timeout_ms,
-+		      enum mmc_busy_cmd busy_cmd)
-+{
-+	return __mmc_poll_for_busy(card, timeout_ms, true, false, busy_cmd);
-+}
-+
-+/**
-+ *	__mmc_switch - modify EXT_CSD register
-+ *	@card: the MMC card associated with the data transfer
-+ *	@set: cmd set values
-+ *	@index: EXT_CSD register index
-+ *	@value: value to program into EXT_CSD register
-+ *	@timeout_ms: timeout (ms) for operation performed by register write,
-+ *                   timeout of zero implies maximum possible timeout
-+ *	@timing: new timing to change to
-+ *	@send_status: send status cmd to poll for busy
-+ *	@retry_crc_err: retry when CRC errors when polling with CMD13 for busy
-+ *
-+ *	Modifies the EXT_CSD register for selected card.
-+ */
-+int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
-+		unsigned int timeout_ms, unsigned char timing,
-+		bool send_status, bool retry_crc_err)
-+{
-+	struct mmc_host *host = card->host;
-+	int err;
-+	struct mmc_command cmd = {};
-+	bool use_r1b_resp = true;
-+	unsigned char old_timing = host->ios.timing;
-+
-+	mmc_retune_hold(host);
-+
-+	if (!timeout_ms) {
-+		pr_warn("%s: unspecified timeout for CMD6 - use generic\n",
-+			mmc_hostname(host));
-+		timeout_ms = card->ext_csd.generic_cmd6_time;
-+	}
-+
-+	/*
-+	 * If the max_busy_timeout of the host is specified, make sure it's
-+	 * enough to fit the used timeout_ms. In case it's not, let's instruct
-+	 * the host to avoid HW busy detection, by converting to a R1 response
-+	 * instead of a R1B. Note, some hosts requires R1B, which also means
-+	 * they are on their own when it comes to deal with the busy timeout.
-+	 */
-+	if (!(host->caps & MMC_CAP_NEED_RSP_BUSY) && host->max_busy_timeout &&
-+	    (timeout_ms > host->max_busy_timeout))
-+		use_r1b_resp = false;
-+
-+	cmd.opcode = MMC_SWITCH;
-+	cmd.arg = (MMC_SWITCH_MODE_WRITE_BYTE << 24) |
-+		  (index << 16) |
-+		  (value << 8) |
-+		  set;
-+	cmd.flags = MMC_CMD_AC;
-+	if (use_r1b_resp) {
-+		cmd.flags |= MMC_RSP_SPI_R1B | MMC_RSP_R1B;
-+		cmd.busy_timeout = timeout_ms;
-+	} else {
-+		cmd.flags |= MMC_RSP_SPI_R1 | MMC_RSP_R1;
-+	}
-+
+ 		*busy = host->ops->card_busy(host);
+ 		return 0;
+ 	}
+@@ -473,7 +473,6 @@ static int mmc_busy_status(struct mmc_card *card, bool retry_crc_err,
+ 		err = R1_STATUS(status) ? -EIO : 0;
+ 		break;
+ 	case MMC_BUSY_HPI:
+-	case MMC_BUSY_IO:
+ 		break;
+ 	default:
+ 		err = -EINVAL;
+@@ -599,6 +598,9 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
+ 		cmd.flags |= MMC_RSP_SPI_R1 | MMC_RSP_R1;
+ 	}
+ 
 +	if (index == EXT_CSD_SANITIZE_START)
 +		cmd.sanitize_busy = true;
 +
-+	err = mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
-+	if (err)
-+		goto out;
-+
-+	/*If SPI or used HW busy detection above, then we don't need to poll. */
-+	if (((host->caps & MMC_CAP_WAIT_WHILE_BUSY) && use_r1b_resp) ||
-+		mmc_host_is_spi(host))
-+		goto out_tim;
-+
-+	/* Let's try to poll to find out when the command is completed. */
-+	err = __mmc_poll_for_busy(card, timeout_ms, send_status, retry_crc_err,
-+				  MMC_BUSY_CMD6);
-+	if (err)
-+		goto out;
-+
-+out_tim:
-+	/* Switch to new timing before check switch status. */
-+	if (timing)
-+		mmc_set_timing(host, timing);
-+
-+	if (send_status) {
-+		err = mmc_switch_status(card, true);
-+		if (err && timing)
-+			mmc_set_timing(host, old_timing);
-+	}
-+out:
-+	mmc_retune_release(host);
-+
-+	return err;
-+}
-+
-+int mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
-+		unsigned int timeout_ms)
-+{
-+	return __mmc_switch(card, set, index, value, timeout_ms, 0,
-+			    true, false);
-+}
-+EXPORT_SYMBOL_GPL(mmc_switch);
-+
-+int mmc_send_tuning(struct mmc_host *host, u32 opcode, int *cmd_error)
-+{
-+	struct mmc_request mrq = {};
-+	struct mmc_command cmd = {};
-+	struct mmc_data data = {};
-+	struct scatterlist sg;
-+	struct mmc_ios *ios = &host->ios;
-+	const u8 *tuning_block_pattern;
-+	int size, err = 0;
-+	u8 *data_buf;
-+
-+	if (ios->bus_width == MMC_BUS_WIDTH_8) {
-+		tuning_block_pattern = tuning_blk_pattern_8bit;
-+		size = sizeof(tuning_blk_pattern_8bit);
-+	} else if (ios->bus_width == MMC_BUS_WIDTH_4) {
-+		tuning_block_pattern = tuning_blk_pattern_4bit;
-+		size = sizeof(tuning_blk_pattern_4bit);
-+	} else
-+		return -EINVAL;
-+
-+	data_buf = kzalloc(size, GFP_KERNEL);
-+	if (!data_buf)
-+		return -ENOMEM;
-+
-+	mrq.cmd = &cmd;
-+	mrq.data = &data;
-+
-+	cmd.opcode = opcode;
-+	cmd.flags = MMC_RSP_R1 | MMC_CMD_ADTC;
-+
-+	data.blksz = size;
-+	data.blocks = 1;
-+	data.flags = MMC_DATA_READ;
-+
-+	/*
-+	 * According to the tuning specs, Tuning process
-+	 * is normally shorter 40 executions of CMD19,
-+	 * and timeout value should be shorter than 150 ms
-+	 */
-+	data.timeout_ns = 150 * NSEC_PER_MSEC;
-+
-+	data.sg = &sg;
-+	data.sg_len = 1;
-+	sg_init_one(&sg, data_buf, size);
-+
-+	mmc_wait_for_req(host, &mrq);
-+
-+	if (cmd_error)
-+		*cmd_error = cmd.error;
-+
-+	if (cmd.error) {
-+		err = cmd.error;
-+		goto out;
-+	}
-+
-+	if (data.error) {
-+		err = data.error;
-+		goto out;
-+	}
-+
-+	if (memcmp(data_buf, tuning_block_pattern, size))
-+		err = -EIO;
-+
-+out:
-+	kfree(data_buf);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mmc_send_tuning);
-+
-+int mmc_abort_tuning(struct mmc_host *host, u32 opcode)
-+{
-+	struct mmc_command cmd = {};
-+
-+	/*
-+	 * eMMC specification specifies that CMD12 can be used to stop a tuning
-+	 * command, but SD specification does not, so do nothing unless it is
-+	 * eMMC.
-+	 */
-+	if (opcode != MMC_SEND_TUNING_BLOCK_HS200)
-+		return 0;
-+
-+	cmd.opcode = MMC_STOP_TRANSMISSION;
-+	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_AC;
-+
-+	/*
-+	 * For drivers that override R1 to R1b, set an arbitrary timeout based
-+	 * on the tuning timeout i.e. 150ms.
-+	 */
-+	cmd.busy_timeout = 150;
-+
-+	return mmc_wait_for_cmd(host, &cmd, 0);
-+}
-+EXPORT_SYMBOL_GPL(mmc_abort_tuning);
-+
-+static int
-+mmc_send_bus_test(struct mmc_card *card, struct mmc_host *host, u8 opcode,
-+		  u8 len)
-+{
-+	struct mmc_request mrq = {};
-+	struct mmc_command cmd = {};
-+	struct mmc_data data = {};
-+	struct scatterlist sg;
-+	u8 *data_buf;
-+	u8 *test_buf;
-+	int i, err;
-+	static u8 testdata_8bit[8] = { 0x55, 0xaa, 0, 0, 0, 0, 0, 0 };
-+	static u8 testdata_4bit[4] = { 0x5a, 0, 0, 0 };
-+
-+	/* dma onto stack is unsafe/nonportable, but callers to this
-+	 * routine normally provide temporary on-stack buffers ...
-+	 */
-+	data_buf = kmalloc(len, GFP_KERNEL);
-+	if (!data_buf)
-+		return -ENOMEM;
-+
-+	if (len == 8)
-+		test_buf = testdata_8bit;
-+	else if (len == 4)
-+		test_buf = testdata_4bit;
-+	else {
-+		pr_err("%s: Invalid bus_width %d\n",
-+		       mmc_hostname(host), len);
-+		kfree(data_buf);
-+		return -EINVAL;
-+	}
-+
-+	if (opcode == MMC_BUS_TEST_W)
-+		memcpy(data_buf, test_buf, len);
-+
-+	mrq.cmd = &cmd;
-+	mrq.data = &data;
-+	cmd.opcode = opcode;
-+	cmd.arg = 0;
-+
-+	/* NOTE HACK:  the MMC_RSP_SPI_R1 is always correct here, but we
-+	 * rely on callers to never use this with "native" calls for reading
-+	 * CSD or CID.  Native versions of those commands use the R2 type,
-+	 * not R1 plus a data block.
-+	 */
-+	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_ADTC;
-+
-+	data.blksz = len;
-+	data.blocks = 1;
-+	if (opcode == MMC_BUS_TEST_R)
-+		data.flags = MMC_DATA_READ;
-+	else
-+		data.flags = MMC_DATA_WRITE;
-+
-+	data.sg = &sg;
-+	data.sg_len = 1;
-+	mmc_set_data_timeout(&data, card);
-+	sg_init_one(&sg, data_buf, len);
-+	mmc_wait_for_req(host, &mrq);
-+	err = 0;
-+	if (opcode == MMC_BUS_TEST_R) {
-+		for (i = 0; i < len / 4; i++)
-+			if ((test_buf[i] ^ data_buf[i]) != 0xff) {
-+				err = -EIO;
-+				break;
-+			}
-+	}
-+	kfree(data_buf);
-+
-+	if (cmd.error)
-+		return cmd.error;
-+	if (data.error)
-+		return data.error;
-+
-+	return err;
-+}
-+
-+int mmc_bus_test(struct mmc_card *card, u8 bus_width)
-+{
-+	int width;
-+
-+	if (bus_width == MMC_BUS_WIDTH_8)
-+		width = 8;
-+	else if (bus_width == MMC_BUS_WIDTH_4)
-+		width = 4;
-+	else if (bus_width == MMC_BUS_WIDTH_1)
-+		return 0; /* no need for test */
-+	else
-+		return -EINVAL;
-+
-+	/*
-+	 * Ignore errors from BUS_TEST_W.  BUS_TEST_R will fail if there
-+	 * is a problem.  This improves chances that the test will work.
-+	 */
-+	mmc_send_bus_test(card, card->host, MMC_BUS_TEST_W, width);
-+	return mmc_send_bus_test(card, card->host, MMC_BUS_TEST_R, width);
-+}
-+
-+static int mmc_send_hpi_cmd(struct mmc_card *card)
-+{
-+	unsigned int busy_timeout_ms = card->ext_csd.out_of_int_time;
-+	struct mmc_host *host = card->host;
-+	bool use_r1b_resp = true;
-+	struct mmc_command cmd = {};
-+	int err;
-+
-+	cmd.opcode = card->ext_csd.hpi_cmd;
-+	cmd.arg = card->rca << 16 | 1;
-+
-+	/*
-+	 * Make sure the host's max_busy_timeout fit the needed timeout for HPI.
-+	 * In case it doesn't, let's instruct the host to avoid HW busy
-+	 * detection, by using a R1 response instead of R1B.
-+	 */
-+	if (host->max_busy_timeout && busy_timeout_ms > host->max_busy_timeout)
-+		use_r1b_resp = false;
-+
-+	if (cmd.opcode == MMC_STOP_TRANSMISSION && use_r1b_resp) {
-+		cmd.flags = MMC_RSP_R1B | MMC_CMD_AC;
-+		cmd.busy_timeout = busy_timeout_ms;
-+	} else {
-+		cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
-+		use_r1b_resp = false;
-+	}
-+
-+	err = mmc_wait_for_cmd(host, &cmd, 0);
-+	if (err) {
-+		pr_warn("%s: HPI error %d. Command response %#x\n",
-+			mmc_hostname(host), err, cmd.resp[0]);
-+		return err;
-+	}
-+
-+	/* No need to poll when using HW busy detection. */
-+	if (host->caps & MMC_CAP_WAIT_WHILE_BUSY && use_r1b_resp)
-+		return 0;
-+
-+	/* Let's poll to find out when the HPI request completes. */
-+	return mmc_poll_for_busy(card, busy_timeout_ms, MMC_BUSY_HPI);
-+}
-+
-+/**
-+ *	mmc_interrupt_hpi - Issue for High priority Interrupt
-+ *	@card: the MMC card associated with the HPI transfer
-+ *
-+ *	Issued High Priority Interrupt, and check for card status
-+ *	until out-of prg-state.
-+ */
+ 	err = mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
+ 	if (err)
+ 		goto out;
+@@ -879,7 +881,7 @@ static int mmc_send_hpi_cmd(struct mmc_card *card)
+  *	Issued High Priority Interrupt, and check for card status
+  *	until out-of prg-state.
+  */
+-static int mmc_interrupt_hpi(struct mmc_card *card)
 +int mmc_interrupt_hpi(struct mmc_card *card)
-+{
-+	int err;
-+	u32 status;
-+
-+	if (!card->ext_csd.hpi_en) {
-+		pr_info("%s: HPI enable bit unset\n", mmc_hostname(card->host));
-+		return 1;
-+	}
-+
-+	err = mmc_send_status(card, &status);
-+	if (err) {
-+		pr_err("%s: Get card status fail\n", mmc_hostname(card->host));
-+		goto out;
-+	}
-+
-+	switch (R1_CURRENT_STATE(status)) {
-+	case R1_STATE_IDLE:
-+	case R1_STATE_READY:
-+	case R1_STATE_STBY:
-+	case R1_STATE_TRAN:
-+		/*
-+		 * In idle and transfer states, HPI is not needed and the caller
-+		 * can issue the next intended command immediately
-+		 */
-+		goto out;
-+	case R1_STATE_PRG:
-+		break;
-+	default:
-+		/* In all other states, it's illegal to issue HPI */
-+		pr_debug("%s: HPI cannot be sent. Card state=%d\n",
-+			mmc_hostname(card->host), R1_CURRENT_STATE(status));
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
-+	err = mmc_send_hpi_cmd(card);
-+out:
-+	return err;
-+}
-+
-+int mmc_can_ext_csd(struct mmc_card *card)
-+{
-+	return (card && card->csd.mmca_vsn > CSD_SPEC_VER_3);
-+}
-+
-+static int mmc_read_bkops_status(struct mmc_card *card)
-+{
-+	int err;
-+	u8 *ext_csd;
-+
-+	err = mmc_get_ext_csd(card, &ext_csd);
-+	if (err)
-+		return err;
-+
-+	card->ext_csd.raw_bkops_status = ext_csd[EXT_CSD_BKOPS_STATUS];
-+	card->ext_csd.raw_exception_status = ext_csd[EXT_CSD_EXP_EVENTS_STATUS];
-+	kfree(ext_csd);
-+	return 0;
-+}
-+
-+/**
-+ *	mmc_run_bkops - Run BKOPS for supported cards
-+ *	@card: MMC card to run BKOPS for
-+ *
-+ *	Run background operations synchronously for cards having manual BKOPS
-+ *	enabled and in case it reports urgent BKOPS level.
-+*/
-+void mmc_run_bkops(struct mmc_card *card)
-+{
-+	int err;
-+
-+	if (!card->ext_csd.man_bkops_en)
-+		return;
-+
-+	err = mmc_read_bkops_status(card);
-+	if (err) {
-+		pr_err("%s: Failed to read bkops status: %d\n",
-+		       mmc_hostname(card->host), err);
-+		return;
-+	}
-+
-+	if (!card->ext_csd.raw_bkops_status ||
-+	    card->ext_csd.raw_bkops_status < EXT_CSD_BKOPS_LEVEL_2)
-+		return;
-+
-+	mmc_retune_hold(card->host);
-+
-+	/*
-+	 * For urgent BKOPS status, LEVEL_2 and higher, let's execute
-+	 * synchronously. Future wise, we may consider to start BKOPS, for less
-+	 * urgent levels by using an asynchronous background task, when idle.
-+	 */
-+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-+			 EXT_CSD_BKOPS_START, 1, MMC_BKOPS_TIMEOUT_MS);
-+	if (err)
-+		pr_warn("%s: Error %d starting bkops\n",
-+			mmc_hostname(card->host), err);
-+
-+	mmc_retune_release(card->host);
-+}
-+EXPORT_SYMBOL(mmc_run_bkops);
-+
-+/*
-+ * Flush the cache to the non-volatile storage.
-+ */
-+int mmc_flush_cache(struct mmc_card *card)
-+{
-+	int err = 0;
-+
-+	if (mmc_cache_enabled(card->host)) {
-+		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-+				 EXT_CSD_FLUSH_CACHE, 1,
-+				 MMC_CACHE_FLUSH_TIMEOUT_MS);
-+		if (err)
-+			pr_err("%s: cache flush error %d\n",
-+					mmc_hostname(card->host), err);
-+	}
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(mmc_flush_cache);
-+
-+static int mmc_cmdq_switch(struct mmc_card *card, bool enable)
-+{
-+	u8 val = enable ? EXT_CSD_CMDQ_MODE_ENABLED : 0;
-+	int err;
-+
-+	if (!card->ext_csd.cmdq_support)
-+		return -EOPNOTSUPP;
-+
-+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_CMDQ_MODE_EN,
-+			 val, card->ext_csd.generic_cmd6_time);
-+	if (!err)
-+		card->ext_csd.cmdq_en = enable;
-+
-+	return err;
-+}
-+
-+int mmc_cmdq_enable(struct mmc_card *card)
-+{
-+	return mmc_cmdq_switch(card, true);
-+}
-+EXPORT_SYMBOL_GPL(mmc_cmdq_enable);
-+
-+int mmc_cmdq_disable(struct mmc_card *card)
-+{
-+	return mmc_cmdq_switch(card, false);
-+}
-+EXPORT_SYMBOL_GPL(mmc_cmdq_disable);
-+
-+int mmc_sanitize(struct mmc_card *card)
-+{
-+	struct mmc_host *host = card->host;
-+	int err;
-+
-+	if (!mmc_can_sanitize(card)) {
-+		pr_warn("%s: Sanitize not supported\n", mmc_hostname(host));
-+		return -EOPNOTSUPP;
-+	}
-+
-+	pr_debug("%s: Sanitize in progress...\n", mmc_hostname(host));
-+
-+	mmc_retune_hold(host);
-+
-+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_SANITIZE_START,
-+			 1, MMC_SANITIZE_TIMEOUT_MS);
-+	if (err)
-+		pr_err("%s: Sanitize failed err=%d\n", mmc_hostname(host), err);
-+
-+	/*
-+	 * If the sanitize operation timed out, the card is probably still busy
-+	 * in the R1_STATE_PRG. Rather than continue to wait, let's try to abort
-+	 * it with a HPI command to get back into R1_STATE_TRAN.
-+	 */
-+	if (err == -ETIMEDOUT && !mmc_interrupt_hpi(card))
-+		pr_warn("%s: Sanitize aborted\n", mmc_hostname(host));
-+
-+	mmc_retune_release(host);
-+
-+	pr_debug("%s: Sanitize completed\n", mmc_hostname(host));
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mmc_sanitize);
-diff -urN linux-5.10.y-a/drivers/mmc/core/mmc_ops.h linux-5.10.y-b/drivers/mmc/core/mmc_ops.h
---- linux-5.10.y-a/drivers/mmc/core/mmc_ops.h	2024-11-26 10:44:33.276694229 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/mmc_ops.h	2023-01-03 16:40:46.000000000 +0800
-@@ -14,7 +14,6 @@
+ {
+ 	int err;
+ 	u32 status;
+diff --git a/drivers/mmc/core/mmc_ops.h b/drivers/mmc/core/mmc_ops.h
+index e3cbb1ddc31c..af8d3a098927 100644
+--- a/drivers/mmc/core/mmc_ops.h
++++ b/drivers/mmc/core/mmc_ops.h
+@@ -14,7 +14,6 @@ enum mmc_busy_cmd {
  	MMC_BUSY_CMD6,
  	MMC_BUSY_ERASE,
  	MMC_BUSY_HPI,
@@ -4845,7 +3809,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/mmc_ops.h linux-5.10.y-b/drivers/mmc/c
  };
  
  struct mmc_host;
-@@ -49,5 +48,7 @@
+@@ -49,5 +48,7 @@ int mmc_cmdq_enable(struct mmc_card *card);
  int mmc_cmdq_disable(struct mmc_card *card);
  int mmc_sanitize(struct mmc_card *card);
  
@@ -4853,13 +3817,15 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/mmc_ops.h linux-5.10.y-b/drivers/mmc/c
 +
  #endif
  
-diff -urN linux-5.10.y-a/drivers/mmc/core/quirks.h linux-5.10.y-b/drivers/mmc/core/quirks.h
---- linux-5.10.y-a/drivers/mmc/core/quirks.h	2024-11-26 10:44:48.669475025 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/quirks.h	2023-01-01 12:10:50.000000000 +0800
-@@ -100,20 +100,6 @@
+diff --git a/drivers/mmc/core/quirks.h b/drivers/mmc/core/quirks.h
+index afe8d8c5fa8a..c8c0f50a2076 100644
+--- a/drivers/mmc/core/quirks.h
++++ b/drivers/mmc/core/quirks.h
+@@ -99,20 +99,6 @@ static const struct mmc_fixup __maybe_unused mmc_blk_fixups[] = {
+ 	MMC_FIXUP("V10016", CID_MANFID_KINGSTON, CID_OEMID_ANY, add_quirk_mmc,
  		  MMC_QUIRK_TRIM_BROKEN),
  
- 	/*
+-	/*
 -	 * Kingston EMMC04G-M627 advertises TRIM but it does not seems to
 -	 * support being used to offload WRITE_ZEROES.
 -	 */
@@ -4873,56 +3839,14 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/quirks.h linux-5.10.y-b/drivers/mmc/co
 -	MMC_FIXUP("Q2J54A", CID_MANFID_MICRON, 0x014e, add_quirk_mmc,
 -		  MMC_QUIRK_TRIM_BROKEN),
 -
--	/*
+ 	/*
  	 * Some SD cards reports discard support while they don't
  	 */
- 	MMC_FIXUP(CID_NAME_ANY, CID_MANFID_SANDISK_SD, 0x5344, add_quirk_sd,
-diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_bus.c linux-5.10.y-b/drivers/mmc/core/sdio_bus.c
---- linux-5.10.y-a/drivers/mmc/core/sdio_bus.c	2024-11-26 10:45:05.789236273 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/sdio_bus.c	2023-01-09 11:31:18.000000000 +0800
-@@ -295,12 +295,6 @@
- 	if (!(func->card->quirks & MMC_QUIRK_NONSTD_SDIO))
- 		sdio_free_func_cis(func);
- 
--	/*
--	 * We have now removed the link to the tuples in the
--	 * card structure, so remove the reference.
--	 */
--	put_device(&func->card->dev);
--
- 	kfree(func->info);
- 	kfree(func->tmpbuf);
- 	kfree(func);
-@@ -331,12 +325,6 @@
- 
- 	device_initialize(&func->dev);
- 
--	/*
--	 * We may link to tuples in the card structure,
--	 * we need make sure we have a reference to it.
--	 */
--	get_device(&func->card->dev);
--
- 	func->dev.parent = &card->dev;
- 	func->dev.bus = &sdio_bus_type;
- 	func->dev.release = sdio_release_func;
-@@ -390,9 +378,10 @@
-  */
- void sdio_remove_func(struct sdio_func *func)
- {
--	if (sdio_func_present(func))
--		device_del(&func->dev);
-+	if (!sdio_func_present(func))
-+		return;
- 
-+	device_del(&func->dev);
- 	of_node_put(func->dev.of_node);
- 	put_device(&func->dev);
- }
-diff -urN linux-5.10.y-a/drivers/mmc/core/sdio.c linux-5.10.y-b/drivers/mmc/core/sdio.c
---- linux-5.10.y-a/drivers/mmc/core/sdio.c	2024-11-26 10:45:12.457144685 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/sdio.c	2023-01-30 11:00:56.000000000 +0800
-@@ -1075,14 +1075,8 @@
+diff --git a/drivers/mmc/core/sdio.c b/drivers/mmc/core/sdio.c
+index 85c2947ed45e..8d4707663493 100644
+--- a/drivers/mmc/core/sdio.c
++++ b/drivers/mmc/core/sdio.c
+@@ -1075,14 +1075,8 @@ static int mmc_sdio_resume(struct mmc_host *host)
  		}
  		err = mmc_sdio_reinit_card(host);
  	} else if (mmc_card_wake_sdio_irq(host)) {
@@ -4938,7 +3862,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/sdio.c linux-5.10.y-b/drivers/mmc/core
  	}
  
  	if (err)
-@@ -1314,3 +1308,50 @@
+@@ -1314,3 +1308,50 @@ int mmc_attach_sdio(struct mmc_host *host)
  	return err;
  }
  
@@ -4989,23 +3913,67 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/sdio.c linux-5.10.y-b/drivers/mmc/core
 +	return err;
 +}
 +EXPORT_SYMBOL(sdio_reset_comm);
-diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_cis.c linux-5.10.y-b/drivers/mmc/core/sdio_cis.c
---- linux-5.10.y-a/drivers/mmc/core/sdio_cis.c	2024-11-26 10:45:19.568047859 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/sdio_cis.c	2023-01-09 11:31:36.000000000 +0800
-@@ -392,6 +392,12 @@
+diff --git a/drivers/mmc/core/sdio_bus.c b/drivers/mmc/core/sdio_bus.c
+index 89dd49260080..a448535c1265 100644
+--- a/drivers/mmc/core/sdio_bus.c
++++ b/drivers/mmc/core/sdio_bus.c
+@@ -295,12 +295,6 @@ static void sdio_release_func(struct device *dev)
+ 	if (!(func->card->quirks & MMC_QUIRK_NONSTD_SDIO))
+ 		sdio_free_func_cis(func);
+ 
+-	/*
+-	 * We have now removed the link to the tuples in the
+-	 * card structure, so remove the reference.
+-	 */
+-	put_device(&func->card->dev);
+-
+ 	kfree(func->info);
+ 	kfree(func->tmpbuf);
+ 	kfree(func);
+@@ -331,12 +325,6 @@ struct sdio_func *sdio_alloc_func(struct mmc_card *card)
+ 
+ 	device_initialize(&func->dev);
+ 
+-	/*
+-	 * We may link to tuples in the card structure,
+-	 * we need make sure we have a reference to it.
+-	 */
+-	get_device(&func->card->dev);
+-
+ 	func->dev.parent = &card->dev;
+ 	func->dev.bus = &sdio_bus_type;
+ 	func->dev.release = sdio_release_func;
+@@ -390,9 +378,10 @@ int sdio_add_func(struct sdio_func *func)
+  */
+ void sdio_remove_func(struct sdio_func *func)
+ {
+-	if (sdio_func_present(func))
+-		device_del(&func->dev);
++	if (!sdio_func_present(func))
++		return;
+ 
++	device_del(&func->dev);
+ 	of_node_put(func->dev.of_node);
+ 	put_device(&func->dev);
+ }
+diff --git a/drivers/mmc/core/sdio_cis.c b/drivers/mmc/core/sdio_cis.c
+index ce524f7e11fb..b23773583179 100644
+--- a/drivers/mmc/core/sdio_cis.c
++++ b/drivers/mmc/core/sdio_cis.c
+@@ -391,6 +391,12 @@ int sdio_read_func_cis(struct sdio_func *func)
+ 	if (ret)
  		return ret;
  
- 	/*
++	/*
 +	 * Since we've linked to tuples in the card structure,
 +	 * we must make sure we have a reference to it.
 +	 */
 +	get_device(&func->card->dev);
 +
-+	/*
+ 	/*
  	 * Vendor/device id is optional for function CIS, so
  	 * copy it from the card structure as needed.
- 	 */
-@@ -416,5 +422,11 @@
+@@ -416,5 +422,11 @@ void sdio_free_func_cis(struct sdio_func *func)
  	}
  
  	func->tuples = NULL;
@@ -5017,10 +3985,11 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_cis.c linux-5.10.y-b/drivers/mmc/
 +	put_device(&func->card->dev);
  }
  
-diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_ops.c linux-5.10.y-b/drivers/mmc/core/sdio_ops.c
---- linux-5.10.y-a/drivers/mmc/core/sdio_ops.c	2024-11-26 10:46:08.441405124 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/sdio_ops.c	2023-01-09 11:32:56.000000000 +0800
-@@ -81,18 +81,26 @@
+diff --git a/drivers/mmc/core/sdio_ops.c b/drivers/mmc/core/sdio_ops.c
+index 4c229dd2b6e5..4028890c2dda 100644
+--- a/drivers/mmc/core/sdio_ops.c
++++ b/drivers/mmc/core/sdio_ops.c
+@@ -81,18 +81,26 @@ static int mmc_io_rw_direct_host(struct mmc_host *host, int write, unsigned fn,
  	cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC;
  
  	err = mmc_wait_for_cmd(host, &cmd, 0);
@@ -5051,10 +4020,11 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/sdio_ops.c linux-5.10.y-b/drivers/mmc/
  	}
  
  	if (out) {
-diff -urN linux-5.10.y-a/drivers/mmc/core/slot-gpio.c linux-5.10.y-b/drivers/mmc/core/slot-gpio.c
---- linux-5.10.y-a/drivers/mmc/core/slot-gpio.c	2024-11-26 10:46:25.657187738 +0800
-+++ linux-5.10.y-b/drivers/mmc/core/slot-gpio.c	2023-01-01 12:11:04.000000000 +0800
-@@ -62,15 +62,11 @@
+diff --git a/drivers/mmc/core/slot-gpio.c b/drivers/mmc/core/slot-gpio.c
+index 04c510b751b2..05e907451df9 100644
+--- a/drivers/mmc/core/slot-gpio.c
++++ b/drivers/mmc/core/slot-gpio.c
+@@ -62,15 +62,11 @@ int mmc_gpio_alloc(struct mmc_host *host)
  int mmc_gpio_get_ro(struct mmc_host *host)
  {
  	struct mmc_gpio *ctx = host->slot.handler_priv;
@@ -5071,7 +4041,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/slot-gpio.c linux-5.10.y-b/drivers/mmc
  }
  EXPORT_SYMBOL(mmc_gpio_get_ro);
  
-@@ -202,26 +198,6 @@
+@@ -202,26 +198,6 @@ int mmc_gpiod_request_cd(struct mmc_host *host, const char *con_id,
  }
  EXPORT_SYMBOL(mmc_gpiod_request_cd);
  
@@ -5098,45 +4068,10 @@ diff -urN linux-5.10.y-a/drivers/mmc/core/slot-gpio.c linux-5.10.y-b/drivers/mmc
  bool mmc_can_gpio_cd(struct mmc_host *host)
  {
  	struct mmc_gpio *ctx = host->slot.handler_priv;
-diff -urN linux-5.10.y-a/drivers/mmc/host/dw_mmc.c linux-5.10.y-b/drivers/mmc/host/dw_mmc.c
---- linux-5.10.y-a/drivers/mmc/host/dw_mmc.c	2024-11-26 10:47:31.082400956 +0800
-+++ linux-5.10.y-b/drivers/mmc/host/dw_mmc.c	2023-01-01 12:07:06.000000000 +0800
-@@ -2826,8 +2826,8 @@
- 	if (host->use_dma == TRANS_MODE_IDMAC) {
- 		mmc->max_segs = host->ring_size;
- 		mmc->max_blk_size = 65535;
--		mmc->max_req_size = DW_MCI_DESC_DATA_LENGTH * host->ring_size;
--		mmc->max_seg_size = mmc->max_req_size;
-+		mmc->max_seg_size = 0x1000;
-+		mmc->max_req_size = mmc->max_seg_size * host->ring_size;
- 		mmc->max_blk_count = mmc->max_req_size / 512;
- 	} else if (host->use_dma == TRANS_MODE_EDMAC) {
- 		mmc->max_segs = 64;
-@@ -3171,10 +3171,6 @@
- 	host->biu_clk = devm_clk_get(host->dev, "biu");
- 	if (IS_ERR(host->biu_clk)) {
- 		dev_dbg(host->dev, "biu clock not available\n");
--		ret = PTR_ERR(host->biu_clk);
--		if (ret == -EPROBE_DEFER)
--			return ret;
--
- 	} else {
- 		ret = clk_prepare_enable(host->biu_clk);
- 		if (ret) {
-@@ -3186,10 +3182,6 @@
- 	host->ciu_clk = devm_clk_get(host->dev, "ciu");
- 	if (IS_ERR(host->ciu_clk)) {
- 		dev_dbg(host->dev, "ciu clock not available\n");
--		ret = PTR_ERR(host->ciu_clk);
--		if (ret == -EPROBE_DEFER)
--			goto err_clk_biu;
--
- 		host->bus_hz = host->pdata->bus_hz;
- 	} else {
- 		ret = clk_prepare_enable(host->ciu_clk);
-diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/mmc/host/meson-gx-mmc.c
---- linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c	2024-11-26 10:47:39.155307946 +0800
-+++ linux-5.10.y-b/drivers/mmc/host/meson-gx-mmc.c	2023-01-30 11:01:24.000000000 +0800
+diff --git a/drivers/mmc/host/meson-gx-mmc.c b/drivers/mmc/host/meson-gx-mmc.c
+index e03f7f5d27d7..ea81c3ff3f3a 100644
+--- a/drivers/mmc/host/meson-gx-mmc.c
++++ b/drivers/mmc/host/meson-gx-mmc.c
 @@ -132,6 +132,8 @@
  
  #define MUX_CLK_NUM_PARENTS 2
@@ -5146,7 +4081,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  struct meson_mmc_data {
  	unsigned int tx_delay_mask;
  	unsigned int rx_delay_mask;
-@@ -802,6 +804,7 @@
+@@ -802,6 +804,7 @@ static void meson_mmc_start_cmd(struct mmc_host *mmc, struct mmc_command *cmd)
  
  	cmd_cfg |= FIELD_PREP(CMD_CFG_CMD_INDEX_MASK, cmd->opcode);
  	cmd_cfg |= CMD_CFG_OWNER;  /* owned by CPU */
@@ -5154,7 +4089,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  
  	meson_mmc_set_response_bits(cmd, &cmd_cfg);
  
-@@ -971,8 +974,11 @@
+@@ -971,8 +974,11 @@ static irqreturn_t meson_mmc_irq(int irq, void *dev_id)
  	if (status & (IRQ_END_OF_CHAIN | IRQ_RESP_STATUS)) {
  		if (data && !cmd->error)
  			data->bytes_xfered = data->blksz * data->blocks;
@@ -5168,7 +4103,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  	}
  
  out:
-@@ -984,6 +990,9 @@
+@@ -984,6 +990,9 @@ static irqreturn_t meson_mmc_irq(int irq, void *dev_id)
  		writel(start, host->regs + SD_EMMC_START);
  	}
  
@@ -5178,7 +4113,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  	return ret;
  }
  
-@@ -1123,7 +1132,7 @@
+@@ -1123,7 +1132,7 @@ static int meson_mmc_probe(struct platform_device *pdev)
  	struct mmc_host *mmc;
  	int ret;
  
@@ -5187,7 +4122,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  	if (!mmc)
  		return -ENOMEM;
  	host = mmc_priv(mmc);
-@@ -1139,33 +1148,46 @@
+@@ -1139,33 +1148,46 @@ static int meson_mmc_probe(struct platform_device *pdev)
  	host->vqmmc_enabled = false;
  	ret = mmc_regulator_get_supply(mmc);
  	if (ret)
@@ -5247,7 +4182,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  
  	host->pins_clk_gate = pinctrl_lookup_state(host->pinctrl,
  						   "clk-gate");
-@@ -1176,12 +1198,14 @@
+@@ -1176,12 +1198,14 @@ static int meson_mmc_probe(struct platform_device *pdev)
  	}
  
  	host->core_clk = devm_clk_get(&pdev->dev, "core");
@@ -5265,7 +4200,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  
  	ret = meson_mmc_clk_init(host);
  	if (ret)
-@@ -1260,9 +1284,15 @@
+@@ -1260,9 +1284,15 @@ static int meson_mmc_probe(struct platform_device *pdev)
  	}
  
  	mmc->ops = &meson_mmc_ops;
@@ -5284,7 +4219,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  
  	return 0;
  
-@@ -1276,6 +1306,8 @@
+@@ -1276,6 +1306,8 @@ static int meson_mmc_probe(struct platform_device *pdev)
  	clk_disable_unprepare(host->mmc_clk);
  err_core_clk:
  	clk_disable_unprepare(host->core_clk);
@@ -5293,7 +4228,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  	return ret;
  }
  
-@@ -1299,6 +1331,7 @@
+@@ -1299,6 +1331,7 @@ static int meson_mmc_remove(struct platform_device *pdev)
  	clk_disable_unprepare(host->mmc_clk);
  	clk_disable_unprepare(host->core_clk);
  
@@ -5301,7 +4236,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  	return 0;
  }
  
-@@ -1333,13 +1366,49 @@
+@@ -1333,13 +1366,49 @@ static struct platform_driver meson_mmc_driver = {
  	.remove		= meson_mmc_remove,
  	.driver		= {
  		.name = DRIVER_NAME,
@@ -5352,10 +4287,11 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/meson-gx-mmc.c linux-5.10.y-b/drivers/
  MODULE_DESCRIPTION("Amlogic S905*/GX*/AXG SD/eMMC driver");
  MODULE_AUTHOR("Kevin Hilman <khilman@baylibre.com>");
  MODULE_LICENSE("GPL v2");
-diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/drivers/mmc/host/renesas_sdhi_core.c
---- linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c	2024-11-26 10:47:51.322169363 +0800
-+++ linux-5.10.y-b/drivers/mmc/host/renesas_sdhi_core.c	2023-01-01 12:06:42.000000000 +0800
-@@ -537,7 +537,7 @@
+diff --git a/drivers/mmc/host/renesas_sdhi_core.c b/drivers/mmc/host/renesas_sdhi_core.c
+index 24e524a1b927..ac01fb518386 100644
+--- a/drivers/mmc/host/renesas_sdhi_core.c
++++ b/drivers/mmc/host/renesas_sdhi_core.c
+@@ -537,7 +537,7 @@ static void renesas_sdhi_reset_hs400_mode(struct tmio_mmc_host *host,
  			 SH_MOBILE_SDHI_SCC_TMPPORT2_HS400OSEL) &
  			sd_scc_read32(host, priv, SH_MOBILE_SDHI_SCC_TMPPORT2));
  
@@ -5364,7 +4300,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/dri
  		renesas_sdhi_adjust_hs400_mode_disable(host);
  
  	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
-@@ -556,22 +556,20 @@
+@@ -556,22 +556,20 @@ static void renesas_sdhi_reset(struct tmio_mmc_host *host)
  {
  	struct renesas_sdhi *priv = host_to_priv(host);
  
@@ -5372,21 +4308,19 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/dri
 -		renesas_sdhi_reset_scc(host, priv);
 -		renesas_sdhi_reset_hs400_mode(host, priv);
 -		priv->needs_adjust_hs400 = false;
--
++	renesas_sdhi_reset_scc(host, priv);
++	renesas_sdhi_reset_hs400_mode(host, priv);
++	priv->needs_adjust_hs400 = false;
+ 
 -		sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
 -				sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
--
++	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
++			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+ 
 -		sd_scc_write32(host, priv, SH_MOBILE_SDHI_SCC_RVSCNTL,
 -			       ~SH_MOBILE_SDHI_SCC_RVSCNTL_RVSEN &
 -			       sd_scc_read32(host, priv, SH_MOBILE_SDHI_SCC_RVSCNTL));
 -	}
-+	renesas_sdhi_reset_scc(host, priv);
-+	renesas_sdhi_reset_hs400_mode(host, priv);
-+	priv->needs_adjust_hs400 = false;
-+
-+	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
-+			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
-+
 +	sd_scc_write32(host, priv, SH_MOBILE_SDHI_SCC_RVSCNTL,
 +		       ~SH_MOBILE_SDHI_SCC_RVSCNTL_RVSEN &
 +		       sd_scc_read32(host, priv, SH_MOBILE_SDHI_SCC_RVSCNTL));
@@ -5398,7 +4332,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/dri
  }
  
  #define SH_MOBILE_SDHI_MIN_TAP_ROW 3
-@@ -1012,10 +1010,11 @@
+@@ -1012,10 +1010,11 @@ int renesas_sdhi_probe(struct platform_device *pdev,
  		host->ops.start_signal_voltage_switch =
  			renesas_sdhi_start_signal_voltage_switch;
  		host->sdcard_irq_setbit_mask = TMIO_STAT_ALWAYS_SET_27;
@@ -5414,7 +4348,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/dri
  	}
  
  	/* Orginally registers were 16 bit apart, could be 32 or 64 nowadays */
-@@ -1071,6 +1070,10 @@
+@@ -1071,6 +1070,10 @@ int renesas_sdhi_probe(struct platform_device *pdev,
  			quirks->hs400_calib_table + 1);
  	}
  
@@ -5425,7 +4359,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/dri
  	/* Enable tuning iff we have an SCC and a supported mode */
  	if (of_data && of_data->scc_offset &&
  	    (host->mmc->caps & MMC_CAP_UHS_SDR104 ||
-@@ -1095,7 +1098,6 @@
+@@ -1095,7 +1098,6 @@ int renesas_sdhi_probe(struct platform_device *pdev,
  		if (!hit)
  			dev_warn(&host->pdev->dev, "Unknown clock rate for tuning\n");
  
@@ -5433,7 +4367,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/dri
  		host->check_retune = renesas_sdhi_check_scc_error;
  		host->ops.execute_tuning = renesas_sdhi_execute_tuning;
  		host->ops.prepare_hs400_tuning = renesas_sdhi_prepare_hs400_tuning;
-@@ -1103,8 +1105,6 @@
+@@ -1103,8 +1105,6 @@ int renesas_sdhi_probe(struct platform_device *pdev,
  		host->ops.hs400_complete = renesas_sdhi_hs400_complete;
  	}
  
@@ -5442,7 +4376,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/dri
  	num_irqs = platform_irq_count(pdev);
  	if (num_irqs < 0) {
  		ret = num_irqs;
-@@ -1130,10 +1130,6 @@
+@@ -1130,10 +1130,6 @@ int renesas_sdhi_probe(struct platform_device *pdev,
  			goto eirq;
  	}
  
@@ -5453,10 +4387,11 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/renesas_sdhi_core.c linux-5.10.y-b/dri
  	dev_info(&pdev->dev, "%s base at %pa, max clock rate %u MHz\n",
  		 mmc_hostname(host->mmc), &res->start, host->mmc->f_max / 1000000);
  
-diff -urN linux-5.10.y-a/drivers/mmc/host/sdhci.c linux-5.10.y-b/drivers/mmc/host/sdhci.c
---- linux-5.10.y-a/drivers/mmc/host/sdhci.c	2024-11-26 10:47:57.053104739 +0800
-+++ linux-5.10.y-b/drivers/mmc/host/sdhci.c	2023-01-01 12:06:54.000000000 +0800
-@@ -1145,8 +1145,6 @@
+diff --git a/drivers/mmc/host/sdhci.c b/drivers/mmc/host/sdhci.c
+index 9091930f5859..133f0d376480 100644
+--- a/drivers/mmc/host/sdhci.c
++++ b/drivers/mmc/host/sdhci.c
+@@ -1145,8 +1145,6 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
  		}
  	}
  
@@ -5465,7 +4400,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/sdhci.c linux-5.10.y-b/drivers/mmc/hos
  	if (host->flags & SDHCI_REQ_USE_DMA) {
  		int sg_cnt = sdhci_pre_dma_transfer(host, data, COOKIE_MAPPED);
  
-@@ -1166,6 +1164,8 @@
+@@ -1166,6 +1164,8 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
  		}
  	}
  
@@ -5474,7 +4409,7 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/sdhci.c linux-5.10.y-b/drivers/mmc/hos
  	if (!(host->flags & SDHCI_REQ_USE_DMA)) {
  		int flags;
  
-@@ -2488,29 +2488,26 @@
+@@ -2488,29 +2488,26 @@ static int sdhci_get_cd(struct mmc_host *mmc)
  
  static int sdhci_check_ro(struct sdhci_host *host)
  {
@@ -5515,10 +4450,11 @@ diff -urN linux-5.10.y-a/drivers/mmc/host/sdhci.c linux-5.10.y-b/drivers/mmc/hos
  }
  
  #define SAMPLE_COUNT	5
-diff -urN linux-5.10.y-a/drivers/pwm/core.c linux-5.10.y-b/drivers/pwm/core.c
---- linux-5.10.y-a/drivers/pwm/core.c	2024-11-26 10:48:40.127631908 +0800
-+++ linux-5.10.y-b/drivers/pwm/core.c	2022-12-21 10:48:36.000000000 +0800
-@@ -383,6 +383,25 @@
+diff --git a/drivers/pwm/core.c b/drivers/pwm/core.c
+index 1f16f5365d3c..4817df38086b 100644
+--- a/drivers/pwm/core.c
++++ b/drivers/pwm/core.c
+@@ -383,6 +383,25 @@ int pwmchip_remove(struct pwm_chip *chip)
  }
  EXPORT_SYMBOL_GPL(pwmchip_remove);
  
@@ -5544,9 +4480,10 @@ diff -urN linux-5.10.y-a/drivers/pwm/core.c linux-5.10.y-b/drivers/pwm/core.c
  /**
   * pwm_request() - request a PWM device
   * @pwm: global PWM device index
-diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-meson.c
---- linux-5.10.y-a/drivers/pwm/pwm-meson.c	2024-11-26 10:48:49.693529875 +0800
-+++ linux-5.10.y-b/drivers/pwm/pwm-meson.c	2022-12-21 15:41:32.000000000 +0800
+diff --git a/drivers/pwm/pwm-meson.c b/drivers/pwm/pwm-meson.c
+index 5b5fd1671350..3c4251d8d54d 100644
+--- a/drivers/pwm/pwm-meson.c
++++ b/drivers/pwm/pwm-meson.c
 @@ -43,8 +43,12 @@
  #include <linux/slab.h>
  #include <linux/spinlock.h>
@@ -5590,12 +4527,12 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  struct meson_pwm_channel {
  	unsigned int hi;
  	unsigned int lo;
-@@ -111,11 +92,60 @@
+@@ -111,11 +92,60 @@ struct meson_pwm {
  	 */
  	spinlock_t lock;
  };
 +#endif
-+
+ 
 +static struct meson_pwm_channel_data {
 +	u8		reg_offset;
 +	u8		clk_sel_shift;
@@ -5638,7 +4575,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
 +	},
 +#endif
 +};
- 
++
 +#ifdef CONFIG_AMLOGIC_MODIFY
 +struct meson_pwm *to_meson_pwm(struct pwm_chip *chip)
 +#else
@@ -5651,7 +4588,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  static int meson_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
  {
-@@ -129,16 +159,28 @@
+@@ -129,16 +159,28 @@ static int meson_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
  		return 0;
  
  	channel = &meson->channels[pwm->hwpwm];
@@ -5686,7 +4623,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  	err = clk_prepare_enable(channel->clk);
  	if (err < 0) {
-@@ -147,13 +189,16 @@
+@@ -147,13 +189,16 @@ static int meson_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
  		return err;
  	}
  
@@ -5706,7 +4643,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  	if (channel)
  		clk_disable_unprepare(channel->clk);
-@@ -162,24 +207,23 @@
+@@ -162,24 +207,23 @@ static void meson_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
  static int meson_pwm_calc(struct meson_pwm *meson, struct pwm_device *pwm,
  			  const struct pwm_state *state)
  {
@@ -5740,7 +4677,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	if (fin_freq == 0) {
  		dev_err(meson->chip.dev, "invalid source clock frequency\n");
  		return -EINVAL;
-@@ -187,19 +231,19 @@
+@@ -187,19 +231,19 @@ static int meson_pwm_calc(struct meson_pwm *meson, struct pwm_device *pwm,
  
  	dev_dbg(meson->chip.dev, "fin_freq: %lu Hz\n", fin_freq);
  
@@ -5763,7 +4700,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  		pre_div, cnt);
  
  	if (duty == period) {
-@@ -212,29 +256,54 @@
+@@ -212,29 +256,54 @@ static int meson_pwm_calc(struct meson_pwm *meson, struct pwm_device *pwm,
  		channel->lo = cnt;
  	} else {
  		/* Then check is we can have the duty with the same pre_div */
@@ -5821,7 +4758,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  	channel_data = &meson_pwm_per_channel_data[pwm->hwpwm];
  
-@@ -255,6 +324,23 @@
+@@ -255,6 +324,23 @@ static void meson_pwm_enable(struct meson_pwm *meson, struct pwm_device *pwm)
  	writel(value, meson->base + REG_MISC_AB);
  
  	spin_unlock_irqrestore(&meson->lock, flags);
@@ -5845,7 +4782,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  }
  
  static void meson_pwm_disable(struct meson_pwm *meson, struct pwm_device *pwm)
-@@ -274,8 +360,8 @@
+@@ -274,8 +360,8 @@ static void meson_pwm_disable(struct meson_pwm *meson, struct pwm_device *pwm)
  static int meson_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
  			   const struct pwm_state *state)
  {
@@ -5855,7 +4792,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	int err = 0;
  
  	if (!state)
-@@ -334,6 +420,40 @@
+@@ -334,6 +420,40 @@ static unsigned int meson_pwm_cnt_to_ns(struct pwm_chip *chip,
  	return cnt * fin_ns * (channel->pre_div + 1);
  }
  
@@ -5896,7 +4833,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  static void meson_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
  				struct pwm_state *state)
  {
-@@ -345,6 +465,12 @@
+@@ -345,6 +465,12 @@ static void meson_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
  	if (!state)
  		return;
  
@@ -5909,7 +4846,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	channel = &meson->channels[pwm->hwpwm];
  	channel_data = &meson_pwm_per_channel_data[pwm->hwpwm];
  
-@@ -373,7 +499,6 @@
+@@ -373,7 +499,6 @@ static void meson_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
  		state->period = 0;
  		state->duty_cycle = 0;
  	}
@@ -5917,7 +4854,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  }
  
  static const struct pwm_ops meson_pwm_ops = {
-@@ -384,83 +509,127 @@
+@@ -384,83 +509,127 @@ static const struct pwm_ops meson_pwm_ops = {
  	.owner = THIS_MODULE,
  };
  
@@ -6040,8 +4977,8 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
 +#ifdef CONFIG_AMLOGIC_MODIFY
 +	.double_channel = true,
 +#endif
-+};
-+
+ };
+ 
 +#ifdef CONFIG_AMLOGIC_MODIFY
 +static  char *pwm_t5d_parent_names[] __initdata = {
 +	"xtal", "clk81", "fclk_div4", "fclk_div5"
@@ -6056,15 +4993,15 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
 +static struct meson_pwm_data pwm_v2_data __initdata = {
 +	.double_channel = true,
 +	.extern_clk = true,
- };
++};
 +#endif
- 
++
  static const struct of_device_id meson_pwm_matches[] = {
 +#ifndef CONFIG_AMLOGIC_REMOVE_OLD
  	{
  		.compatible = "amlogic,meson8b-pwm",
  		.data = &pwm_meson8b_data
-@@ -481,6 +650,7 @@
+@@ -481,6 +650,7 @@ static const struct of_device_id meson_pwm_matches[] = {
  		.compatible = "amlogic,meson-axg-ao-pwm",
  		.data = &pwm_axg_ao_data
  	},
@@ -6072,7 +5009,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	{
  		.compatible = "amlogic,meson-g12a-ee-pwm",
  		.data = &pwm_g12a_ee_data
-@@ -493,6 +663,28 @@
+@@ -493,6 +663,28 @@ static const struct of_device_id meson_pwm_matches[] = {
  		.compatible = "amlogic,meson-g12a-ao-pwm-cd",
  		.data = &pwm_g12a_ao_cd_data
  	},
@@ -6101,7 +5038,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	{},
  };
  MODULE_DEVICE_TABLE(of, meson_pwm_matches);
-@@ -513,7 +705,7 @@
+@@ -513,7 +705,7 @@ static int meson_pwm_init_channels(struct meson_pwm *meson)
  		init.name = name;
  		init.ops = &clk_mux_ops;
  		init.flags = 0;
@@ -6110,7 +5047,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  		init.num_parents = meson->data->num_parents;
  
  		channel->mux.reg = meson->base + REG_MISC_AB;
-@@ -542,32 +734,95 @@
+@@ -542,32 +734,95 @@ static int meson_pwm_init_channels(struct meson_pwm *meson)
  	return 0;
  }
  
@@ -6210,7 +5147,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	if (err < 0)
  		return err;
  
-@@ -578,6 +833,11 @@
+@@ -578,6 +833,11 @@ static int meson_pwm_probe(struct platform_device *pdev)
  	}
  
  	platform_set_drvdata(pdev, meson);
@@ -6222,7 +5159,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  	return 0;
  }
-@@ -585,7 +845,10 @@
+@@ -585,7 +845,10 @@ static int meson_pwm_probe(struct platform_device *pdev)
  static int meson_pwm_remove(struct platform_device *pdev)
  {
  	struct meson_pwm *meson = platform_get_drvdata(pdev);
@@ -6234,7 +5171,7 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  	return pwmchip_remove(&meson->chip);
  }
  
-@@ -597,7 +860,29 @@
+@@ -597,7 +860,29 @@ static struct platform_driver meson_pwm_driver = {
  	.probe = meson_pwm_probe,
  	.remove = meson_pwm_remove,
  };
@@ -6264,10 +5201,11 @@ diff -urN linux-5.10.y-a/drivers/pwm/pwm-meson.c linux-5.10.y-b/drivers/pwm/pwm-
  
  MODULE_DESCRIPTION("Amlogic Meson PWM Generator driver");
  MODULE_AUTHOR("Neil Armstrong <narmstrong@baylibre.com>");
-diff -urN linux-5.10.y-a/fs/read_write.c linux-5.10.y-b/fs/read_write.c
---- linux-5.10.y-a/fs/read_write.c	2024-11-26 10:49:29.957111545 +0800
-+++ linux-5.10.y-b/fs/read_write.c	2023-01-19 12:53:12.000000000 +0800
-@@ -503,6 +503,7 @@
+diff --git a/fs/read_write.c b/fs/read_write.c
+index 0066acb6b380..64c2573dac2b 100644
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -503,6 +503,7 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
  	inc_syscr(current);
  	return ret;
  }
@@ -6275,7 +5213,7 @@ diff -urN linux-5.10.y-a/fs/read_write.c linux-5.10.y-b/fs/read_write.c
  
  static ssize_t new_sync_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
  {
-@@ -613,6 +614,7 @@
+@@ -613,6 +614,7 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
  	file_end_write(file);
  	return ret;
  }
@@ -6283,10 +5221,11 @@ diff -urN linux-5.10.y-a/fs/read_write.c linux-5.10.y-b/fs/read_write.c
  
  /* file_ppos returns &file->f_pos or NULL if file is stream */
  static inline loff_t *file_ppos(struct file *file)
-diff -urN linux-5.10.y-a/fs/stat.c linux-5.10.y-b/fs/stat.c
---- linux-5.10.y-a/fs/stat.c	2024-11-26 10:49:37.073039416 +0800
-+++ linux-5.10.y-b/fs/stat.c	2023-01-19 12:40:48.000000000 +0800
-@@ -215,6 +215,7 @@
+diff --git a/fs/stat.c b/fs/stat.c
+index 04550c0ba540..2e6e8a498fbc 100644
+--- a/fs/stat.c
++++ b/fs/stat.c
+@@ -215,6 +215,7 @@ int vfs_fstatat(int dfd, const char __user *filename,
  	return vfs_statx(dfd, filename, flags | AT_NO_AUTOMOUNT,
  			 stat, STATX_BASIC_STATS);
  }
@@ -6294,10 +5233,11 @@ diff -urN linux-5.10.y-a/fs/stat.c linux-5.10.y-b/fs/stat.c
  
  #ifdef __ARCH_WANT_OLD_STAT
  
-Binary files linux-5.10.y-a/include/dt-bindings/pwm/._meson.h and linux-5.10.y-b/include/dt-bindings/pwm/._meson.h differ
-diff -urN linux-5.10.y-a/include/dt-bindings/pwm/meson.h linux-5.10.y-b/include/dt-bindings/pwm/meson.h
---- linux-5.10.y-a/include/dt-bindings/pwm/meson.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/dt-bindings/pwm/meson.h	2022-11-27 09:30:02.000000000 +0800
+diff --git a/include/dt-bindings/pwm/meson.h b/include/dt-bindings/pwm/meson.h
+new file mode 100644
+index 000000000000..3e3a10ec9bf3
+--- /dev/null
++++ b/include/dt-bindings/pwm/meson.h
 @@ -0,0 +1,30 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -6329,9 +5269,11 @@ diff -urN linux-5.10.y-a/include/dt-bindings/pwm/meson.h linux-5.10.y-b/include/
 +#define		MESON_PWM_3  3
 +
 +#endif
-diff -urN linux-5.10.y-a/include/linux/amlogic/aml_gpio_consumer.h linux-5.10.y-b/include/linux/amlogic/aml_gpio_consumer.h
---- linux-5.10.y-a/include/linux/amlogic/aml_gpio_consumer.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/aml_gpio_consumer.h	2022-11-27 09:30:04.000000000 +0800
+diff --git a/include/linux/amlogic/aml_gpio_consumer.h b/include/linux/amlogic/aml_gpio_consumer.h
+new file mode 100644
+index 000000000000..ec1b4c255ccc
+--- /dev/null
++++ b/include/linux/amlogic/aml_gpio_consumer.h
 @@ -0,0 +1,43 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -6376,10 +5318,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/aml_gpio_consumer.h linux-5.10.y-
 +};
 +
 +#endif
-Binary files linux-5.10.y-a/include/linux/amlogic/._aml_sd.h and linux-5.10.y-b/include/linux/amlogic/._aml_sd.h differ
-diff -urN linux-5.10.y-a/include/linux/amlogic/aml_sd.h linux-5.10.y-b/include/linux/amlogic/aml_sd.h
---- linux-5.10.y-a/include/linux/amlogic/aml_sd.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/aml_sd.h	2022-12-26 15:43:54.000000000 +0800
+diff --git a/include/linux/amlogic/aml_sd.h b/include/linux/amlogic/aml_sd.h
+new file mode 100644
+index 000000000000..6fb32aed60e7
+--- /dev/null
++++ b/include/linux/amlogic/aml_sd.h
 @@ -0,0 +1,439 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -6820,9 +5763,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/aml_sd.h linux-5.10.y-b/include/l
 +
 +#endif /*__AML_SD_H__*/
 +
-diff -urN linux-5.10.y-a/include/linux/amlogic/bt_device.h linux-5.10.y-b/include/linux/amlogic/bt_device.h
---- linux-5.10.y-a/include/linux/amlogic/bt_device.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/bt_device.h	2022-11-27 09:30:04.000000000 +0800
+diff --git a/include/linux/amlogic/bt_device.h b/include/linux/amlogic/bt_device.h
+new file mode 100644
+index 000000000000..8b3eabf5dd50
+--- /dev/null
++++ b/include/linux/amlogic/bt_device.h
 @@ -0,0 +1,26 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -6850,18 +5795,22 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/bt_device.h linux-5.10.y-b/includ
 +int sdio_get_vendor(void);
 +
 +#endif
-diff -urN linux-5.10.y-a/include/linux/amlogic/cpu_version.h linux-5.10.y-b/include/linux/amlogic/cpu_version.h
---- linux-5.10.y-a/include/linux/amlogic/cpu_version.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/cpu_version.h	2022-11-27 09:30:04.000000000 +0800
+diff --git a/include/linux/amlogic/cpu_version.h b/include/linux/amlogic/cpu_version.h
+new file mode 100644
+index 000000000000..a0e3f6be50ce
+--- /dev/null
++++ b/include/linux/amlogic/cpu_version.h
 @@ -0,0 +1,5 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
 + * Copyright (c) 2019 Amlogic, Inc. All rights reserved.
 + */
 +#include <linux/amlogic/media/registers/cpu_version.h>
-diff -urN linux-5.10.y-a/include/linux/amlogic/dhd_buf.h linux-5.10.y-b/include/linux/amlogic/dhd_buf.h
---- linux-5.10.y-a/include/linux/amlogic/dhd_buf.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/dhd_buf.h	2022-11-27 09:30:04.000000000 +0800
+diff --git a/include/linux/amlogic/dhd_buf.h b/include/linux/amlogic/dhd_buf.h
+new file mode 100644
+index 000000000000..8b6ab9c74324
+--- /dev/null
++++ b/include/linux/amlogic/dhd_buf.h
 @@ -0,0 +1,9 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -6872,9 +5821,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/dhd_buf.h linux-5.10.y-b/include/
 +#define _BCMDHD_BUF_H
 +int bcmdhd_init_wlan_mem(unsigned int all_buf);
 +#endif
-diff -urN linux-5.10.y-a/include/linux/amlogic/iomap.h linux-5.10.y-b/include/linux/amlogic/iomap.h
---- linux-5.10.y-a/include/linux/amlogic/iomap.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/iomap.h	2022-11-27 09:30:04.000000000 +0800
+diff --git a/include/linux/amlogic/iomap.h b/include/linux/amlogic/iomap.h
+new file mode 100644
+index 000000000000..25634df9bf39
+--- /dev/null
++++ b/include/linux/amlogic/iomap.h
 @@ -0,0 +1,78 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -6954,9 +5905,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/iomap.h linux-5.10.y-b/include/li
 +}
 +
 +#endif
-diff -urN linux-5.10.y-a/include/linux/amlogic/key_manage.h linux-5.10.y-b/include/linux/amlogic/key_manage.h
---- linux-5.10.y-a/include/linux/amlogic/key_manage.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/key_manage.h	2022-11-01 20:35:50.000000000 +0800
+diff --git a/include/linux/amlogic/key_manage.h b/include/linux/amlogic/key_manage.h
+new file mode 100644
+index 000000000000..3132a9ec90d0
+--- /dev/null
++++ b/include/linux/amlogic/key_manage.h
 @@ -0,0 +1,28 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -6986,9 +5939,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/key_manage.h linux-5.10.y-b/inclu
 +int register_unifykey_types(struct unifykey_type *uk_type);
 +
 +#endif /*__KEYMANAGE__*/
-diff -urN linux-5.10.y-a/include/linux/amlogic/media/registers/cpu_version.h linux-5.10.y-b/include/linux/amlogic/media/registers/cpu_version.h
---- linux-5.10.y-a/include/linux/amlogic/media/registers/cpu_version.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/media/registers/cpu_version.h	2022-11-27 09:30:04.000000000 +0800
+diff --git a/include/linux/amlogic/media/registers/cpu_version.h b/include/linux/amlogic/media/registers/cpu_version.h
+new file mode 100644
+index 000000000000..ab4d95ccc516
+--- /dev/null
++++ b/include/linux/amlogic/media/registers/cpu_version.h
 @@ -0,0 +1,293 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -7283,9 +6238,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/media/registers/cpu_version.h lin
 +}
 +
 +#endif
-diff -urN linux-5.10.y-a/include/linux/amlogic/media/registers/register_map.h linux-5.10.y-b/include/linux/amlogic/media/registers/register_map.h
---- linux-5.10.y-a/include/linux/amlogic/media/registers/register_map.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/media/registers/register_map.h	2022-11-27 09:30:04.000000000 +0800
+diff --git a/include/linux/amlogic/media/registers/register_map.h b/include/linux/amlogic/media/registers/register_map.h
+new file mode 100644
+index 000000000000..ab48f90cd15a
+--- /dev/null
++++ b/include/linux/amlogic/media/registers/register_map.h
 @@ -0,0 +1,105 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -7392,9 +6349,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/media/registers/register_map.h li
 +			    unsigned int mask, unsigned int val);
 +
 +#endif
-diff -urN linux-5.10.y-a/include/linux/amlogic/pm.h linux-5.10.y-b/include/linux/amlogic/pm.h
---- linux-5.10.y-a/include/linux/amlogic/pm.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/pm.h	2022-11-27 09:30:04.000000000 +0800
+diff --git a/include/linux/amlogic/pm.h b/include/linux/amlogic/pm.h
+new file mode 100644
+index 000000000000..457880a36cc8
+--- /dev/null
++++ b/include/linux/amlogic/pm.h
 @@ -0,0 +1,79 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -7475,10 +6434,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/pm.h linux-5.10.y-b/include/linux
 +#endif //CONFIG_AMLOGIC_M8B_SUSPEND
 +
 +#endif //__AML_PM_H__
-Binary files linux-5.10.y-a/include/linux/amlogic/._pwm-meson.h and linux-5.10.y-b/include/linux/amlogic/._pwm-meson.h differ
-diff -urN linux-5.10.y-a/include/linux/amlogic/pwm-meson.h linux-5.10.y-b/include/linux/amlogic/pwm-meson.h
---- linux-5.10.y-a/include/linux/amlogic/pwm-meson.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/pwm-meson.h	2022-12-21 15:53:36.000000000 +0800
+diff --git a/include/linux/amlogic/pwm-meson.h b/include/linux/amlogic/pwm-meson.h
+new file mode 100644
+index 000000000000..30a555a133d2
+--- /dev/null
++++ b/include/linux/amlogic/pwm-meson.h
 @@ -0,0 +1,153 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -7633,9 +6593,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/pwm-meson.h linux-5.10.y-b/includ
 +int pwm_set_times(struct meson_pwm *meson, int index, int value);
 +#endif   /* _PWM_MESON_H_ */
 +
-diff -urN linux-5.10.y-a/include/linux/amlogic/wifi_dt.h linux-5.10.y-b/include/linux/amlogic/wifi_dt.h
---- linux-5.10.y-a/include/linux/amlogic/wifi_dt.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/amlogic/wifi_dt.h	2022-11-27 09:30:04.000000000 +0800
+diff --git a/include/linux/amlogic/wifi_dt.h b/include/linux/amlogic/wifi_dt.h
+new file mode 100644
+index 000000000000..daffbd763f88
+--- /dev/null
++++ b/include/linux/amlogic/wifi_dt.h
 @@ -0,0 +1,27 @@
 +/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 +/*
@@ -7664,9 +6626,11 @@ diff -urN linux-5.10.y-a/include/linux/amlogic/wifi_dt.h linux-5.10.y-b/include/
 +#endif
 +
 +#endif /* _wifi_dt_h_ */
-diff -urN linux-5.10.y-a/include/linux/dma-contiguous.h linux-5.10.y-b/include/linux/dma-contiguous.h
---- linux-5.10.y-a/include/linux/dma-contiguous.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-5.10.y-b/include/linux/dma-contiguous.h	2022-11-01 20:35:50.000000000 +0800
+diff --git a/include/linux/dma-contiguous.h b/include/linux/dma-contiguous.h
+new file mode 100644
+index 000000000000..03f8e98e3bcc
+--- /dev/null
++++ b/include/linux/dma-contiguous.h
 @@ -0,0 +1,176 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +#ifndef __LINUX_CMA_H
@@ -7844,12 +6808,11 @@ diff -urN linux-5.10.y-a/include/linux/dma-contiguous.h linux-5.10.y-b/include/l
 +#endif
 +
 +#endif
-Binary files linux-5.10.y-a/include/linux/mmc/._card.h and linux-5.10.y-b/include/linux/mmc/._card.h differ
-Binary files linux-5.10.y-a/include/linux/mmc/._core.h and linux-5.10.y-b/include/linux/mmc/._core.h differ
-diff -urN linux-5.10.y-a/include/linux/mmc/core.h linux-5.10.y-b/include/linux/mmc/core.h
---- linux-5.10.y-a/include/linux/mmc/core.h	2024-11-26 10:50:40.697416911 +0800
-+++ linux-5.10.y-b/include/linux/mmc/core.h	2023-01-03 16:48:32.000000000 +0800
-@@ -107,6 +107,9 @@
+diff --git a/include/linux/mmc/core.h b/include/linux/mmc/core.h
+index 29aa50711626..c1b34d43d3c3 100644
+--- a/include/linux/mmc/core.h
++++ b/include/linux/mmc/core.h
+@@ -107,6 +107,9 @@ struct mmc_command {
   */
  
  	unsigned int		busy_timeout;	/* busy detect timeout in ms */
@@ -7859,10 +6822,10 @@ diff -urN linux-5.10.y-a/include/linux/mmc/core.h linux-5.10.y-b/include/linux/m
  	struct mmc_data		*data;		/* data segment associated with cmd */
  	struct mmc_request	*mrq;		/* associated request */
  };
-Binary files linux-5.10.y-a/include/linux/mmc/._sdio.h and linux-5.10.y-b/include/linux/mmc/._sdio.h differ
-diff -urN linux-5.10.y-a/include/linux/mmc/sdio.h linux-5.10.y-b/include/linux/mmc/sdio.h
---- linux-5.10.y-a/include/linux/mmc/sdio.h	2024-11-26 10:50:53.270298414 +0800
-+++ linux-5.10.y-b/include/linux/mmc/sdio.h	2022-12-29 17:55:24.000000000 +0800
+diff --git a/include/linux/mmc/sdio.h b/include/linux/mmc/sdio.h
+index e28769991e82..948273bfcb97 100644
+--- a/include/linux/mmc/sdio.h
++++ b/include/linux/mmc/sdio.h
 @@ -186,4 +186,7 @@
  
  #define SDIO_FBR_BLKSIZE	0x10	/* block size (2 bytes) */
@@ -7871,10 +6834,11 @@ diff -urN linux-5.10.y-a/include/linux/mmc/sdio.h linux-5.10.y-b/include/linux/m
 +int sdio_reset_comm(struct mmc_card *card);
 +
  #endif /* LINUX_MMC_SDIO_H */
-diff -urN linux-5.10.y-a/include/linux/pwm.h linux-5.10.y-b/include/linux/pwm.h
---- linux-5.10.y-a/include/linux/pwm.h	2024-11-26 10:50:11.884693958 +0800
-+++ linux-5.10.y-b/include/linux/pwm.h	2022-12-21 10:51:08.000000000 +0800
-@@ -44,8 +44,8 @@
+diff --git a/include/linux/pwm.h b/include/linux/pwm.h
+index c0cf6613373f..9abba7e71b69 100644
+--- a/include/linux/pwm.h
++++ b/include/linux/pwm.h
+@@ -44,8 +44,8 @@ struct pwm_args {
  };
  
  enum {
@@ -7885,7 +6849,7 @@ diff -urN linux-5.10.y-a/include/linux/pwm.h linux-5.10.y-b/include/linux/pwm.h
  };
  
  /*
-@@ -396,6 +396,7 @@
+@@ -396,6 +396,7 @@ int pwmchip_add_with_polarity(struct pwm_chip *chip,
  			      enum pwm_polarity polarity);
  int pwmchip_add(struct pwm_chip *chip);
  int pwmchip_remove(struct pwm_chip *chip);
@@ -7893,3 +6857,6 @@ diff -urN linux-5.10.y-a/include/linux/pwm.h linux-5.10.y-b/include/linux/pwm.h
  struct pwm_device *pwm_request_from_chip(struct pwm_chip *chip,
  					 unsigned int index,
  					 const char *label);
+-- 
+2.39.5
+

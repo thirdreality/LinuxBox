@@ -1,0 +1,25 @@
+From 0b4f85d055aa3f5cc9d14f94bd790462788ae994 Mon Sep 17 00:00:00 2001
+From: liuguoping1024 <liuguoping@gmail.com>
+Date: Wed, 12 Feb 2025 03:41:14 -0500
+Subject: [PATCH 30003/30003] adjust ram size to 2G
+
+---
+ arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
+index f0570907ec6b..82a3c46eaf66 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
+@@ -16,7 +16,7 @@ / {
+ 	/* 1024MB RAM */
+ 	memory@0 {
+ 		device_type = "memory";
+-		reg = <0x0 0x0 0x0 0x40000000>;
++		reg = <0x0 0x0 0x0 0x80000000>;
+ 	};
+ 
+ 	aml_bt: aml_bt {
+-- 
+2.39.5
+

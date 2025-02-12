@@ -1,115 +1,19 @@
-diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
---- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi	2024-11-26 11:06:23.996417927 +0800
-+++ linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi	2023-01-04 17:28:42.000000000 +0800
-@@ -151,7 +151,7 @@
- 		scpi_clocks: clocks {
- 			compatible = "arm,scpi-clocks";
- 
--			scpi_dvfs: clocks-0 {
-+			scpi_dvfs: clock-controller {
- 				compatible = "arm,scpi-dvfs-clocks";
- 				#clock-cells = <1>;
- 				clock-indices = <0>;
-@@ -160,7 +160,7 @@
- 		};
- 
- 		scpi_sensors: sensors {
--			compatible = "amlogic,meson-gxbb-scpi-sensors", "arm,scpi-sensors";
-+			compatible = "amlogic,meson-gxbb-scpi-sensors";
- 			#thermal-sensor-cells = <1>;
- 		};
- 	};
-@@ -1531,6 +1531,14 @@
- 						bias-disable;
- 					};
- 				};
-+
-+				pwm_ao_c_ao8_pins:pwm_ao_c_ao8 {
-+					mux {
-+						groups = "pwm_ao_c_ao8";
-+						function = "pwm_ao_c";
-+						bias-disable;
-+					};
-+				};
- 			};
- 
- 			sec_AO: ao-secure@140 {
-@@ -1539,13 +1547,6 @@
- 				amlogic,has-chip-id;
- 			};
- 
--			pwm_AO_cd: pwm@2000 {
--				compatible = "amlogic,meson-axg-ao-pwm";
--				reg = <0x0 0x02000  0x0 0x20>;
--				#pwm-cells = <3>;
--				status = "disabled";
--			};
--
- 			uart_AO: serial@3000 {
- 				compatible = "amlogic,meson-gx-uart", "amlogic,meson-ao-uart";
- 				reg = <0x0 0x3000 0x0 0x18>;
-@@ -1581,6 +1582,15 @@
- 				status = "disabled";
- 			};
- 
-+			pwm_AO_cd: pwm@2000 {
-+				compatible = "amlogic,meson-axg-ao-pwm";
-+				reg = <0x0 0x02000  0x0 0x20>;
-+				#pwm-cells = <3>;
-+				clocks = <&xtal>,<&xtal>,<&xtal>,<&xtal>;
-+				clock-names = "clkin0","clkin1","clkin2","clkin3";
-+				status = "okay";
-+			};
-+
- 			ir: ir@8000 {
- 				compatible = "amlogic,meson-gxbb-ir";
- 				reg = <0x0 0x8000 0x0 0x20>;
-@@ -1751,28 +1761,29 @@
- 			#size-cells = <2>;
- 			ranges = <0x0 0x0 0x0 0xffe00000 0x0 0x200000>;
- 
--			sd_emmc_b: sd@5000 {
-+			sd_emmc_c: mmc@7000 {
- 				compatible = "amlogic,meson-axg-mmc";
--				reg = <0x0 0x5000 0x0 0x800>;
--				interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
-+				reg = <0x0 0x7000 0x0 0x800>;
-+				interrupts = <GIC_SPI 218 IRQ_TYPE_EDGE_RISING>;
- 				status = "disabled";
--				clocks = <&clkc CLKID_SD_EMMC_B>,
--					<&clkc CLKID_SD_EMMC_B_CLK0>,
-+				clocks = <&clkc CLKID_SD_EMMC_C>,
-+					<&clkc CLKID_SD_EMMC_C_CLK0>,
- 					<&clkc CLKID_FCLK_DIV2>;
- 				clock-names = "core", "clkin0", "clkin1";
--				resets = <&reset RESET_SD_EMMC_B>;
-+				resets = <&reset RESET_SD_EMMC_C>;
- 			};
- 
--			sd_emmc_c: mmc@7000 {
-+			sd_emmc_b: sdio@5000 {
- 				compatible = "amlogic,meson-axg-mmc";
--				reg = <0x0 0x7000 0x0 0x800>;
--				interrupts = <GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH>;
-+				reg = <0x0 0x5000 0x0 0x800>;
-+				interrupts = <GIC_SPI 217 IRQ_TYPE_EDGE_RISING>;
- 				status = "disabled";
--				clocks = <&clkc CLKID_SD_EMMC_C>,
--					<&clkc CLKID_SD_EMMC_C_CLK0>,
-+
-+				clocks = <&clkc CLKID_SD_EMMC_B>,
-+					<&xtal>,
- 					<&clkc CLKID_FCLK_DIV2>;
- 				clock-names = "core", "clkin0", "clkin1";
--				resets = <&reset RESET_SD_EMMC_C>;
-+				//resets = <&reset RESET_SD_EMMC_B>;
- 			};
- 
- 			usb2_phy1: phy@9020 {
-diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
---- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts	2024-11-26 11:06:24.012419347 +0800
-+++ linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts	2024-11-26 11:48:01.812274412 +0800
-@@ -18,23 +18,60 @@
+From 49fa52a79ae653671866d747910b6e60e02fe0b4 Mon Sep 17 00:00:00 2001
+From: liuguoping1024 <liuguoping@gmail.com>
+Date: Wed, 12 Feb 2025 03:40:25 -0500
+Subject: [PATCH 30002/30003] Add aml_wifi & aml_bt to dts j110
+
+---
+ .../amlogic/meson-axg-jethome-jethub-j100.dts |  51 ++++++-
+ .../meson-axg-jethome-jethub-j1xx.dtsi        | 131 ++++++++++++------
+ arch/arm64/boot/dts/amlogic/meson-axg.dtsi    |  53 ++++---
+ 3 files changed, 162 insertions(+), 73 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
+index b2d6ba660914..f0570907ec6b 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
+@@ -18,23 +18,60 @@ memory@0 {
  		device_type = "memory";
  		reg = <0x0 0x0 0x0 0x40000000>;
  	};
@@ -119,7 +23,10 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
 +		compatible = "amlogic, aml-bt";
 +		status = "okay";
 +	};
-+
+ 
+-/* wifi module */
+-&sd_emmc_b {
+-	non-removable;
 +	aml_wifi: aml_wifi {
 +		compatible = "amlogic, aml-wifi";
 +		status = "okay";
@@ -131,10 +38,6 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
 +		//pwm_config = <&sdio_pwrseq>;
 +	};
  
--/* wifi module */
--&sd_emmc_b {
--	non-removable;
--
 -	brcmf: wifi@1 {
 -		reg = <1>;
 -		compatible = "brcm,bcm4329-fmac";
@@ -179,9 +82,10 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
 +	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
 +};
 \ No newline at end of file
-diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
---- linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi	2024-11-26 11:06:24.024420410 +0800
-+++ linux-5.10.y-b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi	2024-11-26 14:35:52.728358851 +0800
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
+index 5836b0030931..afeab89aad8b 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
 @@ -16,7 +16,8 @@
  / {
  	aliases {
@@ -192,7 +96,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  		ethernet0 = &ethmac;
  	};
  
-@@ -35,14 +36,7 @@
+@@ -35,14 +36,7 @@ emmc_pwrseq: emmc-pwrseq {
  		reset-gpios = <&gpio BOOT_9 GPIO_ACTIVE_LOW>;
  	};
  
@@ -208,7 +112,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  
  	vcc_5v: regulator-vcc_5v {
  		compatible = "regulator-fixed";
-@@ -61,6 +55,15 @@
+@@ -61,6 +55,15 @@ vddao_3v3: regulator-vddao_3v3 {
  		regulator-always-on;
  	};
  
@@ -224,7 +128,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  	vddio_ao18: regulator-vddio_ao18 {
  		compatible = "regulator-fixed";
  		regulator-name = "VDDIO_AO18";
-@@ -97,19 +100,24 @@
+@@ -97,19 +100,24 @@ usb_pwr: regulator-usb_pwr {
  		regulator-always-on;
  	};
  
@@ -252,7 +156,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  
  	thermal-zones {
  		cpu_thermal: cpu-thermal {
-@@ -186,7 +194,7 @@
+@@ -186,7 +194,7 @@ bid: bid@12 {
  };
  
  &ethmac {
@@ -261,7 +165,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  	pinctrl-0 = <&eth_rmii_x_pins>;
  	pinctrl-names = "default";
  	phy-handle = <&eth_phy0>;
-@@ -226,7 +234,7 @@
+@@ -226,7 +234,7 @@ pcf8563: pcf8563@51 {
  
  /* Peripheral I2C bus (on motherboard) */
  &i2c_AO {
@@ -270,7 +174,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  	pinctrl-0 = <&i2c_ao_sck_10_pins>, <&i2c_ao_sda_11_pins>;
  	pinctrl-names = "default";
  };
-@@ -237,25 +245,10 @@
+@@ -237,25 +245,10 @@ &pwm_ab {
  	pinctrl-names = "default";
  };
  
@@ -299,7 +203,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  };
  
  /* emmc storage */
-@@ -267,7 +260,7 @@
+@@ -267,7 +260,7 @@ &sd_emmc_c {
  
  	bus-width = <8>;
  	cap-mmc-highspeed;
@@ -308,7 +212,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  	non-removable;
  	disable-wp;
  	mmc-ddr-1_8v;
-@@ -279,14 +272,54 @@
+@@ -279,14 +272,54 @@ &sd_emmc_c {
  	vqmmc-supply = <&vccq_1v8>;
  };
  
@@ -368,7 +272,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  /* UART Console */
  &uart_AO {
  	status = "okay";
-@@ -294,13 +327,21 @@
+@@ -294,13 +327,21 @@ &uart_AO {
  	pinctrl-names = "default";
  };
  
@@ -391,7 +295,7 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  &usb {
  	status = "okay";
  	phy-supply = <&usb_pwr>;
-@@ -316,14 +357,14 @@
+@@ -316,14 +357,14 @@ &gpio {
  	gpio-line-names =
  		"", "", "", "", "", // 0 - 4
  		"", "", "", "", "", // 5 - 9
@@ -412,3 +316,115 @@ diff -urN linux-5.10.y-a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1
  		"", "", "", "", "", // 50 - 54
  		"", "", "", "", "", // 55 - 59
  		"", "", "", "", "", // 60 - 64
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
+index c892b252e5b0..685c2fef5e59 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
+@@ -151,7 +151,7 @@ scpi {
+ 		scpi_clocks: clocks {
+ 			compatible = "arm,scpi-clocks";
+ 
+-			scpi_dvfs: clocks-0 {
++			scpi_dvfs: clock-controller {
+ 				compatible = "arm,scpi-dvfs-clocks";
+ 				#clock-cells = <1>;
+ 				clock-indices = <0>;
+@@ -160,7 +160,7 @@ scpi_dvfs: clocks-0 {
+ 		};
+ 
+ 		scpi_sensors: sensors {
+-			compatible = "amlogic,meson-gxbb-scpi-sensors", "arm,scpi-sensors";
++			compatible = "amlogic,meson-gxbb-scpi-sensors";
+ 			#thermal-sensor-cells = <1>;
+ 		};
+ 	};
+@@ -1531,6 +1531,14 @@ mux {
+ 						bias-disable;
+ 					};
+ 				};
++
++				pwm_ao_c_ao8_pins:pwm_ao_c_ao8 {
++					mux {
++						groups = "pwm_ao_c_ao8";
++						function = "pwm_ao_c";
++						bias-disable;
++					};
++				};
+ 			};
+ 
+ 			sec_AO: ao-secure@140 {
+@@ -1539,13 +1547,6 @@ sec_AO: ao-secure@140 {
+ 				amlogic,has-chip-id;
+ 			};
+ 
+-			pwm_AO_cd: pwm@2000 {
+-				compatible = "amlogic,meson-axg-ao-pwm";
+-				reg = <0x0 0x02000  0x0 0x20>;
+-				#pwm-cells = <3>;
+-				status = "disabled";
+-			};
+-
+ 			uart_AO: serial@3000 {
+ 				compatible = "amlogic,meson-gx-uart", "amlogic,meson-ao-uart";
+ 				reg = <0x0 0x3000 0x0 0x18>;
+@@ -1581,6 +1582,15 @@ pwm_AO_ab: pwm@7000 {
+ 				status = "disabled";
+ 			};
+ 
++			pwm_AO_cd: pwm@2000 {
++				compatible = "amlogic,meson-axg-ao-pwm";
++				reg = <0x0 0x02000  0x0 0x20>;
++				#pwm-cells = <3>;
++				clocks = <&xtal>,<&xtal>,<&xtal>,<&xtal>;
++				clock-names = "clkin0","clkin1","clkin2","clkin3";
++				status = "okay";
++			};
++
+ 			ir: ir@8000 {
+ 				compatible = "amlogic,meson-gxbb-ir";
+ 				reg = <0x0 0x8000 0x0 0x20>;
+@@ -1751,28 +1761,29 @@ apb: bus@ffe00000 {
+ 			#size-cells = <2>;
+ 			ranges = <0x0 0x0 0x0 0xffe00000 0x0 0x200000>;
+ 
+-			sd_emmc_b: sd@5000 {
++			sd_emmc_c: mmc@7000 {
+ 				compatible = "amlogic,meson-axg-mmc";
+-				reg = <0x0 0x5000 0x0 0x800>;
+-				interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
++				reg = <0x0 0x7000 0x0 0x800>;
++				interrupts = <GIC_SPI 218 IRQ_TYPE_EDGE_RISING>;
+ 				status = "disabled";
+-				clocks = <&clkc CLKID_SD_EMMC_B>,
+-					<&clkc CLKID_SD_EMMC_B_CLK0>,
++				clocks = <&clkc CLKID_SD_EMMC_C>,
++					<&clkc CLKID_SD_EMMC_C_CLK0>,
+ 					<&clkc CLKID_FCLK_DIV2>;
+ 				clock-names = "core", "clkin0", "clkin1";
+-				resets = <&reset RESET_SD_EMMC_B>;
++				resets = <&reset RESET_SD_EMMC_C>;
+ 			};
+ 
+-			sd_emmc_c: mmc@7000 {
++			sd_emmc_b: sdio@5000 {
+ 				compatible = "amlogic,meson-axg-mmc";
+-				reg = <0x0 0x7000 0x0 0x800>;
+-				interrupts = <GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH>;
++				reg = <0x0 0x5000 0x0 0x800>;
++				interrupts = <GIC_SPI 217 IRQ_TYPE_EDGE_RISING>;
+ 				status = "disabled";
+-				clocks = <&clkc CLKID_SD_EMMC_C>,
+-					<&clkc CLKID_SD_EMMC_C_CLK0>,
++
++				clocks = <&clkc CLKID_SD_EMMC_B>,
++					<&xtal>,
+ 					<&clkc CLKID_FCLK_DIV2>;
+ 				clock-names = "core", "clkin0", "clkin1";
+-				resets = <&reset RESET_SD_EMMC_C>;
++				//resets = <&reset RESET_SD_EMMC_B>;
+ 			};
+ 
+ 			usb2_phy1: phy@9020 {
+-- 
+2.39.5
+
