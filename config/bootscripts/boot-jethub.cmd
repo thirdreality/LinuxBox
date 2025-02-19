@@ -50,19 +50,21 @@ echo "Mainline bootargs: ${bootargs}"
 
 
 echo "Checking board setup"
-if test "$board" = "jethub-j100"; then
-    if test "$perev" = "02"; then
-    # D1P + RTL8822CS
-        echo "Applying DT kernel file for JetHub D1/P RTL8822CS device"
-        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-2.dtb"
-    fi;
-    if test "$perev" = "03"; then
-    # D1P + W155S1
-        echo "Applying DT kernel file for JetHub D1/P W155S1 device"
-        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-3.dtb"
-    fi;
-fi;
+#if test "$board" = "jethub-j100"; then
+#    if test "$perev" = "02"; then
+#    # D1P + RTL8822CS
+#        echo "Applying DT kernel file for JetHub D1/P RTL8822CS device"
+#        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-2.dtb"
+#    fi;
+#    if test "$perev" = "03"; then
+#    # D1P + W155S1
+#        echo "Applying DT kernel file for JetHub D1/P W155S1 device"
+#        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-3.dtb"
+#    fi;
+#fi;
 
+echo "Applying DT kernel file for JetHub D1/P W155S1 device"
+echo "U-boot fdtfile: ${fdtfile}"
 
 load ${devtype} ${devnum} ${ramdisk_addr_r} ${prefix}uInitrd
 load ${devtype} ${devnum} ${kernel_addr_r} ${prefix}Image

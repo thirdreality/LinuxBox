@@ -99,8 +99,17 @@ $TMP/dtbTool -o "$TMP/_aml_dtb.PARTITION" "$TMP"
 cp "src/$CNAME/image.$CPART.cfg" "$TMP/image.cfg"
 echo cp "$UBOOT" "$TMP/u-boot.bin"
 cp "$UBOOT" "$TMP/u-boot.bin"
+
+md5sum "$UBOOT"
+md5sum "$TMP/u-boot.bin"
+
 cp "src/$CNAME/DDR.USB" "$TMP"
 cp "src/$CNAME/UBOOT.USB" "$TMP"
+
+
+echo "aml_image_v2_packer_new $TMP"
+
+cat "$TMP/image.cfg"
 
 ./tools/aml_image_v2_packer_new -r "$TMP/image.cfg" "$TMP" output/$OUTIMG
 
