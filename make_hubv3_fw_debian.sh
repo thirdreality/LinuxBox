@@ -21,4 +21,7 @@ IMG_FILE=$(find "$current_dir/output/images" -maxdepth 1 -type f -name "*.img")
 
 if [[ -n "$IMG_FILE" ]]; then
     cd $current_dir/tools/Armbian_Convert/; ./build.sh
+	cd $current_dir
+	IMGBURN=$(find ${$current_dir} -maxdepth 4 -type f -name "*.burn.img")
+	echo ${IMGRUN}
 fi

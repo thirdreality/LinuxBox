@@ -63,6 +63,19 @@ InstallForHubV3() {
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/system.conf
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/user.conf
 	
+	config_file="/etc/NetworkManager/NetworkManager.conf"
+	content_to_add="
+	[keyfile]
+	# Remove or comment out if there's an entry for wlan1
+	# unmanaged-devices=interface-name:wlan1
+	"
+	
+	if [[ -f "$config_file" ]]; then
+		echo "$content_to_add" | sudo tee -a "$config_file" > /dev/null
+	else
+		echo "File $config_file does not exist. Exiting script."
+	fi
+
 	if [ -f "/tmp/overlay/python3.deb" ]; then
 		dpkg -i "/tmp/overlay/python3.deb" || sudo apt-get install -f
 	fi

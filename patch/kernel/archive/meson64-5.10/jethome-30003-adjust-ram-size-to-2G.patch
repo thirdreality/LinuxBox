@@ -1,7 +1,7 @@
-From 0b4f85d055aa3f5cc9d14f94bd790462788ae994 Mon Sep 17 00:00:00 2001
+From 1f22ed33cbd2f34770570bd5d5e87b6f80b8f08e Mon Sep 17 00:00:00 2001
 From: liuguoping1024 <liuguoping@gmail.com>
-Date: Wed, 12 Feb 2025 03:41:14 -0500
-Subject: [PATCH 30003/30003] adjust ram size to 2G
+Date: Thu, 13 Feb 2025 22:42:27 -0500
+Subject: [PATCH 30003/30004] adjust ram size to 2G
 
 ---
  arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts | 2 +-

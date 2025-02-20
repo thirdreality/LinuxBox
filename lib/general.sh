@@ -1749,7 +1749,7 @@ download_and_verify()
 		--timeout=10
 		--allow-piece-length-change=true
 		--max-connection-per-server=2
-		--lowest-speed-limit=50K
+		--lowest-speed-limit=5K
 
 		# BT
 		--seed-time=0

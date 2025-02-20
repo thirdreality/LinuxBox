@@ -1,7 +1,10 @@
 [Unit]
 Description=Amlogic W155s1 Bluetooth Initialization Service
-After=wpa_supplicant-nl80211@wlan0.service
-Requires=wpa_supplicant-nl80211@wlan0.service
+After=amlogicw1.service
+Requires=amlogicw1.service
+
+#After=wpa_supplicant-nl80211@wlan0.service
+#Requires=wpa_supplicant-nl80211@wlan0.service
 
 [Service]
 Type=oneshot

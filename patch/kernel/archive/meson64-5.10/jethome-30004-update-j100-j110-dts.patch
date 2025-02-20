@@ -1,0 +1,101 @@
+From 5a2cb75bb29a4c144894db1cb3b99fa691812012 Mon Sep 17 00:00:00 2001
+From: liuguoping1024 <liuguoping@gmail.com>
+Date: Thu, 13 Feb 2025 23:09:15 -0500
+Subject: [PATCH 30004/30004] update j100 & j110 dts
+
+---
+ .../amlogic/meson-axg-jethome-jethub-j100.dts |  6 ++
+ .../meson-axg-jethome-jethub-j110-rev-3.dts   | 56 +++++++++++++++++++
+ 2 files changed, 62 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
+index 82a3c46eaf66..49c2cfe13812 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j100.dts
+@@ -62,6 +62,12 @@ bluetooth {
+ };
+ */
+ 
++/* wifi module */
++&sd_emmc_b {
++	broken-cd;/* cd-gpios = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_LOW>;*/
++};
++
++
+ &aml_wifi{
+ 	status = "okay";
+ 	interrupt-gpios = <&gpio  GPIOX_6  GPIO_ACTIVE_HIGH>;
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j110-rev-3.dts b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j110-rev-3.dts
+index c2d22b00c1cd..bec2fc7ada7a 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j110-rev-3.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j110-rev-3.dts
+@@ -18,10 +18,66 @@ memory@0 {
+ 		device_type = "memory";
+ 		reg = <0x0 0x0 0x0 0x80000000>;
+ 	};
++
++	aml_bt: aml_bt {
++		compatible = "amlogic, aml-bt";
++		status = "okay";
++	};
++
++	aml_wifi: aml_wifi {
++		compatible = "amlogic, aml-wifi";
++		status = "okay";
++		irq_trigger_type = "GPIO_IRQ_LOW";
++		//dhd_static_buf; /* if use bcm wifi, config dhd_static_buf */
++		//pinctrl-0 = <&pwm_e_pins>;
++		//pinctrl-names = "default";
++		pwm_config = <&wifi_pwm_conf>;
++		//pwm_config = <&sdio_pwrseq>;
++	};
++
++	
++	wifi_pwm_conf:wifi_pwm_conf{
++		pwm_channel1_conf {
++			pwms = <&pwm_AO_cd 0 30541 0>;
++			duty-cycle = <15270>;
++			times = <10>;
++		};
++		
++		pwm_channel2_conf {
++			pwms = <&pwm_AO_cd 2 30500 0>;
++			duty-cycle = <15250>;
++			times = <12>;
++		};
++	};
++	
+ };
+ 
++/* UART Bluetooth */
++/*
++&uart_B {
++	bluetooth {
++		compatible = "brcm,bcm43438-bt";
++		shutdown-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
++	};
++};
++*/
+ 
+ /* wifi module */
+ &sd_emmc_b {
+ 	broken-cd;/* cd-gpios = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_LOW>;*/
+ };
++
++
++&aml_wifi{
++	status = "okay";
++	interrupt-gpios = <&gpio  GPIOX_6  GPIO_ACTIVE_HIGH>;
++	power_on-gpios = <&gpio   GPIOX_7  GPIO_ACTIVE_HIGH>;
++	//power_on_2-gpios= <&gpio  GPIOX_16 GPIO_ACTIVE_HIGH>;
++};
++
++&aml_bt {
++	status = "okay";
++	reset-gpios = <&gpio    GPIOX_21 GPIO_ACTIVE_HIGH>;
++	btwakeup-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
++	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
++};
+-- 
+2.39.5
+

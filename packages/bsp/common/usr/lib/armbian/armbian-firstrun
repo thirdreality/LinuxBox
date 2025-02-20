@@ -128,20 +128,23 @@ case "$1" in
 	[[ $LINUXFAMILY == meson64 ]] && set_fixed_mac
 
 	if [ "$BOARD_NAME" = "JetHub D1" ]; then
-		systemctl disable NetworkManager
-		systemctl disable wpa_supplicant
+		systemctl enable NetworkManager
+		systemctl enable wpa_supplicant
 
 		systemctl enable amlogicw1.service
-		systemctl enable wpa_supplicant-nl80211@wlan0.service
-		systemctl enable dhclient.service
+		systemctl disable wpa_supplicant-nl80211@wlan0.service
+		systemctl disable dhclient.service
 		systemctl enable amlogicw1-bt.service
-		systemctl enable setupwifi.service
+		systemctl disable setupwifi.service
+
+		systemctl start NetworkManager
+		systemctl start wpa_supplicant
 
 		systemctl start amlogicw1.service
-		systemctl start wpa_supplicant-nl80211@wlan0.service
-		systemctl start dhclient.service
+		#systemctl start wpa_supplicant-nl80211@wlan0.service
+		#systemctl start dhclient.service
 		systemctl start amlogicw1-bt.service
-		systemctl start setupwifi.service
+		#systemctl start setupwifi.service
 	fi
 
 	systemctl disable armbian-firstrun

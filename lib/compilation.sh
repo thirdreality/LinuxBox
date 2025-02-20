@@ -605,7 +605,7 @@ compile_firmware()
 		# cp : create hardlinks
 		cp -af --reflink=auto "${SRC}"/cache/sources/linux-firmware-git/* "${firmwaretempdir}/${plugin_dir}/lib/firmware/"
 		# cp : create hardlinks for ath11k WCN685x hw2.1 firmware since they are using the same firmware with hw2.0
-		cp -af --reflink=auto "${firmwaretempdir}/${plugin_dir}/lib/firmware/ath11k/WCN6855/hw2.0/" "${firmwaretempdir}/${plugin_dir}/lib/firmware/ath11k/WCN6855/hw2.1/"
+		#cp -af --reflink=auto "${firmwaretempdir}/${plugin_dir}/lib/firmware/ath11k/WCN6855/hw2.0/" "${firmwaretempdir}/${plugin_dir}/lib/firmware/ath11k/WCN6855/hw2.1/"
 	fi
 	# overlay our firmware
 	# cp : create hardlinks

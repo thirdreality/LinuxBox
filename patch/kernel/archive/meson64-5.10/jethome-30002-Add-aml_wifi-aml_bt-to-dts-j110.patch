@@ -1,7 +1,7 @@
-From 49fa52a79ae653671866d747910b6e60e02fe0b4 Mon Sep 17 00:00:00 2001
+From abc12c26046b73d81c87eb1b7289b8c6e0f7fdc5 Mon Sep 17 00:00:00 2001
 From: liuguoping1024 <liuguoping@gmail.com>
-Date: Wed, 12 Feb 2025 03:40:25 -0500
-Subject: [PATCH 30002/30003] Add aml_wifi & aml_bt to dts j110
+Date: Thu, 13 Feb 2025 22:40:13 -0500
+Subject: [PATCH 30002/30004] Add aml_wifi&aml_bt to dts j110
 
 ---
  .../amlogic/meson-axg-jethome-jethub-j100.dts |  51 ++++++-
