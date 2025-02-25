@@ -45,9 +45,8 @@ fi
 if test -n "${serial}"; then setenv bootargs "${bootargs} serial=${serial}"; fi
 if test -n "${usid}"; then setenv bootargs "${bootargs} usid=${usid}"; fi
 
-if test "${docker_optimizations}" = "on"; then setenv bootargs "${bootargs} cgroup_enable=memory swapaccount=1"; fi
+if test "${docker_optimizations}" = "on"; then setenv bootargs "${bootargs} cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1 swapaccount=1"; fi
 echo "Mainline bootargs: ${bootargs}"
-
 
 echo "Checking board setup"
 #if test "$board" = "jethub-j100"; then

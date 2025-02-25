@@ -32,6 +32,9 @@ Main() {
 		bionic)
 			# your code here
 			;;
+		bookworm)
+			InstallForHubV3
+			;;
 
 		jammy)
 			InstallForHubV3
@@ -60,22 +63,26 @@ InstallForHubV3() {
 
 	# ufw allow 8080
 
-	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/system.conf
-	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/user.conf
-	
+	#kernel modules to load at boot time
+	echo "aml_sdio" | sudo tee -a /etc/modules
+	echo "vlsicomm" | sudo tee -a /etc/modules
+	#echo "sdio_bt" | sudo tee -a /etc/modules
+
 	config_file="/etc/NetworkManager/NetworkManager.conf"
 	content_to_add="
-	[keyfile]
-	# Remove or comment out if there's an entry for wlan1
-	# unmanaged-devices=interface-name:wlan1
-	"
-	
+[keyfile]
+unmanaged-devices=interface-name:*,except:interface-name:wlan0
+"
+
 	if [[ -f "$config_file" ]]; then
 		echo "$content_to_add" | sudo tee -a "$config_file" > /dev/null
 	else
 		echo "File $config_file does not exist. Exiting script."
 	fi
 
+	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/system.conf
+	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/user.conf
+	
 	if [ -f "/tmp/overlay/python3.deb" ]; then
 		dpkg -i "/tmp/overlay/python3.deb" || sudo apt-get install -f
 	fi

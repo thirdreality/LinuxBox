@@ -69,12 +69,20 @@ case "$1" in
 		/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 	fi
 
+
 	# randomize mac in armbianEnv.txt
 	if [[ -f /boot/armbianEnv.txt ]]; then
-		get_random_mac
-		sed  -i "s/^ethaddr=.*/ethaddr=$MACADDR/" /boot/armbianEnv.txt
-		get_random_mac
-		sed  -i "s/^eth1addr=.*/eth1addr=$MACADDR/" /boot/armbianEnv.txt
+		#get_random_mac
+		#sed  -i "s/^ethaddr=.*/ethaddr=$MACADDR/" /boot/armbianEnv.txt
+		#get_random_mac
+		#sed  -i "s/^eth1addr=.*/eth1addr=$MACADDR/" /boot/armbianEnv.txt
+
+		if grep -q "extraargs=systemd.unified_cgroup_hierarchy=false" /boot/armbianEnv.txt; then
+			echo "... Already modified: /boot/armbianEnv.txt"
+		else
+			echo "... Modifying /boot/armbianEnv.txt"
+			echo "extraargs=systemd.unified_cgroup_hierarchy=false" >> /boot/armbianEnv.txt
+		fi
 	fi
 
 	# hardware workarounds per family

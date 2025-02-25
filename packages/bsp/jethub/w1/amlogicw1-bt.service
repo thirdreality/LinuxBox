@@ -1,5 +1,5 @@
 [Unit]
-Description=Amlogic W155s1 Bluetooth Initialization Service
+Description=Amlogic W155S1 Bluetooth Initialization Service
 After=amlogicw1.service
 Requires=amlogicw1.service
 

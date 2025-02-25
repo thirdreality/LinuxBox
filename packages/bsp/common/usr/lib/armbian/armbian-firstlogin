@@ -333,7 +333,7 @@ if [[ -f /root/.not_logged_in_yet && -n $(tty) ]]; then
 	REPEATS=3
 	while [ -f "/root/.not_logged_in_yet" ]; do
 
-		password="shushi6688"
+		password="shushi16888"
 		#read_password "Create root"
 
 		# only allow one login. Once you enter root password, kill others.

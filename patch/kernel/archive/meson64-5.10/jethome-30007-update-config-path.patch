@@ -1,0 +1,206 @@
+From ff210ffe580df3e4bc65f9d35a740b969288b98b Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Fri, 21 Feb 2025 03:59:02 -0500
+Subject: [PATCH] update config path
+
+---
+ .../bluetooth/aml_bt/sdio_driver_bt/Makefile  |  4 ++--
+ drivers/net/wireless/w1ss1/vmac/Makefile      |  4 ++--
+ .../w1ss1/vmac/crypto/aml_crypto_wrap.h       |  2 +-
+ .../w1ss1/vmac/crypto/sha256-internal.c       | 16 +++++++-------
+ .../net/wireless/w1ss1/vmac/crypto/sha256_i.h |  8 +++----
+ .../net/wireless/w1ss1/vmac/wifi_cfg80211.c   |  4 ++--
+ .../net/wireless/w1ss1/vmac/wifi_hal_cmd.c    |  2 +-
+ include/linux/wlan_plat.h                     | 21 +++++++++++++++++++
+ 8 files changed, 41 insertions(+), 20 deletions(-)
+ create mode 100644 include/linux/wlan_plat.h
+
+diff --git a/drivers/bluetooth/aml_bt/sdio_driver_bt/Makefile b/drivers/bluetooth/aml_bt/sdio_driver_bt/Makefile
+index 3dd2c07f9dda..648549fb77ab 100644
+--- a/drivers/bluetooth/aml_bt/sdio_driver_bt/Makefile
++++ b/drivers/bluetooth/aml_bt/sdio_driver_bt/Makefile
+@@ -12,8 +12,8 @@ $(AMLBT_MOD_NAME)-objs := $(AMLBT_CFILES:.c=.o)
+ ###############################################################################
+ # Common
+ ###############################################################################
+-obj-m += aml_sdio.o
+-aml_sdio-objs += w1_sdio.o
++#obj-m += aml_sdio.o
++#aml_sdio-objs += w1_sdio.o
+ 
+ obj-m += $(AMLBT_MOD_NAME).o
+ 
+diff --git a/drivers/net/wireless/w1ss1/vmac/Makefile b/drivers/net/wireless/w1ss1/vmac/Makefile
+index 528c98b22468..1ece93c01fab 100644
+--- a/drivers/net/wireless/w1ss1/vmac/Makefile
++++ b/drivers/net/wireless/w1ss1/vmac/Makefile
+@@ -175,11 +175,11 @@ endif
+ ifeq ($(CONFIG_MAC_SUPPORT),y)
+ EXTRA_CFLAGS += -DCONFIG_MAC_SUPPORT
+ ifeq ($(CONFIG_BUILDROOT),y)
+-EXTRA_CFLAGS += -DWIFIMAC_PATH=\"/etc/wifi/wifimac.txt\"
++EXTRA_CFLAGS += -DWIFIMAC_PATH=\"/usr/lib/firmware/w1/wifimac.txt\"
+ EXTRA_CFLAGS += -DLINUX_PLATFORM
+ EXTRA_CFLAGS += -DWPA3_PATCH
+ else
+-EXTRA_CFLAGS += -DWIFIMAC_PATH=\"/data/vendor/wifi/wifimac.txt\"
++EXTRA_CFLAGS += -DWIFIMAC_PATH=\"/usr/lib/firmware/w1/wifimac.txt\"
+ endif
+ endif
+ 
+diff --git a/drivers/net/wireless/w1ss1/vmac/crypto/aml_crypto_wrap.h b/drivers/net/wireless/w1ss1/vmac/crypto/aml_crypto_wrap.h
+index 301fdd7f09f1..353b6d10adf2 100644
+--- a/drivers/net/wireless/w1ss1/vmac/crypto/aml_crypto_wrap.h
++++ b/drivers/net/wireless/w1ss1/vmac/crypto/aml_crypto_wrap.h
+@@ -112,6 +112,6 @@ void wpa_hexdump_key(int level, const char *title, const void *buf, size_t len);
+ void forced_memzero(void *ptr, size_t len);
+ void bin_clear_free(void *bin, size_t len);
+ #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+-u32 crc32(const u8 *frame, size_t frame_len);
++//u32 crc32(const u8 *frame, size_t frame_len);
+ #endif
+ #endif//_AML_CRYTO_WRAP_H_
+diff --git a/drivers/net/wireless/w1ss1/vmac/crypto/sha256-internal.c b/drivers/net/wireless/w1ss1/vmac/crypto/sha256-internal.c
+index e93669d7053a..6a89c4d15db7 100644
+--- a/drivers/net/wireless/w1ss1/vmac/crypto/sha256-internal.c
++++ b/drivers/net/wireless/w1ss1/vmac/crypto/sha256-internal.c
+@@ -26,17 +26,17 @@
+ int sha256_vector(size_t num_elem, const u8 *addr[], const size_t *len,
+ 		  u8 *mac)
+ {
+-	struct sha256_state ctx;
++	struct sha256_state_i ctx;
+ 	size_t i;
+ 
+ 	if (TEST_FAIL())
+ 		return -1;
+ 
+-	sha256_init(&ctx);
++	sha256_init_i(&ctx);
+ 	for (i = 0; i < num_elem; i++)
+-		if (sha256_process(&ctx, addr[i], len[i]))
++		if (sha256_process_i(&ctx, addr[i], len[i]))
+ 			return -1;
+-	if (sha256_done(&ctx, mac))
++	if (sha256_done_i(&ctx, mac))
+ 		return -1;
+ 	return 0;
+ }
+@@ -82,7 +82,7 @@ static const unsigned long K[64] = {
+ #endif
+ 
+ /* compress 512-bits */
+-static int sha256_compress(struct sha256_state *md, unsigned char *buf)
++static int sha256_compress(struct sha256_state_i *md, unsigned char *buf)
+ {
+ 	u32 S[8], W[64], t0, t1;
+ 	u32 t;
+@@ -125,7 +125,7 @@ static int sha256_compress(struct sha256_state *md, unsigned char *buf)
+ 
+ 
+ /* Initialize the hash state */
+-void sha256_init(struct sha256_state *md)
++void sha256_init_i(struct sha256_state_i *md)
+ {
+ 	md->curlen = 0;
+ 	md->length = 0;
+@@ -146,7 +146,7 @@ void sha256_init(struct sha256_state *md)
+    @param inlen  The length of the data (octets)
+    @return CRYPT_OK if successful
+ */
+-int sha256_process(struct sha256_state *md, const unsigned char *in,
++int sha256_process_i(struct sha256_state_i *md, const unsigned char *in,
+ 		   unsigned long inlen)
+ {
+ 	unsigned long n;
+@@ -186,7 +186,7 @@ int sha256_process(struct sha256_state *md, const unsigned char *in,
+    @param out [out] The destination of the hash (32 bytes)
+    @return CRYPT_OK if successful
+ */
+-int sha256_done(struct sha256_state *md, unsigned char *out)
++int sha256_done_i(struct sha256_state_i *md, unsigned char *out)
+ {
+ 	int i;
+ 
+diff --git a/drivers/net/wireless/w1ss1/vmac/crypto/sha256_i.h b/drivers/net/wireless/w1ss1/vmac/crypto/sha256_i.h
+index a502d2ba5d68..988aed1bcd4d 100644
+--- a/drivers/net/wireless/w1ss1/vmac/crypto/sha256_i.h
++++ b/drivers/net/wireless/w1ss1/vmac/crypto/sha256_i.h
+@@ -11,15 +11,15 @@
+ 
+ #define SHA256_BLOCK_SIZE 64
+ 
+-struct sha256_state {
++struct sha256_state_i {
+ 	u64 length;
+ 	u32 state[8], curlen;
+ 	u8 buf[SHA256_BLOCK_SIZE];
+ };
+ 
+-void sha256_init(struct sha256_state *md);
+-int sha256_process(struct sha256_state *md, const unsigned char *in,
++void sha256_init_i(struct sha256_state_i *md);
++int sha256_process_i(struct sha256_state_i *md, const unsigned char *in,
+ 		   unsigned long inlen);
+-int sha256_done(struct sha256_state *md, unsigned char *out);
++int sha256_done_i(struct sha256_state_i *md, unsigned char *out);
+ 
+ #endif /* SHA256_I_H */
+diff --git a/drivers/net/wireless/w1ss1/vmac/wifi_cfg80211.c b/drivers/net/wireless/w1ss1/vmac/wifi_cfg80211.c
+index b4c2b3dfdd69..216913e0b992 100644
+--- a/drivers/net/wireless/w1ss1/vmac/wifi_cfg80211.c
++++ b/drivers/net/wireless/w1ss1/vmac/wifi_cfg80211.c
+@@ -5786,8 +5786,8 @@ unsigned int irr_para_reg_addr[] ={
+ 
+ extern void print_driver_version(void);
+ extern unsigned int efuse_manual_read(unsigned int addr);
+-char *rssi_result_path = "/vendor/etc/rssi.txt";
+-char *reg_result_path = "/data/reg.txt";
++char *rssi_result_path = "/lib/firmware/w1/rssi.tx";
++char *reg_result_path = "/lib/firmware/w1/reg.txt";
+ 
+ void record_reg_value(unsigned int address, unsigned int value)
+ {
+diff --git a/drivers/net/wireless/w1ss1/vmac/wifi_hal_cmd.c b/drivers/net/wireless/w1ss1/vmac/wifi_hal_cmd.c
+index ca2974d129ca..068cc0a78c83 100644
+--- a/drivers/net/wireless/w1ss1/vmac/wifi_hal_cmd.c
++++ b/drivers/net/wireless/w1ss1/vmac/wifi_hal_cmd.c
+@@ -40,7 +40,7 @@ namespace FW_NAME
+ MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
+ #endif
+ 
+-#define WIFI_CONF_PATH "/lib/firmware/w1"
++#define WIFI_CONF_PATH "/usr/lib/firmware/w1"
+ 
+ static char * conf_path = WIFI_CONF_PATH;
+ module_param(conf_path, charp, S_IRUGO);
+diff --git a/include/linux/wlan_plat.h b/include/linux/wlan_plat.h
+new file mode 100644
+index 000000000000..7ed3b9b4d170
+--- /dev/null
++++ b/include/linux/wlan_plat.h
+@@ -0,0 +1,21 @@
++/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
++/*
++ * Copyright (c) 2019 Amlogic, Inc. All rights reserved.
++ */
++
++#ifndef _LINUX_WLAN_PLAT_H_
++#define _LINUX_WLAN_PLAT_H_
++
++#define WLAN_PLAT_NODFS_FLAG	0x01
++
++struct wifi_platform_data {
++	int (*set_power)(int val);
++	int (*set_reset)(int val);
++	int (*set_carddetect)(int val);
++	void *(*mem_prealloc)(int section, unsigned long size);
++	int (*get_mac_addr)(unsigned char *buf);
++	int (*get_wake_irq)(void);
++	void *(*get_country_code)(char *ccode, u32 flags);
++};
++
++#endif
+-- 
+2.39.5
+

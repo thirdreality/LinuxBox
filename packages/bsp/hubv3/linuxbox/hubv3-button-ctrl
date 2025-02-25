@@ -11,7 +11,7 @@ PID_FILE="/run/button_check.pid"
 # 启动 LED 定时开关
 start() {
     if [ -f "$PID_FILE" ]; then
-        echo "脚本已在运行中!"
+        echo "Button task is running!"
         exit 1
     fi
 
@@ -51,7 +51,7 @@ start() {
 # 停止 LED 控制
 stop() {
     if [ ! -f "$PID_FILE" ]; then
-        echo "脚本未运行"
+        echo "Button task is running!"
         exit 1
     fi
 
@@ -70,7 +70,7 @@ case $1 in
         stop
         ;;
     *)
-        echo "用法: $0 {start|stop|setstate [R|G|B|Y|W|B-]}"
+        echo "Usage: $0 {start|stop|setstate [R|G|B|Y|W|B-]}"
         exit 1
         ;;
 esac

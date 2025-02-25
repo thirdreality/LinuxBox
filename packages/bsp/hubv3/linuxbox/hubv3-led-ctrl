@@ -33,7 +33,7 @@ cleanup_gpio() {
 # 启动 LED 定时开关
 start() {
     if [ -f "$PID_FILE" ]; then
-        echo "脚本已在运行中!"
+        echo "Led task is running!"
         exit 1
     fi
 
@@ -43,7 +43,7 @@ start() {
 
     echo $$ > "$PID_FILE"
     echo "$LED_STATE" > "$STATE_FILE"
-    echo "LED控制启动, 当前颜色为 $LED_STATE, 间隔为 $INTERVAL 秒"
+    #echo "LED控制启动, 当前颜色为 $LED_STATE, 间隔为 $INTERVAL 秒"
 
     trap "cleanup_gpio; rm -f $PID_FILE $STATE_FILE; exit 0" INT TERM
 
@@ -99,14 +99,14 @@ start() {
 # 停止 LED 控制
 stop() {
     if [ ! -f "$PID_FILE" ]; then
-        echo "脚本未运行"
+        echo "Led task is stopped!"
         exit 1
     fi
 
     PID=$(cat "$PID_FILE")
     kill "$PID" 2>/dev/null
     rm -f "$PID_FILE" "$STATE_FILE"
-    echo "LED控制已停止"
+    #echo "LED控制已停止"
     cleanup_gpio
     exit 0
 }
@@ -116,10 +116,10 @@ setstate() {
     case $1 in
         R|G|B|W|Y|B-)
             echo "$1" > "$STATE_FILE"
-            echo "LED颜色已设置为 $1"
+            echo "LED color is set to $1"
             ;;
         *)
-            echo "无效的颜色设置。请使用 'R', 'G', 'B', 'Y', 'W' 或 'B-'."
+            echo "invalid color, please use: 'R', 'G', 'B', 'Y', 'W' 或 'B-'."
             ;;
     esac
 }
@@ -137,7 +137,7 @@ case $1 in
         setstate "$2"
         ;;
     *)
-        echo "用法: $0 {start|stop|setstate [R|G|B|Y|W|B-]}"
+        echo "Usage: $0 {start|stop|setstate [R|G|B|Y|W|B-]}"
         exit 1
         ;;
 esac
