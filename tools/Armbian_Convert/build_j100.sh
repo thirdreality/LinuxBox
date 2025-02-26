@@ -8,6 +8,6 @@ IMAGE=`find ../../output/images -name '*.img' -type f -print -quit`
 echo "UBOOT: ${UBOOT}"
 echo "Image: ${IMAGE}"
 
-$current_dir/convert.sh ${IMAGE} v3 armbian no ${UBOOT}
+$current_dir/convert.sh ${IMAGE} d1 armbian no ${UBOOT}
 
 

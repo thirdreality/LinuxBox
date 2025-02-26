@@ -1,0 +1,12 @@
+[Unit]
+Description=Amlogic W155S1 WiFi Driver Loader
+Wants=network.target
+After=network-pre.target dbus.service
+Before=network.target
+
+[Service]
+ExecStart=/usr/lib/firmware/w1/w1_start.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

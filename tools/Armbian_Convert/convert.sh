@@ -20,6 +20,9 @@ if [[ "$2" == "h1" || "$2" == "j80" ]]; then
 elif [[ "$2" == "d1" || "$2" == "j100" ]]; then
   DTS="meson-axg-jethome-jethub-j100.dts"
   CNAME="j100"
+elif [[ "$2" == "v3" ]]; then
+  DTS="meson-axg-thirdreality-trhub-v3.dts"
+  CNAME="hubv3"  
 else
   echo "ERROR: unknown controller"
   exit
@@ -46,6 +49,7 @@ else
     UBOOT="src/$CNAME/u-boot.$CPART.bin"
 fi
 
+echo "CNAME set to ${CNAME}"
 echo "UBOOT set to ${UBOOT}"
 
 [[ ! -e $1 ]] && echo No file found && exit
@@ -119,6 +123,10 @@ if [[ "$COMPRESS" == "yes" ]]; then
     cd ..
     rm "output/$OUTIMG"
     #xz --threads=0 "output/$OUTIMG"
+else
+    echo "create temp zip for debug ..."
+    #cd output
+    #zip -r "tmp.zip" "$TMP"
 fi
 
 rm -rf $TMP

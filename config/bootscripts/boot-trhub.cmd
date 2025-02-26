@@ -18,7 +18,7 @@ setenv prefix "boot/"
 
 # Show what uboot default fdtfile is
 echo "U-boot default fdtfile: ${fdtfile}"
-echo "Current variant: ${variant}"
+echo "[boot-trhub.cmd]Current variant: ${variant}"
 
 # legacy kernel values from armbianEnv.txt
 if test -e ${devtype} ${devnum} ${prefix}armbianEnv.txt; then
@@ -30,7 +30,7 @@ fi
 # mmc 0 is always mapped to device u-boot (2016.09+) was loaded from
 if test "${devtype}" = "mmc"; then part uuid mmc ${devnum}:1 partuuid; fi
 
-echo "[boot-jethub.cmd]Current fdtfile after armbianEnv: ${fdtfile}"
+echo "[boot-trhub.cmd]Current fdtfile after armbianEnv: ${fdtfile}"
 
 if test "${console}" = "serial"; then setenv consoleargs "console=ttyAML0,115200n8"; fi
 
@@ -49,18 +49,6 @@ if test "${docker_optimizations}" = "on"; then setenv bootargs "${bootargs} cgro
 echo "Mainline bootargs: ${bootargs}"
 
 echo "Checking board setup"
-#if test "$board" = "jethub-j100"; then
-#    if test "$perev" = "02"; then
-#    # D1P + RTL8822CS
-#        echo "Applying DT kernel file for JetHub D1/P RTL8822CS device"
-#        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-2.dtb"
-#    fi;
-#    if test "$perev" = "03"; then
-#    # D1P + W155S1
-#        echo "Applying DT kernel file for JetHub D1/P W155S1 device"
-#        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-3.dtb"
-#    fi;
-#fi;
 
 echo "Applying DT kernel file for JetHub D1/P W155S1 device"
 echo "U-boot fdtfile: ${fdtfile}"

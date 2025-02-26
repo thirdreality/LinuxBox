@@ -7,7 +7,7 @@ if [ $# -lt 3 ]; then
     echo "	$0 <input> <h1|d1> <type> [compress uboot]"
     echo
     echo "		input		- input image"
-    echo "		h1|d1|d2|j80|j100|j200|cma	- select controller D1 or H1"
+    echo "		h1|d1|d2|j80|j100|j200|v3|cma	- select controller D1 or H1"
     echo "		type		- partition type. supported: haos, armbian"
     echo "		compress	- 'compress' or 'no' output to zip"
     echo "		uboot		- path to u-boot binary"
@@ -25,7 +25,7 @@ elif [[ "$2" == "d2" || "$2" == "j200" ]]; then
   CNAME="j200"
   elif [[ "$2" == "v3" ]]; then
   DTS="meson-axg-jethome-jethub-j100.dts"
-  CNAME="trhubv3"
+  CNAME="hubv3"
 elif [[ "$2" == "cma" ]]; then
   DTS="meson-axg-jethome-jethub-j100.dts"
   CNAME="magicbox"
@@ -56,6 +56,8 @@ else
     exit 1
 fi
 
+echo "DTS set to ${DTS}"
+echo "CNAME set to ${CNAME}"
 echo "UBOOT set to ${UBOOT}"
 
 [[ ! -e $1 ]] && echo No file found && exit

@@ -1,0 +1,2 @@
+antenna_number=2
+load_efuse=0
