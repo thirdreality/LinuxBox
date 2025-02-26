@@ -1,0 +1,61 @@
+/ {
+	partitions: partitions {
+		parts = <0x08>;
+		part-0 = <&boothaos>;
+		part-1 = <&overlay>;
+		part-2 = <&kernela>;
+		part-3 = <&systema>;
+		part-4 = <&kernelb>;
+		part-5 = <&systemb>;
+		part-6 = <&bootinfo>;
+		part-7 = <&data>;
+
+		boothaos: boothaos {
+			pname = "boothaos";
+			size = <0x00 0x1800000>;
+			mask = <0x01>;
+		};
+
+		overlay: overlay {
+			pname = "overlay";
+			size = <0x00 0x6000000>;
+			mask = <0x04>;
+		};
+
+		data: data {
+			pname = "data";
+			size = <0xffffffff 0xffffffff>;
+			mask = <0x04>;
+		};
+
+		kernela: kernela {
+			pname = "kernela";
+			size = <0x00 0x1800000>;
+			mask = <0x04>;
+		};
+
+		systema: systema {
+			pname = "systema";
+			size = <0x00 0x10000000>;
+			mask = <0x04>;
+		};
+
+		kernelb: kernelb {
+			pname = "kernelb";
+			size = <0x00 0x1800000>;
+			mask = <0x04>;
+		};
+
+		systemb: systemb {
+			pname = "systemb";
+			size = <0x00 0x10000000>;
+			mask = <0x04>;
+		};
+
+		bootinfo: bootinfo {
+			pname = "bootinfo";
+			size = <0x00 0x800000>;
+			mask = <0x04>;
+		};
+	};
+};
