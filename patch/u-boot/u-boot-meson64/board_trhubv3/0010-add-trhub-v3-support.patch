@@ -1,10 +1,11 @@
-From d96e7cb272afd82bd9e6251007cb57bca4ba239f Mon Sep 17 00:00:00 2001
+From e831ea78f6ff16e439e95a755798c140283538c4 Mon Sep 17 00:00:00 2001
 From: "guoping.liu" <guoping.liu@3reality.com>
-Date: Tue, 25 Feb 2025 05:31:39 -0500
+Date: Thu, 27 Feb 2025 05:20:20 -0500
 Subject: [PATCH] add trhub-v3 support
 
 ---
- .../dts/meson-axg-thirdreality-trhub-v3.dts   | 356 ++++++++++++++++++
+ arch/arm/dts/Makefile                         |   2 +
+ .../dts/meson-axg-thirdreality-trhub-v3.dts   | 337 +++++++++++++++++
  .../dts/meson-axg-thirdreality-trhub-v3b.dts  | 356 ++++++++++++++++++
  board/amlogic/trhub-v3/MAINTAINERS            |   8 +
  board/amlogic/trhub-v3/Makefile               |   3 +
@@ -15,7 +16,7 @@ Subject: [PATCH] add trhub-v3 support
  configs/trhub_v3_defconfig                    |  98 +++++
  configs/trhub_v3b_defconfig                   |  98 +++++
  include/configs/trhub.h                       |  35 ++
- 11 files changed, 1168 insertions(+)
+ 12 files changed, 1151 insertions(+)
  create mode 100644 arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts
  create mode 100644 arch/arm/dts/meson-axg-thirdreality-trhub-v3b.dts
  create mode 100644 board/amlogic/trhub-v3/MAINTAINERS
@@ -28,12 +29,25 @@ Subject: [PATCH] add trhub-v3 support
  create mode 100644 configs/trhub_v3b_defconfig
  create mode 100644 include/configs/trhub.h
 
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 78de8b1ea5e..9710fdd9100 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -176,6 +176,8 @@ dtb-$(CONFIG_ARCH_S5P4418) += \
+ dtb-$(CONFIG_ARCH_MESON) += \
+ 	meson-axg-s400.dtb \
+ 	meson-axg-jethome-jethub-j100.dtb \
++	meson-axg-thirdreality-trhub-v3.dtb \
++	meson-axg-thirdreality-trhub-v3b.dtb \
+ 	meson-gxbb-nanopi-k2.dtb \
+ 	meson-gxbb-odroidc2.dtb \
+ 	meson-gxbb-nanopi-k2.dtb \
 diff --git a/arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts b/arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts
 new file mode 100644
-index 00000000000..287a42f6e70
+index 00000000000..d99b5430b7c
 --- /dev/null
 +++ b/arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,337 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
 + * Copyright (c) 2021 Vyacheslav Bocharov <adeep@lexina.in>
@@ -55,14 +69,14 @@ index 00000000000..287a42f6e70
 +	aliases {
 +		serial0 = &uart_AO;   /* Console */
 +		serial1 = &uart_AO_B; /* External UART (Wireless Module) */
-+		ethernet0 = &ethmac;
++		serial2 = &uart_B;    /* Bluetooth */
 +	};
 +
 +	chosen {
 +		stdout-path = "serial0:115200n8";
 +	};
 +
-+	/* 1024MB RAM */
++	/* 2048MB RAM */
 +	memory@0 {
 +		device_type = "memory";
 +		reg = <0x0 0x0 0x0 0x80000000>;
@@ -190,6 +204,12 @@ index 00000000000..287a42f6e70
 +			};
 +		};
 +	};
++
++	onewire {
++		compatible = "w1-gpio";
++		gpios = <&gpio GPIOA_14 GPIO_ACTIVE_HIGH>;
++		#gpio-cells = <1>;
++	};
 +};
 +
 +&efuse {
@@ -211,31 +231,6 @@ index 00000000000..287a42f6e70
 +
 +	bid: bid@12 {
 +		reg = <0x12 0x20>;
-+	};
-+};
-+
-+&ethmac {
-+	status = "okay";
-+	pinctrl-0 = <&eth_rmii_x_pins>;
-+	pinctrl-names = "default";
-+	phy-handle = <&eth_phy0>;
-+	phy-mode = "rmii";
-+
-+	mdio {
-+		compatible = "snps,dwmac-mdio";
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		/* ICPlus IP101A/G Ethernet PHY (vendor_id=0x0243, model_id=0x0c54) */
-+		eth_phy0: ethernet-phy@0 {
-+			/* compatible = "ethernet-phy-id0243.0c54";*/
-+			max-speed = <100>;
-+			reg = <0>;
-+
-+			reset-assert-us = <10000>;
-+			reset-deassert-us = <10000>;
-+			reset-gpios = <&gpio GPIOZ_5 GPIO_ACTIVE_LOW>;
-+		};
 +	};
 +};
 +
@@ -392,7 +387,7 @@ index 00000000000..287a42f6e70
 +};
 diff --git a/arch/arm/dts/meson-axg-thirdreality-trhub-v3b.dts b/arch/arm/dts/meson-axg-thirdreality-trhub-v3b.dts
 new file mode 100644
-index 00000000000..db8495e3eb4
+index 00000000000..f2162c1e5c2
 --- /dev/null
 +++ b/arch/arm/dts/meson-axg-thirdreality-trhub-v3b.dts
 @@ -0,0 +1,356 @@
@@ -412,7 +407,7 @@ index 00000000000..db8495e3eb4
 +#include <dt-bindings/thermal/thermal.h>
 +
 +/ {
-+	compatible = "thirdreality,trhub-v3b", "amlogic,a113x", "amlogic,meson-axg";
++	compatible = "thirdreality,trhub-v3b", "amlogic,a113d", "amlogic,meson-axg";
 +	model = "ThirdReality TRHub V3b";
 +	aliases {
 +		serial0 = &uart_AO;   /* Console */
@@ -1075,7 +1070,7 @@ index 00000000000..0b8a36b1f2b
 +CONFIG_DM_RESET=y
 +CONFIG_DM_RTC=y
 +CONFIG_RTC_PCF8563=y
-+CONFIG_DEBUG_UART_ANNOUNCE=y
++#CONFIG_DEBUG_UART_ANNOUNCE=y
 +CONFIG_DEBUG_UART_SKIP_INIT=y
 +CONFIG_MESON_SERIAL=y
 +CONFIG_USB=y
@@ -1179,7 +1174,7 @@ index 00000000000..e9a17052c59
 +CONFIG_DM_RESET=y
 +CONFIG_DM_RTC=y
 +CONFIG_RTC_PCF8563=y
-+CONFIG_DEBUG_UART_ANNOUNCE=y
++#CONFIG_DEBUG_UART_ANNOUNCE=y
 +CONFIG_DEBUG_UART_SKIP_INIT=y
 +CONFIG_MESON_SERIAL=y
 +CONFIG_USB=y

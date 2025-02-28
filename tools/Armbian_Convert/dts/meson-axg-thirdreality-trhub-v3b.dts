@@ -8,19 +8,20 @@
 / {
 	compatible = "thirdreality,trhub-v3", "amlogic,a113x", "amlogic,meson-axg";
 	model = "ThirdReality TRHub V3";
-	amlogic-dt-id = "axg_jethubj100_v1";
+	amlogic-dt-id = "axg_trhubv3_v1";
 
 	aliases {
 		serial0 = &uart_AO;   /* Console */
-		serial1 = &uart_AO_B; /* External UART (Wireless Module) */
-		serial2 = &uart_B;    /* Bluetooth */
+		serial1 = &uart_B;    /* Bluetooth */
+		serial2 = &uart_AO_B; /* External UART (Wireless Module) */
+		ethernet0 = &ethmac;
 	};
 
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
 
-	/* 2048MB RAM */
+	/* 2048 RAM */
 	memory@0 {
 		device_type = "memory";
 		reg = <0x0 0x0 0x0 0x80000000>;
@@ -110,6 +111,7 @@
 		pwms = <&pwm_ab 0 30518 0>; /* PWM_A at 32.768KHz */
 	};
 
+
 	efusekey: efusekey {
 		keynum = <5>;
 		key0 = <&key_0>;
@@ -191,6 +193,33 @@
 	}; //End unifykey
 };
 
+&ethmac {
+	status = "okay";
+	pinctrl-0 = <&eth_rmii_x_pins>;
+	pinctrl-names = "default";
+	phy-handle = <&eth_phy0>;
+	phy-mode = "rmii";
+	internal_phy=<0>;
+	interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+
+	mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* ICPlus IP101A/G Ethernet PHY (vendor_id=0x0243, model_id=0x0c54) */
+		eth_phy0: ethernet-phy@0 {
+			/* compatible = "ethernet-phy-id0243.0c54";*/
+			max-speed = <100>;
+			reg = <0>;
+
+			reset-assert-us = <10000>;
+			reset-deassert-us = <10000>;
+			reset-gpios = <&gpio GPIOZ_5 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
 /* Internal I2C bus (on CPU module) */
 &i2c1 {
 	status = "okay";
@@ -220,7 +249,7 @@
 
 /* wifi module */
 &sd_emmc_b {
-	status = "okay";
+	status = "disabled";
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -289,9 +318,9 @@
 
 /* UART Wireless module */
 &uart_AO_B {
-        status = "okay";
-        pinctrl-0 = <&uart_ao_b_pins>;
-        pinctrl-names = "default";
+	status = "okay";
+	pinctrl-0 = <&uart_ao_b_pins>;
+	pinctrl-names = "default";
 };
 
 &usb {
@@ -301,10 +330,8 @@
 
 &spicc1 {
 	status = "okay";
-};
-
-&audio {
-	status = "disabled";
+	pinctrl-0 = <&spi1_x_pins>, <&spi1_ss0_x_pins>;
+	pinctrl-names = "default";
 };
 
 &efuse {
@@ -316,4 +343,3 @@
 	key = <&efusekey>;
 	clock-names = "efuse_clk";
 };
-

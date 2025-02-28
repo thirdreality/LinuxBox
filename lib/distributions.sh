@@ -702,6 +702,22 @@ install_distribution_specific()
 
 		;;
 
+	bookworm)
+			# (temporally) disable broken service
+			chroot "${SDCARD}" /bin/bash -c "systemctl --no-reload disable smartmontools.service >/dev/null 2>&1"
+
+			if [ -d "${SDCARD}"/etc/NetworkManager ]; then
+				local RENDERER=NetworkManager
+			else
+				local RENDERER=networkd
+			fi
+
+			# Journal service adjustements
+			sed -i "s/#Storage=.*/Storage=volatile/g" "${SDCARD}"/etc/systemd/journald.conf
+			sed -i "s/#Compress=.*/Compress=yes/g" "${SDCARD}"/etc/systemd/journald.conf
+			sed -i "s/#RateLimitIntervalSec=.*/RateLimitIntervalSec=30s/g" "${SDCARD}"/etc/systemd/journald.conf
+			sed -i "s/#RateLimitBurst=.*/RateLimitBurst=10000/g" "${SDCARD}"/etc/systemd/journald.conf			
+		;;
 	esac
 
 	# configure language and locales

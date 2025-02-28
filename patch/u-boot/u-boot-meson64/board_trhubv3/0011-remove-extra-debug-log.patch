@@ -1,0 +1,190 @@
+From ca4d93306b3753cd225e576e4912007dd6d91d6d Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Fri, 28 Feb 2025 00:30:55 -0500
+Subject: [PATCH] remove extra debug log
+
+---
+ common/partitions.c                      | 22 +++++++++++-----------
+ drivers/amlogic/keymanage/key_manage_i.h |  4 ++--
+ drivers/mmc/aml_emmc_partition.c         |  4 +++-
+ drivers/mmc/mmc.c                        | 12 ++++++------
+ drivers/mmc/storage_emmc.c               | 11 ++++++-----
+ 5 files changed, 28 insertions(+), 25 deletions(-)
+
+diff --git a/common/partitions.c b/common/partitions.c
+index 25ad5e447d8..35293599eaa 100644
+--- a/common/partitions.c
++++ b/common/partitions.c
+@@ -69,7 +69,7 @@ int check_valid_dts(unsigned char *buffer)
+ 		flush_cache((unsigned long)sbuffer, AML_DTB_IMG_MAX_SZ);
+ 		ret = aml_sec_boot_check(AML_D_P_IMG_DECRYPT, (long unsigned)sbuffer, AML_DTB_IMG_MAX_SZ, 0);
+ 		if (ret) {
+-			printf("\n %s() %d: Decrypt dtb: Sig Check %d\n", __func__, __LINE__, ret);
++			//printf("\n %s() %d: Decrypt dtb: Sig Check %d\n", __func__, __LINE__, ret);
+ 			return -__LINE__;
+ 		}
+ 		memcpy(buffer, sbuffer, AML_DTB_IMG_MAX_SZ);
+@@ -79,10 +79,10 @@ int check_valid_dts(unsigned char *buffer)
+ #else
+ 	dt_addr = (char *)buffer;
+ #endif
+-	pr_debug("start dts,buffer=%p,dt_addr=%p\n", buffer, dt_addr);
++	//pr_debug("start dts,buffer=%p,dt_addr=%p\n", buffer, dt_addr);
+ 	ret = fdt_check_header(dt_addr);
+-	if ( ret < 0 )
+-		printf("%s: %s\n",__func__,fdt_strerror(ret));
++	//if ( ret < 0 )
++	//	printf("%s: %s\n",__func__,fdt_strerror(ret));
+ 	/* fixme, is it 0 when ok? */
+ 	return ret;
+ }
+@@ -104,10 +104,10 @@ int get_partition_from_dts(unsigned char *buffer)
+ 		goto _err;
+ 
+ 	ret = check_valid_dts(buffer);
+-	printf("%s() %d: ret %d\n",__func__, __LINE__, ret);
++	//printf("%s() %d: ret %d\n",__func__, __LINE__, ret);
+ 	if ( ret < 0 )
+ 	{
+-		printf("%s() %d: ret %d\n",__func__, __LINE__, ret);
++		//printf("%s() %d: ret %d\n",__func__, __LINE__, ret);
+ 		goto _err;
+ 	}
+ #ifdef CONFIG_MULTI_DTB
+@@ -118,18 +118,18 @@ int get_partition_from_dts(unsigned char *buffer)
+ 	nodeoffset = fdt_path_offset(dt_addr, "/partitions");
+ 	if (nodeoffset < 0)
+ 	{
+-		printf("%s: not find /partitions node %s.\n",__func__,fdt_strerror(nodeoffset));
++		//printf("%s: not find /partitions node %s.\n",__func__,fdt_strerror(nodeoffset));
+ 		ret = -1;
+ 		goto _err;
+ 	}
+ 	parts_num = (int *)fdt_getprop(dt_addr, nodeoffset, "parts", NULL);
+-	printf("parts: %d\n",be32_to_cpup((u32*)parts_num));
++	//printf("parts: %d\n",be32_to_cpup((u32*)parts_num));
+ 
+ 	if (parts_num > 0)
+ 	{
+ 		part_table = (struct partitions *)malloc(sizeof(struct partitions)*(be32_to_cpup((u32*)parts_num)));
+ 		if (!part_table) {
+-			printk("%s part_table alloc _err\n",__func__);
++			//printk("%s part_table alloc _err\n",__func__);
+ 			//kfree(data);
+ 			return -1;
+ 		}
+@@ -146,13 +146,13 @@ int get_partition_from_dts(unsigned char *buffer)
+ 
+ 		phandle = fdt_getprop(dt_addr, nodeoffset, propname, NULL);
+ 		if (!phandle) {
+-			printf("don't find  match part-%d\n",index);
++			//printf("don't find  match part-%d\n",index);
+ 			goto _err;
+ 		}
+ 		if (phandle) {
+ 			poffset = fdt_node_offset_by_phandle(dt_addr, be32_to_cpup((u32*)phandle));
+ 			if (!poffset) {
+-				printf("%s:%d,can't find device node\n",__func__,__LINE__);
++				//printf("%s:%d,can't find device node\n",__func__,__LINE__);
+ 				goto _err;
+ 			}
+ 		}
+diff --git a/drivers/amlogic/keymanage/key_manage_i.h b/drivers/amlogic/keymanage/key_manage_i.h
+index 73404c1dbf1..f6f1e814d9a 100644
+--- a/drivers/amlogic/keymanage/key_manage_i.h
++++ b/drivers/amlogic/keymanage/key_manage_i.h
+@@ -22,8 +22,8 @@
+ #include <amlogic/amlkey_if.h>
+ 
+ #define KM_DBG(fmt ...)     //printf("[KM]Dbg:"fmt)
+-#define KM_MSG(fmt ...)     printf("[KM]Msg:"fmt)
+-#define KM_ERR(fmt ...)     printf("[KM]Error:f[%s]L%d:", __func__, __LINE__),printf(fmt)
++#define KM_MSG(fmt ...)     //printf("[KM]Msg:"fmt)
++#define KM_ERR(fmt ...)     //printf("[KM]Error:f[%s]L%d:", __func__, __LINE__),printf(fmt)
+ 
+ int _keyman_hex_ascii_to_buf(const char* input, char* buf, const unsigned bufSz);
+ int _keyman_buf_to_hex_ascii(const uint8_t* pdata, const unsigned dataLen, char* fmtStr/*pr if NULL*/);
+diff --git a/drivers/mmc/aml_emmc_partition.c b/drivers/mmc/aml_emmc_partition.c
+index d27419db95b..ed4f61afdba 100644
+--- a/drivers/mmc/aml_emmc_partition.c
++++ b/drivers/mmc/aml_emmc_partition.c
+@@ -39,16 +39,18 @@ DECLARE_GLOBAL_DATA_PTR;
+ #define CONFIG_MPT_DEBUG 	(0)
+ #define GPT_PRIORITY             (1)
+ 
++#if (CONFIG_MPT_DEBUG)
+ #define apt_err(fmt, ...) printf( "%s()-%d: " fmt , \
+                   __func__, __LINE__, ##__VA_ARGS__)
+ 
+ #define apt_wrn(fmt, ...) printf( "%s()-%d: " fmt , \
+                   __func__, __LINE__, ##__VA_ARGS__)
+-#if (CONFIG_MPT_DEBUG)
+ /* for detail debug info */
+ #define apt_info(fmt, ...) printf( "%s()-%d: " fmt , \
+                   __func__, __LINE__, ##__VA_ARGS__)
+ #else
++#define apt_err(fmt, ...)
++#define apt_wrn(fmt, ...)
+ #define apt_info(fmt, ...)
+ #endif
+ 
+diff --git a/drivers/mmc/mmc.c b/drivers/mmc/mmc.c
+index c63bca2e083..8e6952a4651 100644
+--- a/drivers/mmc/mmc.c
++++ b/drivers/mmc/mmc.c
+@@ -3202,15 +3202,15 @@ int mmc_pattern_check(struct mmc *mmc, struct aml_pattern *table)
+ 		buf = (u32 *)addr;
+ 		crc32_s = crc32(0, (u8 *)addr, (vpart->size - 4));
+ 		if (crc32_s != buf[vpart->size/4 - 1]) {
+-			printf("check %s failed,need to write\n",
+-						table->name);
++			//printf("check %s failed,need to write\n",
++			//			table->name);
+ 			mmc_write_cali_mattern(addr, table);
+ 			n = blk_dwrite(mmc_get_blk_desc(mmc), blk, cnt, addr);
+-			printf("several 0x%x pattern blocks write %s\n",
+-				table->pattern, (n == cnt) ? "OK" : "ERROR");
++			//printf("several 0x%x pattern blocks write %s\n",
++			//	table->pattern, (n == cnt) ? "OK" : "ERROR");
+ 		}
+-		printf("crc32_s:0x%x == storage crc_pattern:0x%x!!!\n",
+-				crc32_s, buf[vpart->size/4 - 1]);
++		//printf("crc32_s:0x%x == storage crc_pattern:0x%x!!!\n",
++		//		crc32_s, buf[vpart->size/4 - 1]);
+ 	}
+ 	free(addr);
+ 	return (n == cnt) ? 0 : 1;
+diff --git a/drivers/mmc/storage_emmc.c b/drivers/mmc/storage_emmc.c
+index 48519a6eea5..32b75eb5255 100644
+--- a/drivers/mmc/storage_emmc.c
++++ b/drivers/mmc/storage_emmc.c
+@@ -922,9 +922,10 @@ int emmc_pre(void)
+ 		}
+ 		config_storage_dev_func(storage_dev, mmc);
+ 		store_register(storage_dev);
+-		printf("emmc init success!\n");
+-	} else
+-		printf("emmc init fail!\n");
++		//printf("emmc init success!\n");
++	} 
++	//else
++	//	printf("emmc init fail!\n");
+ 	return ret;
+ }
+ 
+@@ -935,10 +936,10 @@ int emmc_probe(uint32_t init_flag)
+ 
+ 	ret = mmc_storage_init(init_flag); /*flag 0*/
+ 	if (ret) {
+-		printf("mmc init failed ret:%x\n", ret);
++		//printf("mmc init failed ret:%x\n", ret);
+ 		goto exit_error;
+ 	}
+-	printf("emmc probe success\n");
++	//printf("emmc probe success\n");
+ 
+ exit_error:
+ 	return ret;
+-- 
+2.39.5
+

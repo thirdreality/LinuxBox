@@ -12,13 +12,14 @@ setenv overlay_error "false"
 setenv rootdev "/dev/mmcblk0p1"
 setenv verbosity "1"
 setenv console "serial"
+setenv bootlogo "false"
 setenv rootfstype "ext4"
 setenv docker_optimizations "on"
 setenv prefix "boot/"
 
 # Show what uboot default fdtfile is
 echo "U-boot default fdtfile: ${fdtfile}"
-echo "[boot-trhub.cmd]Current variant: ${variant}"
+echo "[HubV3.cmd]Current variant: ${variant}"
 
 # legacy kernel values from armbianEnv.txt
 if test -e ${devtype} ${devnum} ${prefix}armbianEnv.txt; then
@@ -30,7 +31,7 @@ fi
 # mmc 0 is always mapped to device u-boot (2016.09+) was loaded from
 if test "${devtype}" = "mmc"; then part uuid mmc ${devnum}:1 partuuid; fi
 
-echo "[boot-trhub.cmd]Current fdtfile after armbianEnv: ${fdtfile}"
+echo "Current fdtfile after armbianEnv: ${fdtfile}"
 
 if test "${console}" = "serial"; then setenv consoleargs "console=ttyAML0,115200n8"; fi
 
