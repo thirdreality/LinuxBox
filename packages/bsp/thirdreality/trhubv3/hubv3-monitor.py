@@ -112,13 +112,22 @@ class GpioButton:
         return SysFSGPIO.read_value(self.BUTTON_PIN) == "1"
 
 
-def ensure_tmp_ready(timeout=15, interval=1):
+def ensure_tmp_ready(timeout=30, interval=1):
     start_time = time.time()
+
     while time.time() - start_time < timeout:
-        if os.path.exists("/tmp") and os.access("/tmp", os.W_OK):
-            logging.info("ensure /tmp is ready ...")
-            return True
+        try:
+            if os.path.exists("/tmp") and os.access("/tmp", os.W_OK):
+                fd, temp_path = tempfile.mkstemp(dir='/tmp')
+                os.write(fd, b'Test Write')
+                os.close(fd)
+                os.remove(temp_path) 
+                return True
+        except Exception as e:
+            print(f"Error while checking /tmp: {e}")
+        
         time.sleep(interval)
+
     return False
 
 
@@ -143,6 +152,7 @@ class HwMonitor:
 
     def _setup_socket(self):
         ensure_tmp_ready()
+        time.sleep(1)
 
         if os.path.exists(self.SOCKET_PATH):
             os.remove(self.SOCKET_PATH)
