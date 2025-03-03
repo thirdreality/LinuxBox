@@ -51,7 +51,7 @@ echo "Mainline bootargs: ${bootargs}"
 
 echo "Checking board setup"
 
-echo "Applying DT kernel file for JetHub D1/P W155S1 device"
+echo "Applying DT kernel file for TRHubV3 - W155S1 device"
 echo "U-boot fdtfile: ${fdtfile}"
 
 load ${devtype} ${devnum} ${ramdisk_addr_r} ${prefix}uInitrd

@@ -18,13 +18,15 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 class LedState(Enum):
     REBOOT = "reboot"
-    FACTORY_RESET = "factory-reset"
+    POWER_OFF = "power_off"
     NORMAL = "normal"
     NETWORK_ERROR = "network_error"
     NETWORK_LOST = "network_lost"
     STARTUP = "startup"
-    PARING = "paring"
-    PARED = "pared"
+    MQTT_PARING = "mqtt_paring"
+    MQTT_PARED = "mqtt_pared"
+    MQTT_ERROR = "mqtt_error"
+    MQTT_NORMAL = "mqtt_normal"
 
 class SysFSGPIO:
     BASE_PATH = "/sys/class/gpio"
@@ -109,6 +111,17 @@ class GpioButton:
     def is_pressed(self):
         return SysFSGPIO.read_value(self.BUTTON_PIN) == "1"
 
+
+def ensure_tmp_ready(timeout=15, interval=1):
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if os.path.exists("/tmp") and os.access("/tmp", os.W_OK):
+            logging.info("ensure /tmp is ready ...")
+            return True
+        time.sleep(interval)
+    return False
+
+
 class HwMonitor:
     SOCKET_PATH = "/tmp/led_socket"
 
@@ -121,14 +134,16 @@ class HwMonitor:
         self.running.set()
         self.stop_event = threading.Event()
 
-        self._setup_socket()
         self.threads = [
             threading.Thread(target=self.led_control_thread, daemon=True),
             threading.Thread(target=self.button_thread, daemon=True),
             threading.Thread(target=self.network_thread, daemon=True)
         ]
+        self._setup_socket()
 
     def _setup_socket(self):
+        ensure_tmp_ready()
+
         if os.path.exists(self.SOCKET_PATH):
             os.remove(self.SOCKET_PATH)
         self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -139,15 +154,17 @@ class HwMonitor:
     # 请按照实际使用情况进行挑战
     def set_state(self, state):
         with self.state_lock:
-            # 最高优先级：如果新状态是 REBOOT 或 FACTORY_RESET，则无条件地设置状态
-            if state in [LedState.REBOOT, LedState.FACTORY_RESET]:
+            # 最高优先级：如果新状态是 REBOOT 或 POWER_OFF，则无条件地设置状态
+            if state in [LedState.REBOOT, LedState.POWER_OFF]:
                 self.current_state = state
             else:
                 # 如果当前状态是 PARING 且新状态是 PARED 或 NORMAL，则转换为 NORMAL
-                if self.current_state == LedState.PARING and state == LedState.PARED:
+                if self.current_state == LedState.MQTT_PARING and state == LedState.MQTT_PARED:
                     self.current_state = LedState.NORMAL
-                # 否则，如果当前状态不是 REBOOT, FACTORY_RESET, 或 PARING，则更新状态
-                elif self.current_state not in [LedState.REBOOT, LedState.FACTORY_RESET, LedState.PARING]:
+                elif self.current_state == LedState.MQTT_ERROR and state == LedState.MQTT_NORMAL:
+                    self.current_state = LedState.NORMAL                    
+                # 否则，如果当前状态不是 REBOOT, POWER_OFF, 或 PARING，则更新状态
+                elif self.current_state not in [LedState.REBOOT, LedState.POWER_OFF, LedState.MQTT_PARING, LedState.MQTT_ERROR]:
                     self.current_state = state
 
     def get_state(self):
@@ -161,16 +178,23 @@ class HwMonitor:
             blink_counter = (blink_counter + 1) % 2
 
             if state == LedState.REBOOT:
-                self.led.yellow()
-            elif state == LedState.FACTORY_RESET:
                 self.led.red()
+            elif state == LedState.POWER_OFF:
+                self.led.yellow()
             elif state == LedState.NORMAL:
                 self.led.blue()
+            elif state == LedState.MQTT_NORMAL:
+                self.led.blue()                
             elif state == LedState.NETWORK_ERROR:
+                if blink_counter == 0:
+                    self.led.yellow()
+                else:
+                    self.led.off()
+            elif state == LedState.MQTT_ERROR:
                 if blink_counter == 0:
                     self.led.blue()
                 else:
-                    self.led.off()
+                    self.led.off()                    
             elif state == LedState.NETWORK_LOST:
                 if blink_counter == 0:
                     self.led.yellow()
@@ -181,7 +205,7 @@ class HwMonitor:
                     self.led.white()
                 else:
                     self.led.off()
-            elif state == LedState.PARING:
+            elif state == LedState.MQTT_PARING:
                 if blink_counter == 0:
                     self.led.green()
                 else:
@@ -190,7 +214,7 @@ class HwMonitor:
             time.sleep(0.5)
 
     def button_thread(self):
-        press_start, reboot_triggered, factory_reset_triggered = None, False, False
+        press_start, reboot_triggered, power_off_triggered = None, False, False
 
         while self.running.is_set():
             if self.button.is_pressed():
@@ -198,19 +222,19 @@ class HwMonitor:
                 press_duration = time.time() - press_start
 
                 if press_duration >= 15:
-                    self.set_state(LedState.FACTORY_RESET)
-                    factory_reset_triggered, reboot_triggered = True, False
-                elif press_duration >= 5:
                     self.set_state(LedState.REBOOT)
-                    reboot_triggered = True
+                    reboot_triggered, power_off_triggered = True, False
+                elif press_duration >= 5:
+                    self.set_state(LedState.POWER_OFF)
+                    power_off_triggered = True
 
             else:
                 if press_start:
-                    if factory_reset_triggered:
-                        self._perform_factory_reset()
+                    if power_off_triggered:
+                        self._perform_power_off()
                     elif reboot_triggered:
                         self._perform_reboot()
-                    press_start, reboot_triggered, factory_reset_triggered = None, False, False
+                    press_start, reboot_triggered, power_off_triggered = None, False, False
 
             time.sleep(0.5)
 
@@ -277,13 +301,13 @@ class HwMonitor:
         self._execute_system_command(["systemctl", "stop", "docker"])
         self._execute_system_command(["reboot"])
 
-    def _perform_factory_reset(self):
-        logging.info("Performing factory reset...")
-        self.set_state(LedState.FACTORY_RESET)
+    def _perform_power_off(self):
+        logging.info("Performing power off...")
+        self.set_state(LedState.POWER_OFF)
         # 这里可以启动一个脚本
         self._execute_system_command(["systemctl", "stop", "docker"])
-        self._clear_wifi_settings()
-        self._execute_system_command(["reboot"])
+        #self._clear_wifi_settings()
+        self._execute_system_command(["shutdown", "now"])
 
     def _execute_system_command(self, command):
         try:
