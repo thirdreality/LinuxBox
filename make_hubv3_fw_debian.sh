@@ -16,7 +16,7 @@ fi
 rm -rf $current_dir/output/images
 $(pwd)/compile.sh hubv3-images BOARD=trhubv3 BRANCH=current RELEASE=bookworm \
     BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
-    COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no NO_APT_CACHER=yes
+    COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no
 
 IMG_FILE=$(find "$current_dir/output/images" -maxdepth 1 -type f -name "*.img")
 

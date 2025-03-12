@@ -164,14 +164,6 @@ get_package_list_hash()
 	) | sort -u | md5sum | cut -d' ' -f 1
 }
 
-	# deb http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
-	# #deb-src http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
-
-	# deb http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
-	# #deb-src http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
-
-	# deb http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
-	# #deb-src http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
 
 # create_sources_list <release> <basedir>
 #
@@ -219,17 +211,17 @@ create_sources_list()
 
 	bookworm)
 	cat <<-EOF > "${basedir}"/etc/apt/sources.list
-	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
-	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
+	deb http://${DEBIAN_MIRROR} $release main contrib non-free
+	#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free
 
-	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
-	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
+	deb http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
+	#deb-src http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
 
-	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
-	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
+	deb http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
+	#deb-src http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
 
-	deb https://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
-	# deb-src https://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+	deb http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
+	#deb-src http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
 	EOF
 	;;
 
