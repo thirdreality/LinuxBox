@@ -2,40 +2,29 @@
 
 reset_zigbee_module()
 {
-    # pin A113X_RST_ZG: GPIOA_17
-    echo 469 > /sys/class/gpio/export
-    echo out > /sys/class/gpio/gpio469/direction
-
-    # reset the 5189 module first
-    echo 0 > /sys/class/gpio/gpio469/value
+    # pin zigbee reset: GPIOZ_1
+    gpioset 0 1=0
     sleep 0.1
-    echo 1 > /sys/class/gpio/gpio469/value
-
-    echo 469 > /sys/class/gpio/unexport
+    gpioset 0 1=1
+    sleep 0.1
 }
 
 zigbee_enter_isp_mode()
 {
-    # pin Z_ISP: GPIOA_16
-    echo 468 > /sys/class/gpio/export
-    echo out > /sys/class/gpio/gpio468/direction
-    echo 1 > /sys/class/gpio/gpio468/value
+    # pin zigbee boot: GPIOZ_3
+    gpioset 0 3=1
     sleep 0.1
 
     reset_zigbee_module
-    sleep 0.1
-    echo 0 > /sys/class/gpio/gpio468/value
 
-    echo 468 > /sys/class/gpio/unexport
+    gpioset 0 3=0
+    sleep 0.1
 }
 
 disable_zigbee_isp()
 {
-    echo 468 > /sys/class/gpio/export
-    echo out > /sys/class/gpio/gpio468/direction
-    echo 0 > /sys/class/gpio/gpio468/value
+    gpioset 0 3=0
     sleep 0.1
-    echo 468 > /sys/class/gpio/unexport
 }
 
 bflb_pip_install_dependence()
