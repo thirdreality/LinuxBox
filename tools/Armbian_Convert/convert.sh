@@ -22,7 +22,6 @@ elif [[ "$2" == "d1" || "$2" == "j100" ]]; then
   CNAME="j100"
 elif [[ "$2" == "v3" ]]; then
   DTS="meson-axg-thirdreality-trhub-v3.dts"
-  #DTS="meson-axg-jethome-jethub-j100.dts"
   CNAME="j100"  
 else
   echo "ERROR: unknown controller"
@@ -87,7 +86,15 @@ sed -i "s/partition.dtsi/$DTI/g" "$TMP/$DTS"
 
 cpp -nostdinc -I dts -I dts/include -undef -x assembler-with-cpp "$TMP/$DTS" "$TMP/$DTS.preprocess"
 dtc -I dts -O dtb -p 0x1000 -qqq "$TMP/$DTS.preprocess" -o "$DTB"
-FDISK=$(/usr/sbin/fdisk -l "$INPUT" | grep -P -A 100 "Device.+Boot.+Start.+End.+Sectors.+Size.+Id.+Type" | sed -- "s/\*//g" | grep "$INPUT"| grep -v Extended)
+if [ -e "/usr/sbin/fdisk" ]; then
+  FDISK=$(/usr/sbin/fdisk -l "$INPUT" | grep -P -A 100 "Device.+Boot.+Start.+End.+Sectors.+Size.+Id.+Type" | sed -- "s/\*//g" | grep "$INPUT"| grep -v Extended)
+elif [ -e "/sbin/fdisk" ]; then
+  FDISK=$(/sbin/fdisk -l "$INPUT" | grep -P -A 100 "Device.+Boot.+Start.+End.+Sectors.+Size.+Id.+Type" | sed -- "s/\*//g" | grep "$INPUT"| grep -v Extended)
+else
+  echo "fdisk not found."
+  exit 1
+fi
+
 
 echo +! Device	! Start	! End	! Sectors	! Size	! Id	! Type	!-
 i=1

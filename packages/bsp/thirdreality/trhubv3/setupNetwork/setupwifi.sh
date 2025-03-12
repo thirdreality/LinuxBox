@@ -77,9 +77,9 @@ start_service()
 
 stop_service()
 {
-	killall hostapd
-	killall tcpserver
-	killall dnsmasq
+	#killall hostapd
+	#killall tcpserver
+	#killall dnsmasq
 	killall btgatt-server
 	ifconfig wlan1 down
 }

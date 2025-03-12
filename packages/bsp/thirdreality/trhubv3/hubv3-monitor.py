@@ -12,6 +12,7 @@ import argparse
 import socket
 import logging
 import tempfile
+
 from enum import Enum
 
 # Configure logging
@@ -116,19 +117,37 @@ class GpioButton:
         return SysFSGPIO.read_value(self.BUTTON_PIN) == "1"
 
 
+def is_tmp_mounted():
+    return os.system("mountpoint -q /tmp") == 0
+
 def ensure_tmp_ready(timeout=60, interval=1):
     start_time = time.time()
+    
+    while not is_tmp_mounted():
+        time.sleep(interval)
+
+    print("/tmp is mounted")
+    successful_check = False
+
+    time.sleep(5)
+    print("checking /tmp ...")
 
     while time.time() - start_time < timeout:
         try:
             if os.path.exists("/tmp") and os.access("/tmp", os.W_OK):
                 fd, temp_path = tempfile.mkstemp(dir='/tmp')
-                os.write(fd, b'Test Write')
-                os.close(fd)
-                os.remove(temp_path) 
-                return True
-        except Exception as e:
-            print(f"Error while checking /tmp: {e}")
+                try:
+                    os.write(fd, b'Test Write')
+                    os.fsync(fd)  # Ensure data is flushed to disk
+                    successful_check = True
+                finally:
+                    os.close(fd)
+                    os.remove(temp_path)
+                if successful_check:
+                    print("/tmp check: OK")
+                    return True
+        except OSError as e:
+            print(f"OS error while checking /tmp: {e}")
         
         time.sleep(interval)
 
