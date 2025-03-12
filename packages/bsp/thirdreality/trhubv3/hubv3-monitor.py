@@ -11,6 +11,7 @@ import signal
 import argparse
 import socket
 import logging
+import tempfile
 from enum import Enum
 
 # Configure logging
@@ -98,8 +99,11 @@ class GpioLed:
     def cyan(self): self.set_color(False, True, True)
     def white(self): self.set_color(True, True, True)
 
+
+# LinuxBox USER_BUTTON gpio422, #A10
+# HubV3 USER_BUTTON gpio452, #J16
 class GpioButton:
-    BUTTON_PIN = 422
+    BUTTON_PIN = 452
 
     def __init__(self):
         self._initialize_pin()
@@ -112,7 +116,7 @@ class GpioButton:
         return SysFSGPIO.read_value(self.BUTTON_PIN) == "1"
 
 
-def ensure_tmp_ready(timeout=30, interval=1):
+def ensure_tmp_ready(timeout=60, interval=1):
     start_time = time.time()
 
     while time.time() - start_time < timeout:
@@ -183,6 +187,7 @@ class HwMonitor:
 
     def led_control_thread(self):
         blink_counter = 0
+        logging.info("Starting led controller ...")
         while self.running.is_set():
             state = self.get_state()
             blink_counter = (blink_counter + 1) % 2
@@ -225,6 +230,7 @@ class HwMonitor:
 
     def button_thread(self):
         press_start, reboot_triggered, power_off_triggered = None, False, False
+        logging.info("Starting button Monitor...")
 
         while self.running.is_set():
             if self.button.is_pressed():
@@ -251,6 +257,7 @@ class HwMonitor:
     def network_thread(self):
         # 初始状态设为 STARTUP
         self.set_state(LedState.STARTUP)
+        logging.info("Starting network Monitor...")
 
         check_interval = 2
         time.sleep(check_interval)
