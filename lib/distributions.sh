@@ -268,10 +268,10 @@ install_common()
 	export APT_EXTRA_DIST_PARAMS=""
 	[[ $NO_APT_CACHER != yes ]] && APT_EXTRA_DIST_PARAMS="-o Acquire::http::Proxy=\"http://${APT_PROXY_ADDR:-localhost:3142}\" -o Acquire::http::Proxy::localhost=\"DIRECT\""
 
-	display_alert "Cleaning" "package lists"
+	display_alert "Cleaning" "package lists[apt-get clean]"
 	chroot "${SDCARD}" /bin/bash -c "apt-get clean"
 
-	display_alert "Updating" "package lists"
+	display_alert "Updating" "package lists [apt-get update]"
 	chroot "${SDCARD}" /bin/bash -c "apt-get ${APT_EXTRA_DIST_PARAMS} update" >> "${DEST}"/${LOG_SUBPATH}/install.log 2>&1
 
 	display_alert "Temporarily disabling" "initramfs-tools hook for kernel"
@@ -287,6 +287,13 @@ install_common()
 	if [[ -n ${PACKAGE_LIST_BOARD} ]]; then
 		display_alert "Installing PACKAGE_LIST_BOARD packages" "${PACKAGE_LIST_BOARD}"
 		chroot "${SDCARD}" /bin/bash -c "DEBIAN_FRONTEND=noninteractive  apt-get ${APT_EXTRA_DIST_PARAMS} -yqq --no-install-recommends install $PACKAGE_LIST_BOARD" >> "${DEST}"/${LOG_SUBPATH}/install.log || { display_alert "Failed to install PACKAGE_LIST_BOARD" "${PACKAGE_LIST_BOARD}" "err"; exit 2; }
+	fi
+
+	if [[ $BUILD_DOCKER == yes ]]; then
+		if [[ -n ${PACKAGE_LIST_DOCKER} ]]; then
+			display_alert "Installing PACKAGE_LIST_DOCKER packages" "${PACKAGE_LIST_DOCKER}"
+			chroot "${SDCARD}" /bin/bash -c "DEBIAN_FRONTEND=noninteractive  apt-get ${APT_EXTRA_DIST_PARAMS} -yqq --no-install-recommends install $PACKAGE_LIST_DOCKER" >> "${DEST}"/${LOG_SUBPATH}/install.log || { display_alert "Failed to install PACKAGE_LIST_DOCKER" "${PACKAGE_LIST_DOCKER}" "err"; exit 2; }
+		fi
 	fi
 
 	# remove family packages

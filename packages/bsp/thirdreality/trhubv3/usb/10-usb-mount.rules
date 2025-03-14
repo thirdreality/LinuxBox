@@ -1,0 +1,18 @@
+#  /etc/udev/rules.d/10-usb-mount.rules
+KERNEL!="sd*", GOTO="exit"
+SUBSYSTEM!="block", GOTO="exit"
+
+IMPORT{builtin}="blkid"
+ENV{ID_FS_LABEL}=="EFI|BOOT|Recovery|RECOVERY|SETTINGS|boot|root0|share0", GOTO="exit"
+
+ENV{DEVTYPE}!="partition", GOTO="exit"
+ENV{ID_FS_USAGE}!="filesystem", GOTO="exit"
+
+ENV{ID_FS_LABEL}!="", ENV{dir_name}="%E{ID_FS_LABEL}"
+ENV{ID_FS_LABEL}=="", ENV{dir_name}="Untitled-%k"
+ACTION=="add", PROGRAM="/bin/sh -c '/bin/grep -E ^/dev/%k\  /proc/mounts || true'", RESULT=="", RUN+="/usr/bin/systemd-mount --no-block --automount=yes --collect /dev/%k /mnt/%E{dir_name}" RUN+="/lib/thirdreality/hubv3-monitor.py set mqtt_paring"
+ACTION=="remove", ENV{dir_name}!="", RUN+="/usr/bin/systemd-mount --umount /mnt/%E{dir_name}", RUN+="/bin/rmdir /media/%E{dir_name}"
+GOTO="exit"
+
+LABEL="exit"
+

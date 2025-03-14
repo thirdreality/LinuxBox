@@ -52,6 +52,21 @@ check_and_install_tools() {
         exit 1
     fi
 
+    print_info "Using mirrors.tuna.tsinghua.edu.cn as source list ..."
+	cat <<-EOF > /etc/apt/sources.list
+	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
+	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
+
+	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
+	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
+
+	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
+	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
+
+	deb https://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+	# deb-src https://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+	EOF
+
     apt-get update -y || { print_error "Failed to update package list"; }
     DEBIAN_FRONTEND=noninteractive APT_LISTCHANGES_FRONTEND=none apt install apparmor bluez  cifs-utils curl dbus \
         jq libglib2.0-bin lsb-release network-manager \
@@ -73,16 +88,50 @@ check_and_install_docker() {
         print_info "Docker already installed"
     else
         print_info "Installing docker..."
-        curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh
+        curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh --mirror Aliyun
 
         if [[ -n "${SUDO_USER}" ]] ; then 
             usermod -aG docker "$SUDO_USER"
         fi
         rm -f get-docker.sh
+
+        update_docker_config
+
         print_info "Installing docker done"
     fi
 }
 
+update_docker_config() {
+    mkdir -p /etc/docker/
+
+    # 定义要写入的JSON内容
+    cat <<-EOF > /etc/docker/daemon.json
+    {
+    "log-driver": "journald",
+    "storage-driver": "overlay2",
+    "ip6tables": true,
+    "experimental": true,
+    "log-opts": {
+        "tag": "{{.Name}}"
+    },
+    "registry-mirrors": [
+        "https://docker.1ms.run",
+        "https://docker.xuanyuan.me"
+    ]
+    }
+EOF
+
+    # Restart Docker to apply the changes
+    echo "Restarting Docker daemon..."
+    sudo systemctl restart docker
+
+    # Check the status of Docker service
+    if systemctl is-active --quiet docker; then
+        echo "Docker daemon restarted successfully."
+    else
+        echo "Failed to restart Docker daemon."
+    fi
+}
 
 check_and_install_os_agent(){
     # os-agent   deb: amd64 https://github.com/home-assistant/os-agent/releases/download/1.6.0/os-agent_1.6.0_linux_x86_64.deb
@@ -114,8 +163,9 @@ check_and_install_os_agent(){
 check_and_install_supervised()
 {
     # https://github.com/home-assistant/supervised-installer/releases/download/2.0.0/homeassistant-supervised.deb
-    #https://github.com/home-assistant/supervised-installer/releases/download/3.0.0/homeassistant-supervised.deb
-    HA_SUPERVISED_VERSION="3.0.0"
+    # https://github.com/home-assistant/supervised-installer/releases/download/3.0.0/homeassistant-supervised.deb
+
+    HA_SUPERVISED_VERSION="2.0.0"
 	HA_SUPERVISED_FILENAME="homeassistant-supervised.deb"
 	HA_SUPERVISED_URL="https://github.com/home-assistant/supervised-installer/releases/download/${HA_SUPERVISED_VERSION}/homeassistant-supervised.deb"
 
@@ -141,12 +191,30 @@ check_and_install_supervised()
         print_info "remove supervised deb..."
         rm -rf "/tmp/${HA_SUPERVISED_FILENAME}"
 
+        update_docker_config
+
         sed -i.bak "/$PATTERN_LINE/c $REPLACEMENT_LINE" "$CONFIG_FILE"
     fi    
 }
 
 check_install_suervised_process()
 {
+    print_info "Restore deb.debian.org as source list ..."
+	cat <<-EOF > /etc/apt/sources.list
+    deb http://deb.debian.org/debian bookworm main contrib non-free
+    #deb-src http://deb.debian.org/debian bookworm main contrib non-free
+
+    deb http://deb.debian.org/debian bookworm-updates main contrib non-free
+    #deb-src http://deb.debian.org/debian bookworm-updates main contrib non-free
+
+    deb http://deb.debian.org/debian bookworm-backports main contrib non-free
+    #deb-src http://deb.debian.org/debian bookworm-backports main contrib non-free
+
+    deb http://security.debian.org/ bookworm-security main contrib non-free
+    #deb-src http://security.debian.org/ bookworm-security main contrib non-free
+	EOF
+
+
     i=0
 
     while ! docker ps | grep -q hassio_supervisor;

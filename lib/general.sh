@@ -274,6 +274,23 @@ create_sources_list()
 		echo "deb ${SIGNED_BY}http://"$([[ $BETA == yes ]] && echo "beta" || echo "apt" )".armbian.com $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
 	fi
 
+	if [[ $BUILD_DOCKER == yes ]]; then
+		# display_alert "Adding Docker repository " "/etc/apt/sources.list.d/docker.list" "info"
+		# install -m 0755 -d "${basedir}"/etc/apt/keyrings
+		# curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o "${basedir}"/etc/apt/keyrings/docker.gpg
+		# sudo chmod a+r "${basedir}"/etc/apt/keyrings/docker.gpg
+		# echo \
+		# "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/debian \
+		# bookworm stable" | \
+		# tee "${basedir}"/etc/apt/sources.list.d/docker.list > /dev/null
+
+		display_alert "Adding Docker repository " "/etc/apt/sources.list.d/docker.list" "info"
+		cp "${SRC}"/config/docker.list "${basedir}"/etc/apt/sources.list.d/docker.list
+
+		display_alert "Adding Docker authentication key" "/etc/apt/keyrings/docker.asc" "info"
+		cp "${SRC}"/config/docker.asc "${basedir}"/etc/apt/keyrings/docker.asc
+	fi
+
 	# replace local package server if defined. Suitable for development
 	[[ -n $LOCAL_MIRROR ]] && echo "deb ${SIGNED_BY}http://$LOCAL_MIRROR $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
 
