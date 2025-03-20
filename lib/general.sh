@@ -210,19 +210,34 @@ create_sources_list()
 	;;
 
 	bookworm)
-	cat <<-EOF > "${basedir}"/etc/apt/sources.list
-	deb http://${DEBIAN_MIRROR} $release main contrib non-free
-	#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free
+	if [[ $BUILD_DOCKER == yes ]]; then
+		cat <<-EOF > "${basedir}"/etc/apt/sources.list
+		#deb http://mirrors.ustc.edu.cn/debian bookworm main contrib non-free non-free-firmware
+		#deb http://mirrors.ustc.edu.cn/debian bookworm-updates main contrib non-free non-free-firmware
+		#deb http://mirrors.ustc.edu.cn/debian bookworm-backports main contrib non-free non-free-firmware
 
-	deb http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
-	#deb-src http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
+		deb http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
+		#deb-src http://repo.huaweicloud.com/debian bookworm main contrib non-free non-free-firmware
+		deb http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
+		#deb-src http://repo.huaweicloud.com/debian bookworm-updates main contrib non-free non-free-firmware
+		deb http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
+		#deb-src http://repo.huaweicloud.com/debian bookworm-backports main contrib non-free non-free-firmware
+		EOF
+	else
+		cat <<-EOF > "${basedir}"/etc/apt/sources.list
+		deb http://${DEBIAN_MIRROR} $release main contrib non-free
+		#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free
 
-	deb http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
-	#deb-src http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
+		deb http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
+		#deb-src http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
 
-	deb http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
-	#deb-src http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
-	EOF
+		deb http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
+		#deb-src http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
+
+		deb http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
+		#deb-src http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
+		EOF
+	fi	
 	;;
 
 	sid) # sid is permanent unstable development and has no such thing as updates or security

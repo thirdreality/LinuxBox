@@ -268,6 +268,10 @@ install_common()
 	export APT_EXTRA_DIST_PARAMS=""
 	[[ $NO_APT_CACHER != yes ]] && APT_EXTRA_DIST_PARAMS="-o Acquire::http::Proxy=\"http://${APT_PROXY_ADDR:-localhost:3142}\" -o Acquire::http::Proxy::localhost=\"DIRECT\""
 
+	#  -o Debug::Acquire::http=true
+	# display_alert "apt cache:" "NO_APT_CACHER $NO_APT_CACHER"
+	# display_alert "apt cache:" "APT_EXTRA_DIST_PARAMS $APT_EXTRA_DIST_PARAMS"
+
 	display_alert "Cleaning" "package lists[apt-get clean]"
 	chroot "${SDCARD}" /bin/bash -c "apt-get clean"
 

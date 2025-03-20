@@ -1,0 +1,12 @@
+[Unit]
+Description=Thirdreality USB auto sync Service
+After=basic.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/lib/thirdreality/hubv3-sync-usb.sh
+Restart=on-failure
+User=root
+
+[Install]
+WantedBy=multi-user.target

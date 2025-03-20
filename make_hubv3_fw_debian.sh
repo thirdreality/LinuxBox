@@ -5,6 +5,8 @@ current_dir=$(pwd)
 enable_homeassistant=yes
 enable_cn_version=yes
 
+URL_APPARMOR_PROFILE="https://version.home-assistant.io/apparmor.txt"
+
 if [ ! -d "$current_dir/userpatches" ]; then
     mkdir -p $current_dir/userpatches/overlay/
 
@@ -16,7 +18,10 @@ if [ ! -d "$current_dir/userpatches" ]; then
     fi
 
     if [[ $enable_homeassistant == yes ]]; then
-        echo "Download docker deb and docker image tar ..."
+        # keep apparmor.txt latest. apparmor.txt last update: Oct 26, 2023
+        cp $current_dir/custom/hassio-supervisor $current_dir/userpatches/overlay/hassio-supervisor
+        cp $current_dir/custom/homeassistant-config.tar.gz $current_dir/userpatches/overlay/homeassistant-config.tar.gz
+        curl -sL ${URL_APPARMOR_PROFILE} > "$current_dir/userpatches/overlay/hassio-supervisor"
     fi
 fi
 
@@ -28,7 +33,7 @@ if [[ $enable_cn_version == yes ]]; then
         BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
         COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no \
         DOWNLOAD_MIRROR=china \
-        NO_APT_CACHER=yes \
+        NO_APT_CACHER=no \
         BUILD_DOCKER=${enable_homeassistant}
 else
     # HubV3

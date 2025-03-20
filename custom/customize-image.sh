@@ -45,6 +45,38 @@ Main() {
 	esac
 } # Main
 
+# Function to install Docker from .deb files
+#   153456 Mar 18 21:48 ca-certificates_20230311_all.deb
+# 22130236 Mar 18 21:48 containerd.io_1.7.25-1_arm64.deb
+# 32694884 Mar 18 21:48 docker-buildx-plugin_0.21.1-1~debian.12~bookworm_arm64.deb
+# 16611728 Mar 18 21:48 docker-ce_5%3a28.0.1-1~debian.12~bookworm_arm64.deb
+# 14273604 Mar 18 21:48 docker-ce-cli_5%3a28.0.1-1~debian.12~bookworm_arm64.deb
+#  5490454 Mar 18 21:48 docker-ce-rootless-extras_5%3a28.0.1-1~debian.12~bookworm_arm64.deb
+# 12064876 Mar 18 21:48 docker-compose-plugin_2.33.1-1~debian.12~bookworm_arm64.deb
+install_docker_debs() {
+	echo "install docker debs ... "
+	# Do not modify the order, remark by liuguoping.
+    debs=(
+        "ca-certificates_"
+        "docker-ce-cli_"
+		"containerd.io_"
+        "docker-ce-rootless-extras_"
+		"docker-ce_"
+        "docker-buildx-plugin_"
+        "docker-compose-plugin_"
+    )
+    for deb_prefix in "${debs[@]}"; do
+        file=$(find /tmp/overlay/docker-deb -name "${deb_prefix}*.deb" | head -n 1)
+        if [ -n "$file" ]; then
+            echo "Installing [ $file ] ..."
+            sudo dpkg -i "$file" > /dev/null 
+        else
+            echo "Package starting with [$deb_prefix] not found."
+        fi
+    done
+    # Fix any dependency issues
+    sudo apt-get install -f -y > /dev/null 
+}
 
 InstallForHubV3() {
 	#apt update
@@ -82,6 +114,21 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/system.conf
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/user.conf
+
+	if [ -f "/tmp/overlay/hassio-supervisor" ]; then
+		mkdir -p "/var/lib/homeassistant/apparmor"
+		cp /tmp/overlay/hassio-supervisor /var/lib/homeassistant/apparmor/hassio-supervisor
+
+		mkdir -p /usr/share/hassio/apparmor
+		cp /tmp/overlay/hassio-supervisor /usr/share/hassio/apparmor/hassio-supervisor
+	fi
+
+	if [ -f "/tmp/overlay/homeassistant-config.tar.gz" ]; then
+		# HomeAssistant 默认配置，和初始设备
+		echo "install homeassistant-config.tar.gz ... "
+		mkdir -p "/var/lib/homeassistant"
+		tar -zxvf /tmp/overlay/homeassistant-config.tar.gz -C /var/lib/homeassistant/ > /dev/null 
+	fi
 	
 	if [ -f "/tmp/overlay/python3.deb" ]; then
 		dpkg -i "/tmp/overlay/python3.deb" || sudo apt-get install -f
@@ -95,15 +142,23 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 		dpkg -i "/tmp/overlay/hub_service.deb" || sudo apt-get install -f
 	fi
 
+	install_docker_debs
+
 	apt autoremove -y 
 
 	mkdir -p /usr/local/thirdreality/bin
 	mkdir -p /usr/local/thirdreality/config
 	mkdir -p /usr/local/thirdreality/data
 
+	mkdir -p /usr/local/hubv3/bin
+	mkdir -p /usr/local/hubv3/config
+	mkdir -p /usr/local/hubv3/data
+
 	rm -rf /var/lib/apt/lists/*
 	rm -rf /usr/lib/firmware/qcom
-	#rm -rf /usr/lib/linux-image-5.10.230-meson64/rockchip
+	rm -rf /usr/lib/firmware/{aic8800,ap6210,ap6212,ap6275p,ath10k,ath11k,ath12k,mediatek,novatek,rtw88,rtw89}
+	
+	rm -rf /usr/lib/linux-image-5.10.235-meson64/rockchip
 }
 
 InstallOpenMediaVault() {
@@ -310,3 +365,4 @@ InstallAdvancedDesktop()
 } # InstallAdvancedDesktop
 
 Main "$@"
+
