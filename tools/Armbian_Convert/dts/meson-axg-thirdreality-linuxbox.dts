@@ -6,8 +6,8 @@
 #include "partition.dtsi"
 
 / {
-	compatible = "thirdreality,trhub-v3b", "amlogic,a113x", "amlogic,meson-axg";
-	model = "ThirdReality TRHub V3B";
+	compatible = "thirdreality,linuxbox", "amlogic,a113x", "amlogic,meson-axg";
+	model = "ThirdReality LinuxBox";
 	amlogic-dt-id = "axg_jethubj100_v1";
 
 	aliases {
@@ -20,10 +20,10 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	/* 2048MB RAM */
+	/* 1024MB RAM */
 	memory@0 {
 		device_type = "memory";
-		reg = <0x0 0x0 0x0 0x80000000>;
+		reg = <0x0 0x0 0x0 0x40000000>;
 	};
 
 	reserved-memory {
@@ -290,7 +290,7 @@
 /* UART Wireless module */
 &uart_AO_B {
         status = "okay";
-        pinctrl-0 = <&uart_ao_b_z_pins>;
+        pinctrl-0 = <&uart_ao_b_pins>;
         pinctrl-names = "default";
 };
 

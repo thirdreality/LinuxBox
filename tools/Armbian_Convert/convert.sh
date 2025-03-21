@@ -1,6 +1,10 @@
 #!/bin/bash
 
-source lib.sh
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "The script is located in: $SCRIPT_DIR/"
+
+source "${SCRIPT_DIR}/lib.sh"
 
 if [ $# -lt 3 ]; then
     echo Usage:
@@ -20,8 +24,14 @@ if [[ "$2" == "h1" || "$2" == "j80" ]]; then
 elif [[ "$2" == "d1" || "$2" == "j100" ]]; then
   DTS="meson-axg-jethome-jethub-j100.dts"
   CNAME="j100"
-elif [[ "$2" == "v3" ]]; then
+elif [[ "$2" == "v3" || "$2" == "trhubv3" ]]; then
   DTS="meson-axg-thirdreality-trhub-v3.dts"
+  CNAME="j100"  
+elif [[ "$2" == "v3b" || "$2" == "trhubv3b" ]]; then
+  DTS="meson-axg-thirdreality-trhub-v3b.dts"
+  CNAME="j100"  
+elif [[ "$2" == "linuxbox" ]]; then
+  DTS="meson-axg-thirdreality-linuxbox.dts"
   CNAME="j100"  
 else
   echo "ERROR: unknown controller"
@@ -46,7 +56,7 @@ fi
 if [[ -e "$5" ]]; then
     UBOOT="$5"
 else
-    UBOOT="src/$CNAME/u-boot.$CPART.bin"
+    UBOOT="${SCRIPT_DIR}/src/$CNAME/u-boot.$CPART.bin"
 fi
 
 echo "CNAME set to [ ${CNAME} ]"
@@ -80,11 +90,11 @@ else
     OUTIMG="${OUTIMG}.burn"
 fi
 
-cp "dts/$DTS" "$TMP/$DTS"
-cp "dts/$DTI" "$TMP/$DTI"
+cp "${SCRIPT_DIR}/dts/$DTS" "$TMP/$DTS"
+cp "${SCRIPT_DIR}/dts/$DTI" "$TMP/$DTI"
 sed -i "s/partition.dtsi/$DTI/g" "$TMP/$DTS"
 
-cpp -nostdinc -I dts -I dts/include -undef -x assembler-with-cpp "$TMP/$DTS" "$TMP/$DTS.preprocess"
+cpp -nostdinc -I ${SCRIPT_DIR}/dts -I ${SCRIPT_DIR}/dts/include -undef -x assembler-with-cpp "$TMP/$DTS" "$TMP/$DTS.preprocess"
 dtc -I dts -O dtb -p 0x1000 -qqq "$TMP/$DTS.preprocess" -o "$DTB"
 if [ -e "/usr/sbin/fdisk" ]; then
   FDISK=$(/usr/sbin/fdisk -l "$INPUT" | grep -P -A 100 "Device.+Boot.+Start.+End.+Sectors.+Size.+Id.+Type" | sed -- "s/\*//g" | grep "$INPUT"| grep -v Extended)
@@ -106,20 +116,20 @@ while read -r line; do
     i=$((i + 1))
 done <<< "$FDISK"
 
-cp "src/$CNAME/platform.conf" "$TMP"
+cp "${SCRIPT_DIR}/src/$CNAME/platform.conf" "$TMP"
 
-cc -o $TMP/dtbTool dtbtools/dtbTool.c
+cc -o $TMP/dtbTool ${SCRIPT_DIR}/dtbtools/dtbTool.c
 $TMP/dtbTool -o "$TMP/_aml_dtb.PARTITION" "$TMP"
 
-cp "src/$CNAME/image.$CPART.cfg" "$TMP/image.cfg"
+cp "${SCRIPT_DIR}/src/$CNAME/image.$CPART.cfg" "$TMP/image.cfg"
 echo cp "$UBOOT" "$TMP/u-boot.bin"
 cp "$UBOOT" "$TMP/u-boot.bin"
 
 md5sum "$UBOOT"
 md5sum "$TMP/u-boot.bin"
 
-cp "src/$CNAME/DDR.USB" "$TMP"
-cp "src/$CNAME/UBOOT.USB" "$TMP"
+cp "${SCRIPT_DIR}/src/$CNAME/DDR.USB" "$TMP"
+cp "${SCRIPT_DIR}/src/$CNAME/UBOOT.USB" "$TMP"
 
 
 echo "aml_image_v2_packer_new $TMP"
@@ -127,20 +137,18 @@ echo "aml_image_v2_packer_new $TMP"
 cat "$TMP/image.cfg"
 
 echo ""
-./tools/aml_image_v2_packer_new -r "$TMP/image.cfg" "$TMP" output/$OUTIMG
+${SCRIPT_DIR}/tools/aml_image_v2_packer_new -r "$TMP/image.cfg" "$TMP" ${SCRIPT_DIR}/output/$OUTIMG
 echo ""
 
 if [[ "$COMPRESS" == "yes" ]]; then
-    cd output
-    zip "$OUTIMG.zip" "$OUTIMG"
-    cd ..
-    rm "output/$OUTIMG"
+    zip "${SCRIPT_DIR}/output/$OUTIMG.zip" "$OUTIMG"
+    rm "${SCRIPT_DIR}/output/$OUTIMG"
     #xz --threads=0 "output/$OUTIMG"
 else
     echo "create temp zip for debug ..."
-    cd output
+    cd ${SCRIPT_DIR}/output
     rm "$TMP/part-1.img"
-    zip -r "tmp.zip" "$TMP"
+    zip -r "${SCRIPT_DIR}/output/tmp.zip" "$TMP"
 fi
 
 rm -rf $TMP

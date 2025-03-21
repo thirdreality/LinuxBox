@@ -67,6 +67,11 @@ install_normal_debs() {
 
     deb_files=$(find "$work_dir" -maxdepth 1 -name "*.deb" -type f)
 
+    if [ -z "$deb_files" ]; then
+        return
+    fi
+
+    local installed=1
     for deb_file in $deb_files; do
         exclude=false
         for pattern in "${exclude_patterns[@]}"; do
@@ -80,12 +85,15 @@ install_normal_debs() {
         if [ "$exclude" = false ]; then
             echo "Installing: $deb_file"
             sudo dpkg -i "$deb_file"
+            installed=0
         fi
     done
 
-    # Attempt to fix any potential broken dependencies
-    echo "Attempting to fix broken dependencies..."
-    sudo apt-get install -f -y
+    if [ "$installed" -eq 0 ]; then
+        # Attempt to fix any potential broken dependencies
+        echo "Attempting to fix broken dependencies..."
+        sudo apt-get install -f -y
+    fi
 }
 # Function: Install Docker related deb packages
 install_docker_debs() {
@@ -115,7 +123,17 @@ install_docker_debs() {
     done
 }
 
-#!/bin/bash
+# Update version in configuration files if necessary
+# /usr/bin/ha can remove old image and update version config.
+update_component() {
+    local component="$1"
+    local version="$2"
+    if [ -e "/usr/bin/ha" ]; then
+        /usr/bin/ha "$component" update --version="$version" || {
+            echo "Warning: Failed to update $component."
+        }
+    fi
+}
 
 # Function: Load Docker images
 load_docker_images() {
@@ -145,18 +163,26 @@ load_docker_images() {
         repo=$(echo "$repositories" | jq -r 'keys[0]')
         tag=$(echo "$repositories" | jq -r '.[] | keys[0]')
 
-        echo "Processing Current image: [ $tar_file ] --> $repo:$tag"
+        echo "Processing Current image: [$tar_file]"
+        echo "New version: [$tag]"
 
         if [ "$tag" == "latest" ]; then
             # latest is a tag, just skip it
-            echo "Skip image: [ $tar_file ] with tag 'latest'"
+            echo "Skip image: [$tar_file] with tag 'latest'"
             continue
         fi        
 
         # Load if the repo contains '-addon-'
         if [ "$repo" == *"-addon-"* ]; then
-            echo "Loading addon image: [ $tar_file ]"
-            docker load -i "$tar_file"
+            echo "Loading addon image: [$tar_file]"
+            #docker load -i "$tar_file"
+            docker load < "$tar_file" | logger -t "hubv3-sync-usb"
+
+            if [[ "$repo" == *"-addon-matter-server"* && -e "/usr/bin/ha" ]]; then
+                if ! /usr/bin/ha addons core_matter_server update; then
+                    echo "Warning: Failed to update core_matter_server."
+                fi
+            fi
 
             result=0
             continue
@@ -166,8 +192,11 @@ load_docker_images() {
         current_version=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo:" | awk -F ":" '{print $2}')
         
         if [ -z "$current_version" ]; then
-            echo "No existing image found for [ $repo ], loading a new image."
-            docker load -i "$tar_file"
+            echo "No existing image found for [$repo]"
+            echo "Loading a new image [$tar_file]."
+            docker load < "$tar_file" | logger -t "hubv3-sync-usb"
+            #docker load -i "$tar_file"
+
             if [[ "$repo" == *"hassio-supervisor"* ]]; then
                 docker tag "${repo}:${tag}" "${repo}:latest"
             fi
@@ -177,70 +206,46 @@ load_docker_images() {
             echo "Found exist image, version $current_version "
             # Compare versions
             if [[ "$current_version" < "$tag" ]]; then
-                echo "Found newer version for [ $repo ], loading a new image..."
+                echo "Found newer version for [$repo]"
                 
                 # Stop container(s) running the current version, if any
                 container_ids=$(docker ps --filter "ancestor=$repo:$current_version" --format "{{.ID}}")
                 if [ ! -z "$container_ids" ]; then
                     echo "Stopping containers: $container_ids"
-                    docker stop $container_ids
+                    docker stop $container_ids && docker rm $container_ids
                 fi
                 
-                # Load the new image
-                docker load -i "$tar_file"
-                result=0
+                if [ ! -e "/usr/bin/ha" ]; then
+                    # Remove the old image
+                    echo "Removing old image: [ $repo:$current_version ]"
+                    docker rmi "$repo:$current_version"
 
-                # Remove the old image
-                echo "Removing old image: [ $repo:$current_version ]"
-                docker rmi "$repo:$current_version"
+                    echo "diskplay disk info ..."
+                    df -h /var/lib/docker
+
+                    docker image prune -a -f
+
+                    echo "diskplay disk info after prune..."
+                    df -h /var/lib/docker
+                fi
+
+                echo "Loading a new image [$tar_file]."
+                #docker load -i "$tar_file"
+                docker load < "$tar_file" | logger -t "hubv3-sync-usb"
+                result=0
 
                 # Update version in configuration files if necessary
                 if [[ "$repo" == *"hassio-supervisor"* ]]; then
                     docker tag "${repo}:${tag}" "${repo}:latest"
-                    if [ -e "/var/lib/homeassistant/config.json" ]; then
-                        echo "Updating version in /var/lib/homeassistant/config.json"
-                        sed -i "s/\"version\": \".*\"/\"version\": \"$current_version\"/" /var/lib/homeassistant/config.json
-
-                        if [ -e "/usr/bin/ha" ]; then
-                            echo "Restart hassio-supervisor ..."
-                            /usr/bin/ha supervisor restart || {
-                                echo "Warning: Failed to restart hassio-supervisor."
-                            }
-                        fi
-                    fi
+                    update_component "supervisor"
                 elif [[ "$repo" == *"homeassistant"* ]]; then
-                    if [ -e "/var/lib/homeassistant/homeassistant.json" ]; then
-                        echo "Updating version in /var/lib/homeassistant/homeassistant.json"
-                        sed -i "s/\"version\": \".*\"/\"version\": \"$current_version\"/" /var/lib/homeassistant/homeassistant.json
-
-                        if [ -e "/usr/bin/ha" ]; then
-                            echo "Restart homeassistant ..."
-                            /usr/bin/ha core restart || {
-                                echo "Warning: Failed to restart homeassistant."
-                            }
-                        fi
-                    fi
+                    update_component "core"
                 elif [[ "$repo" == *"hassio-audio"* ]]; then
-
-                    if [ -e "/usr/bin/ha" ]; then
-                        /usr/bin/ha audio restart || {
-                            echo "Warning: Failed to restart hassio-audio."
-                        }
-                    fi
+                    update_component "audio"
                 elif [[ "$repo" == *"hassio-dns"* ]]; then
-
-                    if [ -e "/usr/bin/ha" ]; then
-                        /usr/bin/ha dns restart || {
-                            echo "Warning: Failed to restart hassio-dns."
-                        }
-                    fi
+                    update_component "dns"
                 elif [[ "$repo" == *"hassio-multicast"* ]]; then
-
-                    if [ -e "/usr/bin/ha" ]; then
-                        /usr/bin/ha multicast restart || {
-                            echo "Warning: Failed to restart hassio-multicast."
-                        }
-                    fi
+                    update_component "multicast"
                 fi
             else
                 echo "Current image version [ $repo:$current_version ] is up-to-date or newer. skip current image tar."
@@ -257,6 +262,11 @@ load_docker_images() {
 
 # Function: Clean up old versions of Docker images
 cleanup_old_images() {
+    if [ -e "/usr/bin/ha" ]; then
+        # if hassio-supervised installed, remove old image by `/usr/bin/ha xx update`
+        return
+    fi
+
     echo "Cleaning up old versions of Docker images..."
     
     # Define repositories to check
@@ -314,6 +324,9 @@ install_ha_debs() {
     if [ -n "$os_agent_deb_file" ]; then
         echo "Installing: $os_agent_deb_file"
         DEBIAN_FRONTEND=noninteractive dpkg -i "$os_agent_deb_file"
+
+        # mark it manual install
+        apt-mark manual "os-agent"
     else
         echo "No os-agent.deb file found."
     fi
@@ -366,6 +379,9 @@ fi\
 
         echo "Install ${work_dir}/homeassistant-supervised-modified.deb ..."
         DEBIAN_FRONTEND=noninteractive MACHINE=odroid-n2 dpkg -i "${work_dir}/homeassistant-supervised-modified.deb"
+        
+        # mark it manual install
+        apt-mark manual "homeassistant-supervised"
 
         rm -rf "${work_dir}/homeassistant-supervised-modified.deb"
         rm -rf "${work_dir}/homeassistant-supervised"
@@ -411,6 +427,7 @@ if check_docker_installed; then
     fi
 
     if [ "$status" -eq 0 ]; then
+        docker images
         cleanup_old_images
     else
         echo "Failed to load Docker images or none found."

@@ -293,13 +293,6 @@ install_common()
 		chroot "${SDCARD}" /bin/bash -c "DEBIAN_FRONTEND=noninteractive  apt-get ${APT_EXTRA_DIST_PARAMS} -yqq --no-install-recommends install $PACKAGE_LIST_BOARD" >> "${DEST}"/${LOG_SUBPATH}/install.log || { display_alert "Failed to install PACKAGE_LIST_BOARD" "${PACKAGE_LIST_BOARD}" "err"; exit 2; }
 	fi
 
-	if [[ $BUILD_DOCKER == yes ]]; then
-		if [[ -n ${PACKAGE_LIST_DOCKER} ]]; then
-			display_alert "Installing PACKAGE_LIST_DOCKER packages" "${PACKAGE_LIST_DOCKER}"
-			chroot "${SDCARD}" /bin/bash -c "DEBIAN_FRONTEND=noninteractive  apt-get ${APT_EXTRA_DIST_PARAMS} -yqq --no-install-recommends install $PACKAGE_LIST_DOCKER" >> "${DEST}"/${LOG_SUBPATH}/install.log || { display_alert "Failed to install PACKAGE_LIST_DOCKER" "${PACKAGE_LIST_DOCKER}" "err"; exit 2; }
-		fi
-	fi
-
 	# remove family packages
 	if [[ -n ${PACKAGE_LIST_FAMILY_REMOVE} ]]; then
 		display_alert "Removing PACKAGE_LIST_FAMILY_REMOVE packages" "${PACKAGE_LIST_FAMILY_REMOVE}"

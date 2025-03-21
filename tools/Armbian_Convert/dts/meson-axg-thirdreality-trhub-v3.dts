@@ -290,7 +290,7 @@
 /* UART Wireless module */
 &uart_AO_B {
         status = "okay";
-        pinctrl-0 = <&uart_ao_b_pins>;
+        pinctrl-0 = <&uart_ao_b_z_pins>;
         pinctrl-names = "default";
 };
 
