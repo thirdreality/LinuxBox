@@ -6,6 +6,9 @@ After=basic.target
 Type=simple
 ExecStart=/bin/bash /usr/lib/thirdreality/hubv3-sync-usb.sh
 Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hubv3-sync-usb
 User=root
 
 [Install]

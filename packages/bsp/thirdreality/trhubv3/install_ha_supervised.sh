@@ -143,6 +143,14 @@ check_and_install_supervised()
 
         sed -i.bak "/$PATTERN_LINE/c $REPLACEMENT_LINE" "$CONFIG_FILE"
     fi    
+
+    if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
+        chmod 644 "/etc/systemd/system/hassio-supervisor.service"
+    fi
+
+    if [ -e "/etc/systemd/system/hassio-apparmor.service" ]; then
+        chmod 644 "/etc/systemd/system/hassio-apparmor.service"
+    fi    
 }
 
 check_install_suervised_process()
@@ -264,6 +272,15 @@ check_and_uninstall_suervised_process()
         sleep 5
         docker system prune -a -f > /dev/null 2>&1
         docker system prune -a -f > /dev/null 2>&1
+
+        if [ -e "" ]; then
+            rm -rf /etc/hassio.jon
+        fi
+        
+        if [ -e "/var/lib/homeassistant" ]; then
+            rm -rf /var/lib/homeassistant
+        fi
+        
 
         print_info "Remove old Home Assistant done"
     else

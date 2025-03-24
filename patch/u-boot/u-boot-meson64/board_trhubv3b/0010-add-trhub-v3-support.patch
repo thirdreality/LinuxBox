@@ -1,21 +1,30 @@
-From 751eb6802f5effb40754f794cc4055da7c290310 Mon Sep 17 00:00:00 2001
+From 666920fced8913f7ab71ffcd3081925f28a9846a Mon Sep 17 00:00:00 2001
 From: "guoping.liu" <guoping.liu@3reality.com>
-Date: Tue, 25 Feb 2025 04:39:56 -0500
+Date: Thu, 20 Mar 2025 23:44:54 -0400
 Subject: [PATCH] add trhub-v3 support
 
 ---
- .../dts/meson-axg-thirdreality-trhub-v3.dts   | 356 ++++++++++++++++++
- .../dts/meson-axg-thirdreality-trhub-v3b.dts  | 356 ++++++++++++++++++
+ arch/arm/dts/Makefile                         |   3 +
+ .../dts/meson-axg-thirdreality-linuxbox.dts   | 338 +++++++++++++++++
+ .../dts/meson-axg-thirdreality-trhub-v3.dts   | 338 +++++++++++++++++
+ .../dts/meson-axg-thirdreality-trhub-v3b.dts  | 357 ++++++++++++++++++
  board/amlogic/trhub-v3/MAINTAINERS            |   8 +
  board/amlogic/trhub-v3/Makefile               |   3 +
  board/amlogic/trhub-v3/trhub-v3.c             | 102 +++++
  board/amlogic/trhub-v3b/MAINTAINERS           |   8 +
  board/amlogic/trhub-v3b/Makefile              |   3 +
  board/amlogic/trhub-v3b/trhub-v3b.c           | 101 +++++
+ common/partitions.c                           |  22 +-
+ configs/trhub_linuxbox_defconfig              |  98 +++++
  configs/trhub_v3_defconfig                    |  98 +++++
  configs/trhub_v3b_defconfig                   |  98 +++++
+ drivers/amlogic/keymanage/key_manage_i.h      |   4 +-
+ drivers/mmc/aml_emmc_partition.c              |   4 +-
+ drivers/mmc/mmc.c                             |  12 +-
+ drivers/mmc/storage_emmc.c                    |  11 +-
  include/configs/trhub.h                       |  35 ++
- 11 files changed, 1168 insertions(+)
+ 19 files changed, 1618 insertions(+), 25 deletions(-)
+ create mode 100644 arch/arm/dts/meson-axg-thirdreality-linuxbox.dts
  create mode 100644 arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts
  create mode 100644 arch/arm/dts/meson-axg-thirdreality-trhub-v3b.dts
  create mode 100644 board/amlogic/trhub-v3/MAINTAINERS
@@ -24,16 +33,31 @@ Subject: [PATCH] add trhub-v3 support
  create mode 100644 board/amlogic/trhub-v3b/MAINTAINERS
  create mode 100644 board/amlogic/trhub-v3b/Makefile
  create mode 100644 board/amlogic/trhub-v3b/trhub-v3b.c
+ create mode 100644 configs/trhub_linuxbox_defconfig
  create mode 100644 configs/trhub_v3_defconfig
  create mode 100644 configs/trhub_v3b_defconfig
  create mode 100644 include/configs/trhub.h
 
-diff --git a/arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts b/arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 78de8b1ea5e..911802bdcf5 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -176,6 +176,9 @@ dtb-$(CONFIG_ARCH_S5P4418) += \
+ dtb-$(CONFIG_ARCH_MESON) += \
+ 	meson-axg-s400.dtb \
+ 	meson-axg-jethome-jethub-j100.dtb \
++	meson-axg-thirdreality-trhub-v3.dtb \
++	meson-axg-thirdreality-trhub-v3b.dtb \
++	meson-axg-thirdreality-linuxbox.dtb \
+ 	meson-gxbb-nanopi-k2.dtb \
+ 	meson-gxbb-odroidc2.dtb \
+ 	meson-gxbb-nanopi-k2.dtb \
+diff --git a/arch/arm/dts/meson-axg-thirdreality-linuxbox.dts b/arch/arm/dts/meson-axg-thirdreality-linuxbox.dts
 new file mode 100644
-index 00000000000..287a42f6e70
+index 00000000000..2cd28233cb8
 --- /dev/null
-+++ b/arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts
-@@ -0,0 +1,356 @@
++++ b/arch/arm/dts/meson-axg-thirdreality-linuxbox.dts
+@@ -0,0 +1,338 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
 + * Copyright (c) 2021 Vyacheslav Bocharov <adeep@lexina.in>
@@ -51,11 +75,12 @@ index 00000000000..287a42f6e70
 +
 +/ {
 +	compatible = "thirdreality,trhub-v3", "amlogic,a113x", "amlogic,meson-axg";
-+	model = "ThirdReality TRHub V3";
++	model = "ThirdReality LinuxBox";
 +	aliases {
 +		serial0 = &uart_AO;   /* Console */
-+		serial1 = &uart_AO_B; /* External UART (Wireless Module) */
-+		ethernet0 = &ethmac;
++		serial1 = &uart_A; /* UART Bluetooth */
++		serial3 = &uart_AO_B; /* ZigBee */
++		//serial6 = &uart_B; /* Thread */
 +	};
 +
 +	chosen {
@@ -65,7 +90,7 @@ index 00000000000..287a42f6e70
 +	/* 1024MB RAM */
 +	memory@0 {
 +		device_type = "memory";
-+		reg = <0x0 0x0 0x0 0x80000000>;
++		reg = <0x0 0x0 0x0 0x40000000>;
 +	};
 +
 +	reserved-memory {
@@ -190,6 +215,12 @@ index 00000000000..287a42f6e70
 +			};
 +		};
 +	};
++
++	onewire {
++		compatible = "w1-gpio";
++		gpios = <&gpio GPIOA_14 GPIO_ACTIVE_HIGH>;
++		#gpio-cells = <1>;
++	};
 +};
 +
 +&efuse {
@@ -211,31 +242,6 @@ index 00000000000..287a42f6e70
 +
 +	bid: bid@12 {
 +		reg = <0x12 0x20>;
-+	};
-+};
-+
-+&ethmac {
-+	status = "okay";
-+	pinctrl-0 = <&eth_rmii_x_pins>;
-+	pinctrl-names = "default";
-+	phy-handle = <&eth_phy0>;
-+	phy-mode = "rmii";
-+
-+	mdio {
-+		compatible = "snps,dwmac-mdio";
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		/* ICPlus IP101A/G Ethernet PHY (vendor_id=0x0243, model_id=0x0c54) */
-+		eth_phy0: ethernet-phy@0 {
-+			/* compatible = "ethernet-phy-id0243.0c54";*/
-+			max-speed = <100>;
-+			reg = <0>;
-+
-+			reset-assert-us = <10000>;
-+			reset-deassert-us = <10000>;
-+			reset-gpios = <&gpio GPIOZ_5 GPIO_ACTIVE_LOW>;
-+		};
 +	};
 +};
 +
@@ -390,12 +396,356 @@ index 00000000000..287a42f6e70
 +&cpu3 {
 +	#cooling-cells = <2>;
 +};
+diff --git a/arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts b/arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts
+new file mode 100644
+index 00000000000..835a7d58f9f
+--- /dev/null
++++ b/arch/arm/dts/meson-axg-thirdreality-trhub-v3.dts
+@@ -0,0 +1,338 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2021 Vyacheslav Bocharov <adeep@lexina.in>
++ * Copyright (c) 2020 JetHome
++ * Author: Aleksandr Kazantsev <ak@tvip.ru>
++ * Author: Alexey Shevelkin <ash@tvip.ru>
++ * Author: Vyacheslav Bocharov <adeep@lexina.in>
++ */
++
++/dts-v1/;
++
++#include "meson-axg.dtsi"
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/thermal/thermal.h>
++
++/ {
++	compatible = "thirdreality,trhub-v3", "amlogic,a113x", "amlogic,meson-axg";
++	model = "ThirdReality TRHub V3";
++	aliases {
++		serial0 = &uart_AO;   /* Console */
++		serial1 = &uart_A; /* UART Bluetooth */
++		serial3 = &uart_AO_B; /* ZigBee */
++		//serial6 = &uart_B; /* Thread */
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	/* 2048MB RAM */
++	memory@0 {
++		device_type = "memory";
++		reg = <0x0 0x0 0x0 0x80000000>;
++	};
++
++	reserved-memory {
++		linux,cma {
++			size = <0x0 0x400000>;
++		};
++	};
++
++	emmc_pwrseq: emmc-pwrseq {
++		compatible = "mmc-pwrseq-emmc";
++		reset-gpios = <&gpio BOOT_9 GPIO_ACTIVE_LOW>;
++	};
++
++	vcc_3v3: regulator-vcc_3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "VCC_3V3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		vin-supply = <&vddao_3v3>;
++		regulator-always-on;
++	};
++
++	vcc_5v: regulator-vcc_5v {
++		compatible = "regulator-fixed";
++		regulator-name = "VCC5V";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
++	};
++
++	vddao_3v3: regulator-vddao_3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "VDDAO_3V3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		vin-supply = <&vcc_5v>;
++		regulator-always-on;
++	};
++
++	vddio_ao18: regulator-vddio_ao18 {
++		compatible = "regulator-fixed";
++		regulator-name = "VDDIO_AO18";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		vin-supply = <&vddao_3v3>;
++		regulator-always-on;
++	};
++
++	vddio_boot: regulator-vddio_boot {
++		compatible = "regulator-fixed";
++		regulator-name = "VDDIO_BOOT";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		vin-supply = <&vddao_3v3>;
++		regulator-always-on;
++	};
++
++	usb_pwr: regulator-usb_pwr {
++		compatible = "regulator-fixed";
++		regulator-name = "USB_PWR";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		vin-supply = <&vcc_5v>;
++		regulator-always-on;
++	};
++
++	sdio_pwrseq: sdio-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		reset-gpios = <&gpio GPIOX_7 GPIO_ACTIVE_LOW>;
++		clocks = <&wifi32k>;
++		clock-names = "ext_clock";
++	};
++
++	wifi32k: wifi32k {
++		compatible = "pwm-clock";
++		#clock-cells = <0>;
++		clock-frequency = <32768>;
++		pwms = <&pwm_ab 0 30518 0>; /* PWM_A at 32.768KHz */
++	};
++
++	thermal-zones {
++		cpu_thermal: cpu-thermal {
++			polling-delay-passive = <250>;
++			polling-delay = <1000>;
++			thermal-sensors = <&scpi_sensors 0>;
++			trips {
++				cpu_passive: cpu-passive {
++					temperature = <70000>; /* millicelsius */
++					hysteresis = <2000>; /* millicelsius */
++					type = "passive";
++				};
++
++				cpu_hot: cpu-hot {
++					temperature = <80000>; /* millicelsius */
++					hysteresis = <2000>; /* millicelsius */
++					type = "hot";
++				};
++
++				cpu_critical: cpu-critical {
++					temperature = <100000>; /* millicelsius */
++					hysteresis = <2000>; /* millicelsius */
++					type = "critical";
++				};
++			};
++		};
++
++		cpu_cooling_maps: cooling-maps {
++			map0 {
++				trip = <&cpu_passive>;
++				cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++						<&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++						<&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++						<&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++			};
++
++			map1 {
++				trip = <&cpu_hot>;
++				cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++						<&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++						<&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++						<&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++			};
++		};
++	};
++
++	onewire {
++		compatible = "w1-gpio";
++		gpios = <&gpio GPIOA_14 GPIO_ACTIVE_HIGH>;
++		#gpio-cells = <1>;
++	};
++};
++
++&efuse {
++	sn: sn@32 {
++		reg = <0x32 0x20>;
++	};
++
++	eth_mac: eth_mac@0 {
++		reg = <0x0 0x6>;
++	};
++
++	bt_mac: bt_mac@6 {
++		reg = <0x6 0x6>;
++	};
++
++	wifi_mac: wifi_mac@c {
++		reg = <0xc 0x6>;
++	};
++
++	bid: bid@12 {
++		reg = <0x12 0x20>;
++	};
++};
++
++/* Internal I2C bus (on CPU module) */
++&i2c1 {
++	status = "okay";
++	pinctrl-0 = <&i2c1_z_pins>;
++	pinctrl-names = "default";
++
++	/* RTC */
++	pcf8563: pcf8563@51 {
++		compatible = "nxp,pcf8563";
++		reg = <0x51>;
++		status = "okay";
++	};
++};
++
++/* Peripheral I2C bus (on motherboard) */
++&i2c_AO {
++	status = "okay";
++	pinctrl-0 = <&i2c_ao_sck_10_pins>, <&i2c_ao_sda_11_pins>;
++	pinctrl-names = "default";
++};
++
++&pwm_ab {
++	status = "okay";
++	pinctrl-0 = <&pwm_a_x20_pins>;
++	pinctrl-names = "default";
++};
++
++/* wifi module */
++&sd_emmc_b {
++	status = "okay";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	pinctrl-0 = <&sdio_pins>;
++	pinctrl-1 = <&sdio_clk_gate_pins>;
++	pinctrl-names = "default", "clk-gate";
++
++	bus-width = <4>;
++	cap-sd-highspeed;
++	sd-uhs-sdr104;
++	max-frequency = <200000000>;
++	non-removable;
++	disable-wp;
++
++	mmc-pwrseq = <&sdio_pwrseq>;
++
++	vmmc-supply = <&vddao_3v3>;
++	vqmmc-supply = <&vddio_boot>;
++
++	brcmf: wifi@1 {
++		reg = <1>;
++		compatible = "brcm,bcm4329-fmac";
++	};
++};
++
++/* emmc storage */
++&sd_emmc_c {
++	status = "okay";
++	pinctrl-0 = <&emmc_pins>, <&emmc_ds_pins>;
++	pinctrl-1 = <&emmc_clk_gate_pins>;
++	pinctrl-names = "default", "clk-gate";
++
++	bus-width = <8>;
++	cap-mmc-highspeed;
++	max-frequency = <200000000>;
++	non-removable;
++	disable-wp;
++	mmc-ddr-1_8v;
++	mmc-hs200-1_8v;
++
++	mmc-pwrseq = <&emmc_pwrseq>;
++
++	vmmc-supply = <&vcc_3v3>;
++	vqmmc-supply = <&vddio_boot>;
++};
++
++/* UART Bluetooth */
++&uart_B {
++	status = "okay";
++	pinctrl-0 = <&uart_b_z_pins>, <&uart_b_z_cts_rts_pins>;
++	pinctrl-names = "default";
++	uart-has-rtscts;
++
++	bluetooth {
++		compatible = "brcm,bcm43438-bt";
++		shutdown-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
++	};
++};
++
++/* UART Console */
++&uart_AO {
++	status = "okay";
++	pinctrl-0 = <&uart_ao_a_pins>;
++	pinctrl-names = "default";
++};
++
++/* Zigbee */
++&uart_AO_B {
++	status = "okay";
++	pinctrl-0 = <&uart_ao_b_z_pins>;
++	pinctrl-names = "default";
++};
++
++&usb {
++	status = "okay";
++	phy-supply = <&usb_pwr>;
++};
++
++&spicc1 {
++	status = "okay";
++	pinctrl-0 = <&spi1_x_pins>, <&spi1_ss0_x_pins>;
++	pinctrl-names = "default";
++};
++
++&gpio {
++	gpio-line-names =
++		"", "", "", "", "", // 0 - 4
++		"", "", "", "", "", // 5 - 9
++		"", "", "", "", "", // 10 - 14
++		"", "", "", "", "", // 15 - 19
++		"", "", "", "", "", // 20 - 24
++		"", "", "", "", "", // 25 - 29
++		"", "", "", "", "", // 30 - 34
++		"", "", "", "", "", // 35 - 39
++		"", "", "", "", "", // 40 - 44
++		"", "", "", "", "", // 45 - 49
++		"", "", "", "", "", // 50 - 54
++		"", "", "", "", "", // 55 - 59
++		"", "", "", "", "", // 60 - 64
++		"", "", "", "", "", // 65 - 69
++		"", "", "", "", "", // 70 - 74
++		"", "", "", "", "", // 75 - 79
++		"", "", "", "", "", // 80 - 84
++		"", ""; // 85-86
++};
++
++&cpu0 {
++	#cooling-cells = <2>;
++};
++
++&cpu1 {
++	#cooling-cells = <2>;
++};
++
++&cpu2 {
++	#cooling-cells = <2>;
++};
++
++&cpu3 {
++	#cooling-cells = <2>;
++};
 diff --git a/arch/arm/dts/meson-axg-thirdreality-trhub-v3b.dts b/arch/arm/dts/meson-axg-thirdreality-trhub-v3b.dts
 new file mode 100644
-index 00000000000..db8495e3eb4
+index 00000000000..9610952bb6c
 --- /dev/null
 +++ b/arch/arm/dts/meson-axg-thirdreality-trhub-v3b.dts
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,357 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
 + * Copyright (c) 2021 Vyacheslav Bocharov <adeep@lexina.in>
@@ -416,8 +766,9 @@ index 00000000000..db8495e3eb4
 +	model = "ThirdReality TRHub V3b";
 +	aliases {
 +		serial0 = &uart_AO;   /* Console */
-+		serial1 = &uart_AO_B; /* External UART (Wireless Module) */
-+		ethernet0 = &ethmac;
++		serial1 = &uart_A; /* UART Bluetooth */
++		serial3 = &uart_AO_B; /* ZigBee */
++		//serial6 = &uart_B; /* Thread */
 +	};
 +
 +	chosen {
@@ -700,7 +1051,7 @@ index 00000000000..db8495e3eb4
 +/* UART Wireless module */
 +&uart_AO_B {
 +	status = "okay";
-+	pinctrl-0 = <&uart_ao_b_pins>;
++	pinctrl-0 = <&uart_ao_b_z_pins>;
 +	pinctrl-names = "default";
 +};
 +
@@ -777,7 +1128,7 @@ index 00000000000..9c7a3b1961d
 +obj-y	:= trhub-v3.o
 diff --git a/board/amlogic/trhub-v3/trhub-v3.c b/board/amlogic/trhub-v3/trhub-v3.c
 new file mode 100644
-index 00000000000..c52c6c44870
+index 00000000000..ef4d9e8713e
 --- /dev/null
 +++ b/board/amlogic/trhub-v3/trhub-v3.c
 @@ -0,0 +1,102 @@
@@ -836,9 +1187,9 @@ index 00000000000..c52c6c44870
 +					sprintf(_cmdbuf, "%c%c",keydata[8],keydata[9]);
 +					env_set("perev", _cmdbuf);
 +			      }
-+			    }			
++			    }
++#endif			
 +			}
-+#endif
 +
 +			// get serial
 +			strcpy(keyname, "serial");
@@ -908,7 +1259,7 @@ index 00000000000..e33f617eb7d
 +obj-y	:= trhub-v3b.o
 diff --git a/board/amlogic/trhub-v3b/trhub-v3b.c b/board/amlogic/trhub-v3b/trhub-v3b.c
 new file mode 100644
-index 00000000000..3a110c28872
+index 00000000000..74dca6e2ef9
 --- /dev/null
 +++ b/board/amlogic/trhub-v3b/trhub-v3b.c
 @@ -0,0 +1,101 @@
@@ -968,8 +1319,8 @@ index 00000000000..3a110c28872
 +				env_set("perev", _cmdbuf);
 +			      }
 +			    }			
++#endif
 +			}
-+#endif				
 +			// get serial
 +			strcpy(keyname, "serial");
 +			memset (keydata, 0, sizeof(keydata));
@@ -1013,6 +1364,188 @@ index 00000000000..3a110c28872
 +
 +	return 0;
 +}
+diff --git a/common/partitions.c b/common/partitions.c
+index 25ad5e447d8..35293599eaa 100644
+--- a/common/partitions.c
++++ b/common/partitions.c
+@@ -69,7 +69,7 @@ int check_valid_dts(unsigned char *buffer)
+ 		flush_cache((unsigned long)sbuffer, AML_DTB_IMG_MAX_SZ);
+ 		ret = aml_sec_boot_check(AML_D_P_IMG_DECRYPT, (long unsigned)sbuffer, AML_DTB_IMG_MAX_SZ, 0);
+ 		if (ret) {
+-			printf("\n %s() %d: Decrypt dtb: Sig Check %d\n", __func__, __LINE__, ret);
++			//printf("\n %s() %d: Decrypt dtb: Sig Check %d\n", __func__, __LINE__, ret);
+ 			return -__LINE__;
+ 		}
+ 		memcpy(buffer, sbuffer, AML_DTB_IMG_MAX_SZ);
+@@ -79,10 +79,10 @@ int check_valid_dts(unsigned char *buffer)
+ #else
+ 	dt_addr = (char *)buffer;
+ #endif
+-	pr_debug("start dts,buffer=%p,dt_addr=%p\n", buffer, dt_addr);
++	//pr_debug("start dts,buffer=%p,dt_addr=%p\n", buffer, dt_addr);
+ 	ret = fdt_check_header(dt_addr);
+-	if ( ret < 0 )
+-		printf("%s: %s\n",__func__,fdt_strerror(ret));
++	//if ( ret < 0 )
++	//	printf("%s: %s\n",__func__,fdt_strerror(ret));
+ 	/* fixme, is it 0 when ok? */
+ 	return ret;
+ }
+@@ -104,10 +104,10 @@ int get_partition_from_dts(unsigned char *buffer)
+ 		goto _err;
+ 
+ 	ret = check_valid_dts(buffer);
+-	printf("%s() %d: ret %d\n",__func__, __LINE__, ret);
++	//printf("%s() %d: ret %d\n",__func__, __LINE__, ret);
+ 	if ( ret < 0 )
+ 	{
+-		printf("%s() %d: ret %d\n",__func__, __LINE__, ret);
++		//printf("%s() %d: ret %d\n",__func__, __LINE__, ret);
+ 		goto _err;
+ 	}
+ #ifdef CONFIG_MULTI_DTB
+@@ -118,18 +118,18 @@ int get_partition_from_dts(unsigned char *buffer)
+ 	nodeoffset = fdt_path_offset(dt_addr, "/partitions");
+ 	if (nodeoffset < 0)
+ 	{
+-		printf("%s: not find /partitions node %s.\n",__func__,fdt_strerror(nodeoffset));
++		//printf("%s: not find /partitions node %s.\n",__func__,fdt_strerror(nodeoffset));
+ 		ret = -1;
+ 		goto _err;
+ 	}
+ 	parts_num = (int *)fdt_getprop(dt_addr, nodeoffset, "parts", NULL);
+-	printf("parts: %d\n",be32_to_cpup((u32*)parts_num));
++	//printf("parts: %d\n",be32_to_cpup((u32*)parts_num));
+ 
+ 	if (parts_num > 0)
+ 	{
+ 		part_table = (struct partitions *)malloc(sizeof(struct partitions)*(be32_to_cpup((u32*)parts_num)));
+ 		if (!part_table) {
+-			printk("%s part_table alloc _err\n",__func__);
++			//printk("%s part_table alloc _err\n",__func__);
+ 			//kfree(data);
+ 			return -1;
+ 		}
+@@ -146,13 +146,13 @@ int get_partition_from_dts(unsigned char *buffer)
+ 
+ 		phandle = fdt_getprop(dt_addr, nodeoffset, propname, NULL);
+ 		if (!phandle) {
+-			printf("don't find  match part-%d\n",index);
++			//printf("don't find  match part-%d\n",index);
+ 			goto _err;
+ 		}
+ 		if (phandle) {
+ 			poffset = fdt_node_offset_by_phandle(dt_addr, be32_to_cpup((u32*)phandle));
+ 			if (!poffset) {
+-				printf("%s:%d,can't find device node\n",__func__,__LINE__);
++				//printf("%s:%d,can't find device node\n",__func__,__LINE__);
+ 				goto _err;
+ 			}
+ 		}
+diff --git a/configs/trhub_linuxbox_defconfig b/configs/trhub_linuxbox_defconfig
+new file mode 100644
+index 00000000000..b9a74eeb0d9
+--- /dev/null
++++ b/configs/trhub_linuxbox_defconfig
+@@ -0,0 +1,98 @@
++CONFIG_ARM=y
++CONFIG_SYS_BOARD="trhub-v3"
++CONFIG_SYS_CONFIG_NAME="trhub"
++CONFIG_ARCH_MESON=y
++CONFIG_SYS_TEXT_BASE=0x01000000
++CONFIG_NR_DRAM_BANKS=1
++CONFIG_ENV_SIZE=0x2000
++CONFIG_DM_GPIO=y
++CONFIG_DEFAULT_DEVICE_TREE="meson-axg-thirdreality-linuxbox"
++CONFIG_MESON_AXG=y
++CONFIG_DEBUG_UART_BASE=0xff803000
++CONFIG_DEBUG_UART_CLOCK=24000000
++CONFIG_IDENT_STRING=" linuxbox"
++CONFIG_SYS_LOAD_ADDR=0x01000000
++CONFIG_DEBUG_UART=y
++CONFIG_REMAKE_ELF=y
++CONFIG_OF_BOARD_SETUP=y
++# CONFIG_DISPLAY_CPUINFO is not set
++CONFIG_MISC_INIT_R=y
++CONFIG_CMD_ADC=y
++# CONFIG_CMD_BDI is not set
++# CONFIG_CMD_IMI is not set
++CONFIG_CMD_EEPROM=y
++CONFIG_CMD_ADC=y
++CONFIG_CMD_GPIO=y
++CONFIG_RANDOM_UUID=y
++CONFIG_CMD_I2C=y
++# CONFIG_CMD_LOADS is not set
++CONFIG_CMD_MMC=y
++CONFIG_CMD_USB=y
++CONFIG_CMD_USB_MASS_STORAGE=y
++CONFIG_CMD_RTC=y
++CONFIG_CMD_REGULATOR=y
++CONFIG_PARTITION_TYPE_GUID=y
++CONFIG_OF_CONTROL=y
++CONFIG_SYS_RELOC_GD_ENV_ADDR=y
++CONFIG_SARADC_MESON=y
++CONFIG_DM_I2C=y
++CONFIG_SYS_I2C_MESON=y
++CONFIG_ADC=y
++CONFIG_SARADC_MESON=y
++CONFIG_CLK=y
++CONFIG_CLK_MESON_AXG=y
++CONFIG_MMC_MESON_GX=y
++CONFIG_MTD_UBI=y
++CONFIG_PHY_REALTEK=y
++CONFIG_DM_ETH=y
++CONFIG_ETH_DESIGNWARE_MESON8B=y
++CONFIG_MESON_GXL_USB_PHY=y
++CONFIG_PINCTRL=y
++CONFIG_PINCTRL_MESON_AXG=y
++CONFIG_DM_REGULATOR=y
++CONFIG_DM_REGULATOR_FIXED=y
++CONFIG_DM_RESET=y
++CONFIG_DM_RTC=y
++CONFIG_RTC_PCF8563=y
++CONFIG_DEBUG_UART_ANNOUNCE=y
++CONFIG_DEBUG_UART_SKIP_INIT=y
++CONFIG_MESON_SERIAL=y
++CONFIG_USB=y
++CONFIG_USB_XHCI_HCD=y
++CONFIG_USB_XHCI_DWC3=y
++CONFIG_USB_DWC2=y
++CONFIG_USB_DWC3=y
++# CONFIG_USB_DWC3_GADGET is not set
++CONFIG_USB_DWC3_MESON_GXL=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_GADGET_VENDOR_NUM=0x1b8e
++CONFIG_USB_GADGET_PRODUCT_NUM=0xfada
++CONFIG_USB_GADGET_DWC2_OTG=y
++CONFIG_USB_GADGET_DOWNLOAD=y
++CONFIG_OF_LIBFDT_OVERLAY=y
++
++CONFIG_AML_DRIVER=y
++CONFIG_UNIFY_KEY_MANAGE=y
++CONFIG_SECURE_STORAGE=y
++CONFIG_AML_STORAGE=y
++CONFIG_EFUSE=y
++CONFIG_AML_PARTITION=y
++
++CONFIG_BOOTMETH_EFILOADER=n
++CONFIG_CMD_BOOTEFI=n
++CONFIG_CMD_BOOTEFI_HELLO_COMPILE=n
++CONFIG_EFI_PARTITION=n
++CONFIG_EFI_LOADER=n
++CONFIG_CMD_BOOTEFI_BOOTMGR=n
++CONFIG_EFI_SETUP_EARLY=n
++CONFIG_EFI_VARIABLE_FILE_STORE=n
++CONFIG_EFI_GET_TIME=n
++CONFIG_EFI_DEVICE_PATH_TO_TEXT=n
++CONFIG_EFI_DEVICE_PATH_UTIL=n
++CONFIG_EFI_DT_FIXUP=n
++CONFIG_EFI_LOADER_HII=n
++CONFIG_EFI_UNICODE_COLLATION_PROTOCOL2=n
++CONFIG_EFI_UNICODE_CAPITALIZATION=n
++CONFIG_EFI_HAVE_RUNTIME_RESET=n
++CONFIG_EFI_RNG_PROTOCOL=n
++CONFIG_EFI_LOAD_FILE2_INITRD=n
 diff --git a/configs/trhub_v3_defconfig b/configs/trhub_v3_defconfig
 new file mode 100644
 index 00000000000..0b8a36b1f2b
@@ -1119,12 +1652,12 @@ index 00000000000..0b8a36b1f2b
 +CONFIG_EFI_LOAD_FILE2_INITRD=n
 diff --git a/configs/trhub_v3b_defconfig b/configs/trhub_v3b_defconfig
 new file mode 100644
-index 00000000000..e9a17052c59
+index 00000000000..9ed7582268e
 --- /dev/null
 +++ b/configs/trhub_v3b_defconfig
 @@ -0,0 +1,98 @@
 +CONFIG_ARM=y
-+CONFIG_SYS_BOARD="trhub-v3b"
++CONFIG_SYS_BOARD="trhub-v3"
 +CONFIG_SYS_CONFIG_NAME="trhub"
 +CONFIG_ARCH_MESON=y
 +CONFIG_SYS_TEXT_BASE=0x01000000
@@ -1221,6 +1754,102 @@ index 00000000000..e9a17052c59
 +CONFIG_EFI_HAVE_RUNTIME_RESET=n
 +CONFIG_EFI_RNG_PROTOCOL=n
 +CONFIG_EFI_LOAD_FILE2_INITRD=n
+diff --git a/drivers/amlogic/keymanage/key_manage_i.h b/drivers/amlogic/keymanage/key_manage_i.h
+index 73404c1dbf1..f6f1e814d9a 100644
+--- a/drivers/amlogic/keymanage/key_manage_i.h
++++ b/drivers/amlogic/keymanage/key_manage_i.h
+@@ -22,8 +22,8 @@
+ #include <amlogic/amlkey_if.h>
+ 
+ #define KM_DBG(fmt ...)     //printf("[KM]Dbg:"fmt)
+-#define KM_MSG(fmt ...)     printf("[KM]Msg:"fmt)
+-#define KM_ERR(fmt ...)     printf("[KM]Error:f[%s]L%d:", __func__, __LINE__),printf(fmt)
++#define KM_MSG(fmt ...)     //printf("[KM]Msg:"fmt)
++#define KM_ERR(fmt ...)     //printf("[KM]Error:f[%s]L%d:", __func__, __LINE__),printf(fmt)
+ 
+ int _keyman_hex_ascii_to_buf(const char* input, char* buf, const unsigned bufSz);
+ int _keyman_buf_to_hex_ascii(const uint8_t* pdata, const unsigned dataLen, char* fmtStr/*pr if NULL*/);
+diff --git a/drivers/mmc/aml_emmc_partition.c b/drivers/mmc/aml_emmc_partition.c
+index d27419db95b..ed4f61afdba 100644
+--- a/drivers/mmc/aml_emmc_partition.c
++++ b/drivers/mmc/aml_emmc_partition.c
+@@ -39,16 +39,18 @@ DECLARE_GLOBAL_DATA_PTR;
+ #define CONFIG_MPT_DEBUG 	(0)
+ #define GPT_PRIORITY             (1)
+ 
++#if (CONFIG_MPT_DEBUG)
+ #define apt_err(fmt, ...) printf( "%s()-%d: " fmt , \
+                   __func__, __LINE__, ##__VA_ARGS__)
+ 
+ #define apt_wrn(fmt, ...) printf( "%s()-%d: " fmt , \
+                   __func__, __LINE__, ##__VA_ARGS__)
+-#if (CONFIG_MPT_DEBUG)
+ /* for detail debug info */
+ #define apt_info(fmt, ...) printf( "%s()-%d: " fmt , \
+                   __func__, __LINE__, ##__VA_ARGS__)
+ #else
++#define apt_err(fmt, ...)
++#define apt_wrn(fmt, ...)
+ #define apt_info(fmt, ...)
+ #endif
+ 
+diff --git a/drivers/mmc/mmc.c b/drivers/mmc/mmc.c
+index c63bca2e083..8e6952a4651 100644
+--- a/drivers/mmc/mmc.c
++++ b/drivers/mmc/mmc.c
+@@ -3202,15 +3202,15 @@ int mmc_pattern_check(struct mmc *mmc, struct aml_pattern *table)
+ 		buf = (u32 *)addr;
+ 		crc32_s = crc32(0, (u8 *)addr, (vpart->size - 4));
+ 		if (crc32_s != buf[vpart->size/4 - 1]) {
+-			printf("check %s failed,need to write\n",
+-						table->name);
++			//printf("check %s failed,need to write\n",
++			//			table->name);
+ 			mmc_write_cali_mattern(addr, table);
+ 			n = blk_dwrite(mmc_get_blk_desc(mmc), blk, cnt, addr);
+-			printf("several 0x%x pattern blocks write %s\n",
+-				table->pattern, (n == cnt) ? "OK" : "ERROR");
++			//printf("several 0x%x pattern blocks write %s\n",
++			//	table->pattern, (n == cnt) ? "OK" : "ERROR");
+ 		}
+-		printf("crc32_s:0x%x == storage crc_pattern:0x%x!!!\n",
+-				crc32_s, buf[vpart->size/4 - 1]);
++		//printf("crc32_s:0x%x == storage crc_pattern:0x%x!!!\n",
++		//		crc32_s, buf[vpart->size/4 - 1]);
+ 	}
+ 	free(addr);
+ 	return (n == cnt) ? 0 : 1;
+diff --git a/drivers/mmc/storage_emmc.c b/drivers/mmc/storage_emmc.c
+index 48519a6eea5..32b75eb5255 100644
+--- a/drivers/mmc/storage_emmc.c
++++ b/drivers/mmc/storage_emmc.c
+@@ -922,9 +922,10 @@ int emmc_pre(void)
+ 		}
+ 		config_storage_dev_func(storage_dev, mmc);
+ 		store_register(storage_dev);
+-		printf("emmc init success!\n");
+-	} else
+-		printf("emmc init fail!\n");
++		//printf("emmc init success!\n");
++	} 
++	//else
++	//	printf("emmc init fail!\n");
+ 	return ret;
+ }
+ 
+@@ -935,10 +936,10 @@ int emmc_probe(uint32_t init_flag)
+ 
+ 	ret = mmc_storage_init(init_flag); /*flag 0*/
+ 	if (ret) {
+-		printf("mmc init failed ret:%x\n", ret);
++		//printf("mmc init failed ret:%x\n", ret);
+ 		goto exit_error;
+ 	}
+-	printf("emmc probe success\n");
++	//printf("emmc probe success\n");
+ 
+ exit_error:
+ 	return ret;
 diff --git a/include/configs/trhub.h b/include/configs/trhub.h
 new file mode 100644
 index 00000000000..7c488038894

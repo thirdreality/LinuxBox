@@ -194,7 +194,15 @@ check_and_install_supervised()
         update_docker_config
 
         sed -i.bak "/$PATTERN_LINE/c $REPLACEMENT_LINE" "$CONFIG_FILE"
-    fi    
+    fi
+
+    if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
+        chmod 644 "/etc/systemd/system/hassio-supervisor.service"
+    fi
+
+    if [ -e "/etc/systemd/system/hassio-apparmor.service" ]; then
+        chmod 644 "/etc/systemd/system/hassio-apparmor.service"
+    fi        
 }
 
 check_install_suervised_process()

@@ -11,12 +11,13 @@ TIMEOUT=1200
 
 export LC_ALL DEBIAN_FRONTEND APT_LISTCHANGES_FRONTEND MACHINE
 
-work_dir="/mnt"
+WORK_DIR="/mnt"
+CONFIG_DIR="/var/lib/homeassistant"
 
 while getopts "d:" opt; do
   case ${opt} in
     d )
-      work_dir=$OPTARG
+      WORK_DIR=$OPTARG
       ;;
     \? )
       echo "Usage: cmd [-d directory]"
@@ -25,7 +26,7 @@ while getopts "d:" opt; do
   esac
 done
 
-echo "Using directory: ${work_dir}"
+echo "Using directory: ${WORK_DIR}"
 
 # Ensure only one instance of the script is running
 readonly LOCKFILE="/tmp/install_docker_ha.lock"
@@ -65,7 +66,7 @@ install_normal_debs() {
         "homeassistant-supervised"
     )
 
-    deb_files=$(find "$work_dir" -maxdepth 1 -name "*.deb" -type f)
+    deb_files=$(find "$WORK_DIR" -maxdepth 1 -name "*.deb" -type f)
 
     if [ -z "$deb_files" ]; then
         return
@@ -112,7 +113,7 @@ install_docker_debs() {
     
     for deb_pattern in "${docker_debs[@]}"; do
         # Find matching deb files
-        deb_file=$(find "$work_dir" -maxdepth 1 -name "$deb_pattern" -type f | head -n 1)
+        deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "$deb_pattern" -type f | head -n 1)
         
         if [ -n "$deb_file" ]; then
             echo "Installing: $deb_file"
@@ -123,17 +124,104 @@ install_docker_debs() {
     done
 }
 
-# Update version in configuration files if necessary
-# /usr/bin/ha can remove old image and update version config.
-update_component() {
-    local component="$1"
-    local version="$2"
-    if [ -e "/usr/bin/ha" ]; then
-        /usr/bin/ha "$component" update --version="$version" || {
-            echo "Warning: Failed to update $component."
-        }
-    fi
+
+load_image_for_hassio_supervisor() {
+    local tar_file=$1
+    local repo=%2
+    local tag=%3
+
+    local result=1
+
+    SUPERVISOR_IMAGE="ghcr.io/home-assistant/aarch64-hassio-supervisor"
+
+    current_version=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo:" | awk -F ":" '{print $2}'| grep -v "^latest$")
+
+    if [ -z "$current_version" ]; then
+        echo "Install a new image [$tar_file]."
+        docker load < "$tar_file" 2>&1 
+
+        docker tag "${repo}:${tag}" "${repo}:latest"
+
+        CONFIG_FILE="${CONFIG_DIR}/config.json"
+        if [ -e "$CONFIG_FILE" ]; then
+            sed -i "s/\"version\": \".*\"/\"version\": \"${tag}\"/" "$CONFIG_FILE"
+        fi
+
+        result=0
+    else
+        if [[ "$current_version" < "$tag" ]]; then
+            echo "Found newer version for [$repo]"
+
+            if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
+                systemctl stop hassio-supervisor.service
+            fi
+
+            docker container rm --force hassio_supervisor || true
+
+            IMAGE_IDS=$(docker images --no-trunc --filter "reference=${SUPERVISOR_IMAGE}" --format "{{.ID}}" | uniq || echo "")
+            docker image rm --force "${IMAGE_IDS}" || true
+
+            echo "Check disk patition ..."
+            df -h /var/lib/docker
+
+            echo "Loading a new image [$tar_file]."
+            docker load < "$tar_file" 2>&1 
+            result=0
+
+            CONFIG_FILE="${CONFIG_DIR}/config.json"
+            if [ -e "$CONFIG_FILE" ]; then
+                sed -i "s/\"version\": \".*\"/\"version\": \"${tag}\"/" "$CONFIG_FILE"
+            fi
+
+        else
+            echo "Current image version [ $repo:$current_version ] is up-to-date or newer. skip current image tar."
+        fi
+    fi  
 }
+
+
+
+load_image_for_homeassistant() {
+    local new_repo=$1
+    local new_tag=%2
+}
+
+
+load_image_for_hassio_dns() {
+    local new_repo=$1
+    local new_tag=%2
+}
+
+load_image_for_hassio_cli() {
+    local new_repo=$1
+    local new_tag=%2
+}
+
+
+load_image_for_hassio_multicast() {
+    local new_repo=$1
+    local new_tag=%2
+}
+
+
+load_image_for_hassio_audio() {
+    local new_repo=$1
+    local new_tag=%2
+}
+
+load_image_for_hassio_observer() {
+    local new_repo=$1
+    local new_tag=%2
+}
+
+# # Stop container(s) running the current version, if any
+# container_ids=$(docker ps -a --filter "ancestor=$repo:$current_version" --format "{{.ID}}")
+# if [ ! -z "$container_ids" ]; then                   
+#     docker stop $container_ids 2>/dev/null || true
+#     docker rm -f $container_ids
+# fi
+# echo "Removing old image: [ $repo:$current_version ]"
+# docker rmi "$repo:$current_version"  2>/dev/null
 
 # Function: Load Docker images
 load_docker_images() {
@@ -142,7 +230,7 @@ load_docker_images() {
 
     # Find all .tar files, "-maxdepth 1" is very important, 
     # because you don't know what the users will place in the USB Stick
-    tar_files=$(find "$work_dir" -maxdepth 1 -name "*.tar" -type f)
+    tar_files=$(find "$WORK_DIR" -maxdepth 1 -name "*.tar" -type f)
     
     if [ -z "$tar_files" ]; then
         echo "No Docker image files found"
@@ -155,7 +243,7 @@ load_docker_images() {
         if tar -tf "$tar_file" | grep -q "repositories"; then
             repositories=$(tar -Oxf "$tar_file" repositories)
         else
-            echo "No 'repositories' file found in [ $tar_file ], skipping..."
+            echo "Warning: No 'repositories' file found in [ $tar_file ], skipping..."
             continue
         fi
 
@@ -163,7 +251,6 @@ load_docker_images() {
         repo=$(echo "$repositories" | jq -r 'keys[0]')
         tag=$(echo "$repositories" | jq -r '.[] | keys[0]')
 
-        echo "Processing Current image: [$tar_file]"
         echo "New version: [$tag]"
 
         if [ "$tag" == "latest" ]; then
@@ -172,30 +259,44 @@ load_docker_images() {
             continue
         fi        
 
-        # Load if the repo contains '-addon-'
+        # Load if the repo contains '-addon-', too complex, just load it!
         if [ "$repo" == *"-addon-"* ]; then
             echo "Loading addon image: [$tar_file]"
-            #docker load -i "$tar_file"
-            docker load < "$tar_file" | logger -t "hubv3-sync-usb"
 
-            if [[ "$repo" == *"-addon-matter-server"* && -e "/usr/bin/ha" ]]; then
-                if ! /usr/bin/ha addons core_matter_server update; then
-                    echo "Warning: Failed to update core_matter_server."
-                fi
-            fi
+            docker load < "$tar_file" 
+
+            # if [[ "$repo" == *"-addon-matter-server"* && -e "/usr/bin/ha" ]]; then
+            #     if ! /usr/bin/ha addons core_matter_server update; then
+            #         echo "Warning: Failed to update core_matter_server."
+            #     fi
+            # fi
 
             result=0
             continue
         fi
         
+        if [[ "$repo" == *"hassio-supervisor"* ]]; then 
+            load_image_for_hassio_supervisor ${tar_file} ${repo} ${tag}
+        elif [[ "$repo" == *"homeassistant"* ]]; then
+            load_image_for_homeassistant ${tar_file} ${repo} ${tag}
+        elif [[ "$repo" == *"hassio-cli"* ]]; then
+            load_image_for_hassio_cli ${tar_file} ${repo} ${tag}
+        elif [[ "$repo" == *"hassio-audio"* ]]; then
+            load_image_for_hassio_audio ${tar_file} ${repo} ${tag}
+        elif [[ "$repo" == *"hassio-dns"* ]]; then
+            load_image_for_hassio_dns ${tar_file} ${repo} ${tag}
+        elif [[ "$repo" == *"hassio-multicast"* ]]; then   
+            load_image_for_hassio_multicast ${tar_file} ${repo} ${tag}
+        elif [[ "$repo" == *"hassio-observer"* ]]; then   
+            load_image_for_hassio_observer ${tar_file} ${repo} ${tag}            
+        fi
+
         # Get current image version if exists
-        current_version=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo:" | awk -F ":" '{print $2}')
-        
+        current_version=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo:" | awk -F ":" '{print $2}'| grep -v "^latest$")
+
         if [ -z "$current_version" ]; then
-            echo "No existing image found for [$repo]"
-            echo "Loading a new image [$tar_file]."
-            docker load < "$tar_file" | logger -t "hubv3-sync-usb"
-            #docker load -i "$tar_file"
+            echo "Install a new image [$tar_file]."
+            docker load < "$tar_file" 2>&1 
 
             if [[ "$repo" == *"hassio-supervisor"* ]]; then
                 docker tag "${repo}:${tag}" "${repo}:latest"
@@ -203,49 +304,100 @@ load_docker_images() {
 
             result=0
         else
-            echo "Found exist image, version $current_version "
+            echo "Found exist image, version [$current_version]"
             # Compare versions
             if [[ "$current_version" < "$tag" ]]; then
                 echo "Found newer version for [$repo]"
                 
+                if [[ "$repo" == *"hassio-supervisor"* ]]; then
+                    if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
+                        systemctl stop hassio-supervisor.service
+                    fi
+                elif [[ "$repo" == *"homeassistant"* ]]; then
+                    if [ ! -e "/usr/bin/ha" ]; then
+                        /usr/bin/ha core stop
+                    fi
+                elif [[ "$repo" == *"hassio-cli"* ]]; then
+                    echo "Updating [$repo]"
+                elif [[ "$repo" == *"hassio-audio"* ]]; then
+                    if [ ! -e "/usr/bin/ha" ]; then
+                        /usr/bin/ha audio stop
+                    fi
+                elif [[ "$repo" == *"hassio-dns"* ]]; then
+                    if [ ! -e "/usr/bin/ha" ]; then
+                        /usr/bin/ha dns stop
+                    fi
+                elif [[ "$repo" == *"hassio-multicast"* ]]; then   
+                    if [ ! -e "/usr/bin/ha" ]; then
+                        /usr/bin/ha multicast stop
+                    fi                                 
+                fi
+
                 # Stop container(s) running the current version, if any
-                container_ids=$(docker ps --filter "ancestor=$repo:$current_version" --format "{{.ID}}")
-                if [ ! -z "$container_ids" ]; then
-                    echo "Stopping containers: $container_ids"
-                    docker stop $container_ids && docker rm $container_ids
+                container_ids=$(docker ps -a --filter "ancestor=$repo:$current_version" --format "{{.ID}}")
+                if [ ! -z "$container_ids" ]; then                   
+                    docker stop $container_ids 2>/dev/null || true
+                    docker rm -f $container_ids
                 fi
+
+                echo "Removing old image: [ $repo:$current_version ]"
+                docker rmi "$repo:$current_version"  2>/dev/null
                 
-                if [ ! -e "/usr/bin/ha" ]; then
-                    # Remove the old image
-                    echo "Removing old image: [ $repo:$current_version ]"
-                    docker rmi "$repo:$current_version"
+                echo "Check disk patition ..."
+                df -h /var/lib/docker
 
-                    echo "diskplay disk info ..."
-                    df -h /var/lib/docker
-
-                    docker image prune -a -f
-
-                    echo "diskplay disk info after prune..."
-                    df -h /var/lib/docker
-                fi
-
+                #OLD_IMAGE_ID=$(docker images --quiet "${repo}" | cut -c1-6)
+                #if [ -n "${OLD_IMAGE_ID}" ]; then
+                #    docker images -q --filter "dangling=true" | grep "^${OLD_IMAGE_ID}" | xargs -r docker rmi
+                #fi                
+                
                 echo "Loading a new image [$tar_file]."
-                #docker load -i "$tar_file"
-                docker load < "$tar_file" | logger -t "hubv3-sync-usb"
+                docker load < "$tar_file" 2>&1 
                 result=0
 
-                # Update version in configuration files if necessary
                 if [[ "$repo" == *"hassio-supervisor"* ]]; then
+                    # IMPORTANT: tag to latest
                     docker tag "${repo}:${tag}" "${repo}:latest"
-                    update_component "supervisor"
+
+                    CONFIG_FILE="${CONFIG_DIR}/config.json"
+                    if [ -e "$CONFIG_FILE" ]; then
+                        sed -i "s/\"version\": \".*\"/\"version\": \"${tag}\"/" "$CONFIG_FILE"
+                    fi
+
+                    if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
+                        # IMPORTANT
+                        systemctl restart hassio-supervisor.service
+                    fi
                 elif [[ "$repo" == *"homeassistant"* ]]; then
-                    update_component "core"
+                    CONFIG_FILE="${CONFIG_DIR}/homeassistant.json"
+                    if [ -e "$CONFIG_FILE" ]; then
+                        sed -i "s/\"version\": \".*\"/\"version\": \"${tag}\"/" "$CONFIG_FILE"
+                    fi
+                elif [[ "$repo" == *"hassio-cli"* ]]; then
+                    CONFIG_FILE="${CONFIG_DIR}/cli.json"
+                    if [ -e "$CONFIG_FILE" ]; then
+                        sed -i "s/\"version\": \".*\"/\"version\": \"${tag}\"/" "$CONFIG_FILE"
+                    fi
+
+                    if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
+                        # IMPORTANT: hassio-cli ~== /usr/bin/ha
+                        systemctl restart hassio-supervisor.service
+                    fi                   
                 elif [[ "$repo" == *"hassio-audio"* ]]; then
-                    update_component "audio"
+                    CONFIG_FILE="${CONFIG_DIR}/audio.json"
+                    if [ -e "$CONFIG_FILE" ]; then
+                        sed -i "s/\"version\": \".*\"/\"version\": \"${tag}\"/" "$CONFIG_FILE"
+                    fi
                 elif [[ "$repo" == *"hassio-dns"* ]]; then
-                    update_component "dns"
+                    CONFIG_FILE="${CONFIG_DIR}/dns.json"
+                    if [ -e "$CONFIG_FILE" ]; then
+                        sed -i "s/\"version\": \".*\"/\"version\": \"${tag}\"/" "$CONFIG_FILE"
+                    fi
                 elif [[ "$repo" == *"hassio-multicast"* ]]; then
-                    update_component "multicast"
+                    CONFIG_FILE="${CONFIG_DIR}/multicast.json"
+                    if [ -e "$CONFIG_FILE" ]; then
+                        sed -i "s/\"version\": \".*\"/\"version\": \"${tag}\"/" "$CONFIG_FILE"
+                    fi
                 fi
             else
                 echo "Current image version [ $repo:$current_version ] is up-to-date or newer. skip current image tar."
@@ -260,67 +412,11 @@ load_docker_images() {
     return $result
 }
 
-# Function: Clean up old versions of Docker images
-cleanup_old_images() {
-    if [ -e "/usr/bin/ha" ]; then
-        # if hassio-supervised installed, remove old image by `/usr/bin/ha xx update`
-        return
-    fi
-
-    echo "Cleaning up old versions of Docker images..."
-    
-    # Define repositories to check
-    repositories=(
-        "ghcr.io/home-assistant/odroid-n2-homeassistant"
-        "ghcr.io/home-assistant/aarch64-hassio-supervisor"
-        "homeassistant/aarch64-addon-matter-server"
-        "ghcr.io/home-assistant/aarch64-hassio-dns"
-        "ghcr.io/home-assistant/aarch64-hassio-cli"
-        "ghcr.io/home-assistant/aarch64-hassio-multicast"
-        "ghcr.io/home-assistant/aarch64-hassio-audio"
-        "ghcr.io/home-assistant/aarch64-hassio-observer"
-    )
-    
-    for repo in "${repositories[@]}"; do
-        echo "Checking repository: $repo"
-        
-        # Get all image IDs and tags for this repository
-        images=$(docker images --format "{{.ID}} {{.Repository}}:{{.Tag}}" | grep "^[^ ]* $repo:" || true)
-        
-        if [ -z "$images" ]; then
-            echo "  No images found for $repo"
-            continue
-        fi
-        
-        # Extract unique image IDs
-        image_ids=$(echo "$images" | awk '{print $1}' | sort | uniq)
-        
-        # If only one image ID, no need to clean up
-        if [ $(echo "$image_ids" | wc -l) -le 1 ]; then
-            echo "  $repo has only one version, no cleanup needed"
-            continue
-        fi
-        
-        echo "  Multiple versions of $repo found, keeping the latest version"
-        
-        # Get the latest version image ID (assuming tags are sorted alphabetically, latest is last)
-        latest_id=$(echo "$images" | sort -k2 | tail -n1 | awk '{print $1}')
-        
-        # Delete old versions
-        for id in $image_ids; do
-            if [ "$id" != "$latest_id" ]; then
-                echo "  Deleting old version image: $id"
-                docker rmi $id || true
-            fi
-        done
-    done
-}
-
 # Function: Install Home Assistant related deb packages
 install_ha_debs() {
     echo "Finding and installing Home Assistant related deb packages..."
 
-    os_agent_deb_file=$(find "$work_dir" -maxdepth 1 -name "os-agent_*.deb" -type f | head -n 1)
+    os_agent_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "os-agent_*.deb" -type f | head -n 1)
     if [ -n "$os_agent_deb_file" ]; then
         echo "Installing: $os_agent_deb_file"
         DEBIAN_FRONTEND=noninteractive dpkg -i "$os_agent_deb_file"
@@ -336,18 +432,19 @@ install_ha_debs() {
         return
     fi
 
-    supervised_deb_file=$(find "$work_dir" -maxdepth 1 -name "homeassistant-supervised*.deb" -type f | head -n 1)
+    supervised_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "homeassistant-supervised*.deb" -type f | head -n 1)
     if [ -n "${supervised_deb_file}" ]; then
         echo "Installing: $supervised_deb_file"
 
-        rm -rf "${work_dir}/homeassistant-supervised/"
+        rm -rf "/run/supervisor/startup-marker"
+        rm -rf "${WORK_DIR}/homeassistant-supervised/"
 
         echo "Updating: $supervised_deb_file"
 
-        dpkg-deb -R ${supervised_deb_file} "${work_dir}/homeassistant-supervised/"
+        dpkg-deb -R ${supervised_deb_file} "${WORK_DIR}/homeassistant-supervised/"
 
         #/etc/NetworkManager/NetworkManager.conf, fixed it for W155S1 driver.
-        TARGET_FILE="${work_dir}/homeassistant-supervised/DEBIAN/postinst"
+        TARGET_FILE="${WORK_DIR}/homeassistant-supervised/DEBIAN/postinst"
         sed -i '/systemctl restart "${SERVICE_NM}"/i \
 # Define configuration file and pattern lines\
 MACHINE=odroid-n2\
@@ -375,20 +472,28 @@ fi\
 
         echo "Code inserted successfully."
 
-        dpkg-deb -b "${work_dir}/homeassistant-supervised" "${work_dir}/homeassistant-supervised-modified.deb"
+        dpkg-deb -b "${WORK_DIR}/homeassistant-supervised" "${WORK_DIR}/homeassistant-supervised-modified.deb"
 
-        echo "Install ${work_dir}/homeassistant-supervised-modified.deb ..."
-        DEBIAN_FRONTEND=noninteractive MACHINE=odroid-n2 dpkg -i "${work_dir}/homeassistant-supervised-modified.deb"
+        echo "Install ${WORK_DIR}/homeassistant-supervised-modified.deb ..."
+        DEBIAN_FRONTEND=noninteractive MACHINE=odroid-n2 dpkg -i "${WORK_DIR}/homeassistant-supervised-modified.deb"
         
         # mark it manual install
         apt-mark manual "homeassistant-supervised"
 
-        rm -rf "${work_dir}/homeassistant-supervised-modified.deb"
-        rm -rf "${work_dir}/homeassistant-supervised"
+        rm -rf "${WORK_DIR}/homeassistant-supervised-modified.deb"
+        rm -rf "${WORK_DIR}/homeassistant-supervised"
 
         if [ -f "/lib/systemd/system/thirdreality-health-checker.service" ]; then
             /usr/bin/systemctl start thirdreality-health-checker.service
         fi 
+
+        if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
+            chmod 644 "/etc/systemd/system/hassio-supervisor.service"
+        fi
+
+        if [ -e "/etc/systemd/system/hassio-apparmor.service" ]; then
+            chmod 644 "/etc/systemd/system/hassio-apparmor.service"
+        fi
     else
         echo "No homeassistant-supervised.deb file found."        
     fi
@@ -428,7 +533,10 @@ if check_docker_installed; then
 
     if [ "$status" -eq 0 ]; then
         docker images
-        cleanup_old_images
+        #cleanup_old_images
+        if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
+            systemctl stop hassio-supervisor.service
+        fi
     else
         echo "Failed to load Docker images or none found."
     fi
