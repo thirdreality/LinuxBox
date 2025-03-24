@@ -89,8 +89,10 @@ check_and_install_os_agent(){
 	# os-agent   deb: arm64 https://github.com/home-assistant/os-agent/releases/download/1.6.0/os-agent_1.6.0_linux_aarch64.deb
 	# os-agent   deb: armhf https://github.com/home-assistant/os-agent/releases/download/1.6.0/os-agent_1.6.0_linux_armv7.deb
 
+    # https://github.com/home-assistant/os-agent/releases/download/1.7.2/os-agent_1.7.2_linux_aarch64.deb
+
     HA_OS_AGENT_ARCH="aarch64"
-	HA_OS_AGENT_VERSION="1.6.0"
+	HA_OS_AGENT_VERSION="1.7.2"
 	HA_OS_AGENT_FILENAME="os-agent_${HA_OS_AGENT_VERSION}_linux_${HA_OS_AGENT_ARCH}.deb"
 	HA_OS_AGENT_URL="https://github.com/home-assistant/os-agent/releases/download/${HA_OS_AGENT_VERSION}/${HA_OS_AGENT_FILENAME}"
 

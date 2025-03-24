@@ -4,11 +4,11 @@ After=basic.target
 
 [Service]
 Type=simple
-ExecStart=/bin/bash /usr/lib/thirdreality/hubv3-sync-usb.sh
-Restart=on-failure
+ExecStart=/usr/lib/thirdreality/hubv3-usb-sync.sh
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=hubv3-sync-usb
+SyslogIdentifier=hubv3-usb-sync
+Restart=no
 User=root
 
 [Install]

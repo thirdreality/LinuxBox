@@ -10,7 +10,7 @@ ENV{ID_FS_USAGE}!="filesystem", GOTO="exit"
 
 ENV{ID_FS_LABEL}!="", ENV{dir_name}="%E{ID_FS_LABEL}"
 ENV{ID_FS_LABEL}=="", ENV{dir_name}="Untitled-%k"
-ACTION=="add", PROGRAM="/bin/sh -c '/bin/grep -E ^/dev/%k\  /proc/mounts || true'", RESULT=="", RUN+="/usr/bin/systemd-mount --no-block --automount=yes --collect /dev/%k /mnt" RUN+="/usr/bin/systemctl daemon-reload" RUN+="/usr/bin/systemctl start hubv3-sync-usb.service"
+ACTION=="add", PROGRAM="/bin/sh -c '/bin/grep -E ^/dev/%k\  /proc/mounts || true'", RESULT=="", RUN+="/usr/bin/systemd-mount --no-block --automount=yes --collect /dev/%k /mnt" RUN+="/usr/bin/systemctl daemon-reload" RUN+="/usr/bin/systemctl start hubv3-usb-sync.service"
 ACTION=="remove", ENV{dir_name}!="", RUN+="/usr/bin/systemd-mount --umount /mnt"
 GOTO="exit"
 
