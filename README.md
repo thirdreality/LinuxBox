@@ -85,7 +85,9 @@ To be continue ...
 
 
 
-Choose Create a network
+## License
+
+This software is published under the GPL-2.0 License license.
 
 
 
