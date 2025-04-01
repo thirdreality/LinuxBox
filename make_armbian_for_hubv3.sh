@@ -122,6 +122,8 @@ if [[ -n "$IMG_FILE" ]]; then
     echo "UBOOT: ${UBOOT}"
     echo "Image: ${IMAGE}"
 
+    mkdir -p $current_dir/tools/Armbian_Convert/output
+
     $current_dir/tools/Armbian_Convert/convert.sh ${IMAGE} ${board} armbian no ${UBOOT}
 
     IMGBURN=$(find ${current_dir}/tools -maxdepth 8 -type f -name "*.burn.img")
