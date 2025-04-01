@@ -83,7 +83,8 @@ install_normal_debs() {
         "docker-compose-plugin_"
         "docker-ce-rootless-extras_"
         "docker-ce_"
-        "os-agent_"
+        "hassio-config"
+        "os-agent"
         "homeassistant-supervised"
     )
 
@@ -300,6 +301,11 @@ load_image_for_hassio_supervisor() {
             -e SUPERVISOR_MACHINE=${SUPERVISOR_MACHINE} \
             "${SUPERVISOR_IMAGE}:latest"
 
+
+        echo "[INFO] Check Supervisor container..."
+        docker images --no-trunc --filter "reference=${SUPERVISOR_IMAGE}:latest" --format "{{.ID}}" || echo "" || true
+        docker inspect --format='{{.Image}}' hassio_supervisor || echo "" || true
+
         result=0
     else
         if [[ "$current_version" < "$tag" ]]; then
@@ -319,6 +325,8 @@ load_image_for_hassio_supervisor() {
 
             echo "Loading a new image [$tar_file]."
             docker load < "$tar_file" 2>&1 
+
+            docker tag "${repo}:${tag}" "${repo}:latest"
             
             CONFIG_FILE="${CONFIG_DIR}/config.json"
             if [ -e "$CONFIG_FILE" ]; then
@@ -333,6 +341,7 @@ load_image_for_hassio_supervisor() {
             fi
 
             echo "[INFO] Creating a new Supervisor container..."
+
             # shellcheck disable=SC2086
             docker container create \
                 --name hassio_supervisor \
@@ -349,6 +358,10 @@ load_image_for_hassio_supervisor() {
                 -e SUPERVISOR_NAME=hassio_supervisor \
                 -e SUPERVISOR_MACHINE=${SUPERVISOR_MACHINE} \
                 "${SUPERVISOR_IMAGE}:latest"
+
+            echo "[INFO] Check Supervisor container..."
+            docker images --no-trunc --filter "reference=${SUPERVISOR_IMAGE}:latest" --format "{{.ID}}" || echo "" || true
+            docker inspect --format='{{.Image}}' hassio_supervisor || echo "" || true
 
             result=0
         else
@@ -384,7 +397,9 @@ load_image_for_matter_server() {
 
         docker container rm --force addon_core_matter_server || true
 
-        jq '.user.core_matter_server.version = "${tag}"' ${CONFIG_FILE} > temp.json && mv temp.json ${CONFIG_FILE}
+        if [ -e "$CONFIG_FILE" ]; then
+            jq '.user.core_matter_server.version = "${tag}"' ${CONFIG_FILE} > temp.json && mv temp.json ${CONFIG_FILE}
+        fi
 
         result=0
     else
@@ -405,7 +420,9 @@ load_image_for_matter_server() {
             echo "Loading a new image [$tar_file]."
             docker load < "$tar_file" 2>&1 
             
-            jq '.user.core_matter_server.version = "${tag}"' ${CONFIG_FILE} > temp.json && mv temp.json ${CONFIG_FILE}
+            if [ -e "$CONFIG_FILE" ]; then
+                jq '.user.core_matter_server.version = "${tag}"' ${CONFIG_FILE} > temp.json && mv temp.json ${CONFIG_FILE}
+            fi
 
             result=0
         else
@@ -502,6 +519,18 @@ load_docker_images() {
 install_ha_debs() {
     echo "Finding and installing Home Assistant related deb packages..."
 
+    hassio_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hassio-config_*.deb" -type f | head -n 1)
+    if [ -n "$hassio_config_deb_file" ]; then
+        echo "Installing: $hassio_config_deb_file"
+        DEBIAN_FRONTEND=noninteractive dpkg -i "$hassio_config_deb_file"
+
+        # mark it manual install
+        apt-mark manual "thirdreality-hassio-config"
+    else
+        echo "No hassio-config*.deb file found. exiting ..."
+        return
+    fi
+
     os_agent_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "os-agent_*.deb" -type f | head -n 1)
     if [ -n "$os_agent_deb_file" ]; then
         echo "Installing: $os_agent_deb_file"
@@ -512,17 +541,6 @@ install_ha_debs() {
     else
         echo "No os-agent.deb file found."
     fi
-
-    hassio_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hassio_config_*.deb" -type f | head -n 1)
-    if [ -n "$hassio_config_deb_file" ]; then
-        echo "Installing: $hassio_config_deb_file"
-        DEBIAN_FRONTEND=noninteractive dpkg -i "$hassio_config_deb_file"
-
-        # mark it manual install
-        apt-mark manual "hassio_config"
-    else
-        echo "Warning: No hassio_config.deb file found. hassio-supervisor container may be droped by the homeassistant-supervised.deb"
-    fi    
 
     if [ -e "/usr/bin/ha" ]; then
         echo "homeassistant-supervised is already installed, skipping homeassistant-supervised installation step"
@@ -598,59 +616,267 @@ fi\
     rm -rf /var/lib/apt/lists/*
 }
 
-# Main program starts
-echo "Starting Docker and Home Assistant installation..."
 
-# LED Green blink
-/lib/thirdreality/hubv3-monitor.py set mqtt_paring
+# Function: Install Home Assistant related deb packages
+install_core_and_matter_debs() {
+    echo "Finding and installing Home Assistant related deb packages..."
 
-#TODO
-install_normal_debs
+    hacore_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore-config_*.deb" -type f | head -n 1)
+    if [ -n "$hacore_config_deb_file" ]; then
+        echo "Installing: $hacore_config_deb_file"
+        DEBIAN_FRONTEND=noninteractive dpkg -i "$hacore_config_deb_file"
 
-# Check if Docker is installed
-if ! check_docker_installed; then
-    echo "Docker is not installed, starting Docker installation..."
-    install_docker_debs
-else
-    echo "Docker is already installed, skipping Docker installation step"
-fi
-
-# Check again if Docker is installed
-if check_docker_installed; then
-    echo "Docker installation successful, starting to load Docker images..."
-
-    if [ -e "/lib/systemd/system/thirdreality-health-checker.service" ]; then
-        /usr/bin/systemctl stop thirdreality-health-checker.service
+        # mark it manual install
+        apt-mark manual "thirdreality-hacore-config"
+    else
+        echo "No hacore-config*.deb file found. exiting ..."
+        return
     fi
 
-    load_docker_images
-    status=$?
 
-    if [ -e "/lib/systemd/system/thirdreality-health-checker.service" ]; then
-        /usr/bin/systemctl start thirdreality-health-checker.service
+    rm -rf /var/lib/apt/lists/*
+}
+
+
+# main procedure - 1
+install_supervised_docker()
+{
+    echo "Starting Docker and Home Assistant installation..."
+    local status=0  # 记录整体安装状态
+
+    # LED Green blink
+    /lib/thirdreality/hubv3-monitor.py set mqtt_paring || {
+        echo "Warning: Failed to set LED to pairing mode" >&2
+    }
+
+    # 安装基础依赖包（即使失败也继续）
+    if ! install_normal_debs; then
+        echo "Warning: Failed to install normal dependencies" >&2
+        status=1
     fi
 
-    if [ "$status" -eq 0 ]; then
-        docker images
-        #cleanup_old_images
-        if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
-            systemctl stop hassio-supervisor.service
+    # 检查并安装Docker
+    if ! check_docker_installed; then
+        echo "Docker is not installed, starting Docker installation..."
+        if ! install_docker_debs; then
+            echo "Error: Docker installation failed" >&2
+            status=1
         fi
     else
-        echo "Failed to load Docker images or none found."
+        echo "Docker is already installed, skipping Docker installation step"
     fi
+
+    # 再次验证Docker状态
+    if check_docker_installed; then
+        echo "Docker is available, proceeding with image loading..."
+
+        # 停止健康检查服务（如果存在）
+        if [ -e "/lib/systemd/system/thirdreality-health-checker.service" ]; then
+            /usr/bin/systemctl stop thirdreality-health-checker.service || {
+                echo "Warning: Failed to stop health-checker service" >&2
+            }
+        fi
+
+        # 加载Docker镜像（强制继续）
+        if ! load_docker_images; then
+            echo "Warning: Failed to load some Docker images" >&2
+            status=1
+        fi
+
+        # 重启健康检查服务（如果之前停止了）
+        if [ -e "/lib/systemd/system/thirdreality-health-checker.service" ]; then
+            /usr/bin/systemctl start thirdreality-health-checker.service || {
+                echo "Warning: Failed to restart health-checker service" >&2
+            }
+        fi
+
+        # 显示当前镜像列表（无论是否加载成功）
+        docker images 2>/dev/null || echo "Warning: Failed to list Docker images" >&2
+
+        # 停止Supervisor服务（如果存在）
+        if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
+            systemctl stop hassio-supervisor.service || {
+                echo "Warning: Failed to stop supervisor service" >&2
+            }
+        fi
+    else
+        echo "Error: Docker is not available, skipping image loading steps" >&2
+        status=1
+    fi
+
+    # 安装HA相关包（即使之前步骤失败也继续尝试）
+    echo "Attempting Home Assistant installation..."
+    if ! install_ha_debs; then
+        echo "Warning: Failed to install Home Assistant packages" >&2
+        status=1
+    fi
+
+    # 最终状态报告
+    if [ "$status" -eq 0 ]; then
+        echo "Installation completed successfully!"
+    else
+        echo "Installation completed with warnings/errors (check logs)" >&2
+    fi
+
+    # LED恢复（无论成功与否都尝试）
+    /lib/thirdreality/hubv3-monitor.py set mqtt_pared || {
+        echo "Warning: Failed to restore LED status" >&2
+    }
+}
+
+# main procedure - 2
+install_core_matter_debs() {
+    echo "Installing core matter debs..."
+
+    /lib/thirdreality/hubv3-monitor.py set mqtt_paring || {
+        echo "Warning: Failed to set LED to pairing mode" >&2
+    }
+
+    # 安装 hacore-config
+    hacore_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore-config_*.deb" -type f | head -n 1)
+    if [ -n "$hacore_config_deb_file" ]; then
+        echo "Installing: $hacore_config_deb_file"
+        if ! DEBIAN_FRONTEND=noninteractive dpkg -i "$hacore_config_deb_file"; then
+            echo "Warning: Failed to install $hacore_config_deb_file" >&2
+        else
+            apt-mark manual "thirdreality-hacore-config" || echo "Warning: Failed to mark hacore-config as manual" >&2
+        fi
+    else
+        echo "Warning: No hacore-config deb file found in $WORK_DIR" >&2
+    fi
+
+    # 安装 python3
+    python3_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "python_*.deb" -type f | head -n 1)
+    if [ -n "$python3_deb_file" ]; then
+        echo "Installing: $python3_deb_file"
+        if ! DEBIAN_FRONTEND=noninteractive dpkg -i "$python3_deb_file"; then
+            echo "Warning: Failed to install $python3_deb_file" >&2
+        else
+            apt-mark manual "thirdreality-python3.13" || echo "Warning: Failed to mark python3.13 as manual" >&2
+        fi
+    else
+        echo "Warning: No python3 deb file found in $WORK_DIR" >&2
+    fi
+
+    # 安装 hacore
+    hacore_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore_*.deb" -type f | head -n 1)
+    if [ -n "$hacore_deb_file" ]; then
+        echo "Installing: $hacore_deb_file"
+        if ! DEBIAN_FRONTEND=noninteractive dpkg -i "$hacore_deb_file"; then
+            echo "Warning: Failed to install $hacore_deb_file" >&2
+        else
+            apt-mark manual "thirdreality-hacore" || echo "Warning: Failed to mark hacore as manual" >&2
+        fi
+    else
+        echo "Warning: No hacore deb file found in $WORK_DIR" >&2
+    fi
+
+    # 重启健康检查服务（如果之前停止了）
+    if [ -e "/lib/systemd/system/thirdreality-health-checker.service" ]; then
+        /usr/bin/systemctl start thirdreality-health-checker.service || {
+            echo "Warning: Failed to restart health-checker service" >&2
+        }
+    fi    
+
+    # LED恢复（无论成功与否都尝试）
+    /lib/thirdreality/hubv3-monitor.py set mqtt_pared || {
+        echo "Warning: Failed to restore LED status" >&2
+    }
+}
+
+
+# main procedure - 3
+install_all_deb_images() {
+    echo "Installing all deb images and loading Docker images..."
+    local overall_status=0
+    local deb_installed=0  # Track if any deb was installed
+
+    # LED indication (continue on error)
+    /lib/thirdreality/hubv3-monitor.py set mqtt_paring || {
+        echo "Warning: Failed to set LED pairing mode" >&2
+    }
+
+    # Process .deb files
+    deb_files=$(find "$WORK_DIR" -maxdepth 1 -name "*.deb" -type f)
+    if [ -n "$deb_files" ]; then
+        for deb_file in $deb_files; do
+            echo "Installing: $deb_file"
+            if dpkg -i "$deb_file"; then
+                deb_installed=1
+            else
+                echo "Warning: Failed to install $deb_file" >&2
+                overall_status=1
+            fi
+        done
+
+        # Fix dependencies only if at least one package was installed
+        if [ "$deb_installed" -eq 1 ]; then
+            echo "Attempting to fix broken dependencies..."
+            if ! apt-get install -f -y; then
+                echo "Warning: Failed to fix dependencies" >&2
+                overall_status=1
+            fi
+        fi
+    else
+        echo "No .deb files found in $WORK_DIR"
+    fi
+
+    # Process .tar files for Docker
+    tar_files=$(find "$WORK_DIR" -maxdepth 1 -name "*.tar" -type f)
+    if [ -n "$tar_files" ]; then
+        for tar_file in $tar_files; do
+            echo "Processing Docker image: $tar_file"
+            
+            # Check for repositories file
+            if ! tar -tf "$tar_file" | grep -q "repositories"; then
+                echo "Warning: No 'repositories' file in $tar_file" >&2
+                overall_status=1
+                continue
+            fi
+
+            # Load Docker image
+            if ! docker load < "$tar_file"; then
+                echo "Error: Failed to load Docker image $tar_file" >&2
+                overall_status=1
+            fi
+        done
+    else
+        echo "No Docker image files found in $WORK_DIR"
+    fi
+
+    # 重启健康检查服务（如果之前停止了）
+    if [ -e "/lib/systemd/system/thirdreality-health-checker.service" ]; then
+        /usr/bin/systemctl start thirdreality-health-checker.service || {
+            echo "Warning: Failed to restart health-checker service" >&2
+        }
+    fi
+
+    # Final LED indication (always attempt)
+    /lib/thirdreality/hubv3-monitor.py set mqtt_pared || {
+        echo "Warning: Failed to restore LED status" >&2
+        overall_status=1
+    }
+
+    return $overall_status
+}
+
+hacore_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore-config_*.deb" -type f | head -n 1)
+is_home_assistant_running=$(systemctl is-active --quiet home-assistant.service && echo "yes" || echo "no")
+
+
+if [[ -n "$hacore_config_deb_file" || "$is_home_assistant_running" == "yes" ]]; then
+    install_core_matter_debs
 else
-    echo "Docker installation failed, cannot proceed with subsequent steps"
-    /lib/thirdreality/hubv3-monitor.py set mqtt_pared
-    exit 0
+    hassio_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hassio-config_*.deb" -type f | head -n 1)
+    
+    is_hassio_supervisored_enabled=$(systemctl is-enabled --quiet hassio-supervisor.service && echo "yes" || echo "no")
+
+    if [[ -n "$hassio_config_deb_file" || "$is_hassio_supervisored_enabled" == "yes" ]]; then
+        install_supervised_docker
+    else
+        install_all_deb_images
+    fi
 fi
 
-# Install Home Assistant related deb packages
-echo "Starting Home Assistant installation..."
-install_ha_debs
 
-echo "Installation complete!"
-
-# LED Restore
-/lib/thirdreality/hubv3-monitor.py set mqtt_pared
 exit 0

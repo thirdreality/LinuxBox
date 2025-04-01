@@ -115,8 +115,37 @@ update_docker_config() {
         "tag": "{{.Name}}"
     },
     "registry-mirrors": [
+        "https://docker.1panel.live",
+        "https://docker.kejilion.pro",
+        "https://dockercf.jsdelivr.fyi",
+        "https://docker.jsdelivr.fyi",
+        "https://dockertest.jsdelivr.fyi",
+        "https://hub.littlediary.cn",
+        "https://proxy.1panel.live",
+        "https://docker.1panelproxy.com",
+        "https://image.cloudlayer.icu",
+        "https://docker.1panel.top",
+        "https://docker.anye.in",
+        "https://docker-0.unsee.tech",
+        "https://hub.rat.dev",
+        "https://hub3.nat.tf",
         "https://docker.1ms.run",
-        "https://docker.xuanyuan.me"
+        "https://func.ink",
+        "https://a.ussh.net",
+        "https://docker.hlmirror.com",
+        "https://lispy.org",
+        "https://docker.yomansunter.com",
+        "https://docker.xuanyuan.me",
+        "https://docker.mybacc.com",
+        "https://dytt.online",
+        "https://docker.xiaogenban1993.com",
+        "https://dockerpull.cn",
+        "https://docker.zhai.cm",
+        "https://dockerhub.websoft9.com",
+        "https://dockerpull.pw",
+        "https://docker-mirror.aigc2d.com",
+        "https://docker.sunzishaokao.com",
+        "https://docker.melikeme.cn"
     ]
     }
 EOF
