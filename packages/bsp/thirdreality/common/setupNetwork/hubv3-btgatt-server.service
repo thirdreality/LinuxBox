@@ -1,0 +1,14 @@
+[Unit]
+Description=HubV3 BTGATT Server
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/lib/thirdreality/hubv3-btgatt-server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
