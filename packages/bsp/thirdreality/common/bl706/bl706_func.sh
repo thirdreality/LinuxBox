@@ -1,35 +1,64 @@
 #!/bin/sh
 
-reset_zigbee_module()
+reset_module()
 {
-    # pin zigbee reset: GPIOZ_1
-    gpioset 0 1=0
-    sleep 0.1
-    gpioset 0 1=1
+    if [ "$1" = "zigbee" ]; then
+        # Zigbee reset: GPIOZ_1
+        gpioset 0 1=0
+        sleep 0.1
+        gpioset 0 1=1
+    elif [ "$1" = "thread" ]; then
+        # Thread reset: GPIOZ_2 (假如我们用这个引脚，具体根据硬件定义)
+        gpioset 0 2=0
+        sleep 0.1
+        gpioset 0 2=1
+    else
+        echo "Invalid mode: $1. Use 'zigbee' or 'thread'."
+        exit 1
+    fi
     sleep 0.1
 }
 
-zigbee_enter_isp_mode()
+enter_isp_mode()
 {
-    # pin zigbee boot: GPIOZ_3
-    gpioset 0 3=1
-    sleep 0.1
+    if [ "$1" = "zigbee" ]; then
+        # Zigbee boot: GPIOZ_3
+        gpioset 0 3=1
+        sleep 0.1
 
-    reset_zigbee_module
+        reset_module "zigbee"
 
-    gpioset 0 3=0
+        gpioset 0 3=0
+    elif [ "$1" = "thread" ]; then
+        # Thread boot: GPIOZ_4 (假如我们用这个引脚，具体根据硬件定义)
+        gpioset 0 4=1
+        sleep 0.1
+
+        reset_module "thread"
+
+        gpioset 0 4=0
+    else
+        echo "Invalid mode: $1. Use 'zigbee' or 'thread'."
+        exit 1
+    fi
+
     sleep 0.1
 }
 
-disable_zigbee_isp()
+disable_isp()
 {
-    gpioset 0 3=0
+    if [ "$1" = "zigbee" ]; then
+        # Zigbee boot: GPIOZ_3
+        gpioset 0 3=0
+    elif [ "$1" = "thread" ]; then
+        gpioset 0 4=0
+    fi
     sleep 0.1
 }
 
 bflb_pip_install_dependence()
 {
-    apt-get install python3-dev -y
+    #apt-get install python3-dev -y
     pip install pylink-square==0.5.0 --break-system-packages
     pip install pyserial==3.5 --break-system-packages
     pip install ecdsa==0.15 --break-system-packages
@@ -39,45 +68,60 @@ bflb_pip_install_dependence()
     pip install pycklink==0.1.1 --break-system-packages
 }
 
-flash_zigbee()
+flash_firmware()
 {
+    mode=$1
+
+    if [ "$mode" = "zigbee" ]; then
+        port="/dev/ttyAML3"
+        firmware="/usr/lib/firmware/bl706/zigbee_bl706_whole_flash_data.bin"
+    elif [ "$mode" = "thread" ]; then
+        port="/dev/ttyAML6"
+        firmware="/usr/lib/firmware/bl706/thread_bl706_whole_flash_data.bin"
+    else
+        echo "Invalid mode: $mode. Use 'zigbee' or 'thread'."
+        exit 1
+    fi
+
     if [ ! -d "/usr/lib/firmware/bl706/bflb_iot" ]; then
         bflb_pip_install_dependence
         tar -zxvf /lib/firmware/bl706/bflb_iot.tar.gz -C /lib/firmware/bl706/
     fi
-    zigbee_enter_isp_mode
-    python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=/dev/ttyAML3 --baudrate=2000000 --addr=0x0 --firmware="/usr/lib/firmware/bl706/bl706_whole_flash_data.bin" --single
+
+    enter_isp_mode $mode
+
+    python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=2000000 --addr=0x0 --firmware="$firmware" --single
 
     if [ $? -eq 0 ]; then
         echo "Burn successfully"
     else
         echo "Burning failed, try again"
         bflb_pip_install_dependence
-        python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=/dev/ttyAML3 --baudrate=2000000 --addr=0x0 --firmware="/usr/lib/firmware/bl706/bl706_whole_flash_data.bin" --single
+        python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=2000000 --addr=0x0 --firmware="$firmware" --single
     fi
 
-    disable_zigbee_isp
+    disable_isp $mode
 }
-
 
 case "$1" in
     start)
     echo "BL706: start..."
-    disable_zigbee_isp
-    reset_zigbee_module
+    disable_isp "zigbee" # Default to zigbee if mode not specified
+    reset_module "zigbee"
     ;;
 
     restart)
     echo "BL706: restart..."
-    disable_zigbee_isp
-    reset_zigbee_module
+    disable_isp "zigbee" # Default to zigbee if mode not specified
+    reset_module "zigbee"
     ;;
 
     flash)
-    echo "BL706: restart..."
-    flash_zigbee
-    disable_zigbee_isp
-    reset_zigbee_module
+    mode=${2:-zigbee}  # default to zigbee if no second argument
+    echo "BL706: flash $mode..."
+    flash_firmware $mode
+    disable_isp $mode
+    reset_module $mode
     ;;
 
     install)
@@ -86,7 +130,8 @@ case "$1" in
     ;;
 
     *)
-    echo "Usage: $0 {start|restart|flash}"
+    echo "Usage: $0 {start|restart|flash [zigbee|thread]|install}"
     exit 1
     ;;
 esac
+

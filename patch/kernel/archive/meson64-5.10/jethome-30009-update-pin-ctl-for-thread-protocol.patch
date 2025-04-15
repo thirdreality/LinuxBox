@@ -1,0 +1,95 @@
+From d5df47d406fe0c8a9e90a3ada0ce0b822abd2b70 Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Sun, 13 Apr 2025 22:15:08 -0400
+Subject: [PATCH] update pin ctl for thread protocol
+
+---
+ .../dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi   | 12 ++++++------
+ .../dts/amlogic/meson-axg-thirdreality-linuxbox.dts  |  6 +++++-
+ .../dts/amlogic/meson-axg-thirdreality-trhub-v3.dts  |  2 +-
+ .../dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts |  2 +-
+ 4 files changed, 13 insertions(+), 9 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
+index 8fc7003fd1a0..82c3dffcb3f0 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
+@@ -18,7 +18,7 @@ aliases {
+ 		serial0 = &uart_AO;   /* Console */
+ 		serial1 = &uart_A; /* UART Bluetooth */
+ 		serial3 = &uart_AO_B; /* ZigBee */
+-		//serial6 = &uart_B; /* ZigBee */
++		serial6 = &uart_B; /* Thread */
+ 		ethernet0 = &ethmac;
+ 	};
+ 
+@@ -336,11 +336,11 @@ &uart_A {
+ };
+ 
+ /* UART Thread */
+-//&uart_B {
+-//	status = "okay";
+-//	pinctrl-0 = <&uart_ao_b_pins>;
+-//	pinctrl-names = "default";
+-//};
++&uart_B {
++	status = "okay";
++	pinctrl-0 = <&uart_b_x_pins>;
++	pinctrl-names = "default";
++};
+ 
+ &usb {
+ 	status = "okay";
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-linuxbox.dts b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-linuxbox.dts
+index 8ecfb9a1fc7f..5a0372b94ffa 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-linuxbox.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-linuxbox.dts
+@@ -54,7 +54,7 @@ pwm_channel2_conf {
+ 
+ /* UART Bluetooth */
+ /*
+-&uart_B {
++&uart_A {
+ 	bluetooth {
+ 		compatible = "brcm,bcm43438-bt";
+ 		shutdown-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
+@@ -69,6 +69,10 @@ &uart_AO_B {
+ 	pinctrl-names = "default";
+ };
+ 
++/* UART Thread */
++&uart_B {
++	status = "disable";
++};
+ 
+ /* wifi module */
+ &sd_emmc_b {
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts
+index c8355d88581d..5efd56dd5226 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts
+@@ -54,7 +54,7 @@ pwm_channel2_conf {
+ 
+ /* UART Bluetooth */
+ /*
+-&uart_B {
++&uart_A {
+ 	bluetooth {
+ 		compatible = "brcm,bcm43438-bt";
+ 		shutdown-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
+index 8083aa658513..530941fc2cdc 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
+@@ -54,7 +54,7 @@ pwm_channel2_conf {
+ 
+ /* UART Bluetooth */
+ /*
+-&uart_B {
++&uart_A {
+ 	bluetooth {
+ 		compatible = "brcm,bcm43438-bt";
+ 		shutdown-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
+-- 
+2.39.5
+

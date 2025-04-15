@@ -135,7 +135,7 @@ case "$1" in
 	[[ $LINUXFAMILY == meson ]] && set_fixed_mac
 	[[ $LINUXFAMILY == meson64 ]] && set_fixed_mac
 
-	if [ "$BOARD_NAME" = "TRHub V3" ]; then
+	if [[ $BOARD_NAME == "TRHub V3" || $BOARD_NAME == "TRHub V3B" || $BOARD_NAME == "LinuxBox" ]]; then
 		systemctl enable NetworkManager
 		systemctl enable wpa_supplicant
 
