@@ -19,6 +19,10 @@ Armbian source code for Third Reality Linux Box Dev Edition.
 - [How-to-Compile-firmware](https://github.com/thirdreality/LinuxBox/wiki/How-to-Compile-firmware)
 - [How-to-burn-the-image-to-LinuxBox](https://github.com/thirdreality/LinuxBox/wiki/How-to-burn-the-image-to-LinuxBox)
 
+## Relative Project
+- [LinuxBox Finder: A set of tools for configuring Linux Box via BLE.](https://github.com/thirdreality/LinuxBox_Finder)
+- [LinuxBox Installer: HomeAssistant Installer for Third Reality Linux Box Dev Edition](https://github.com/thirdreality/LinuxBox-Installer)
+- [LinuxBox Supervisor: supervisor For LinuxBox](https://github.com/thirdreality/LinuxBox_Supervisor)
 
 ## Compile firmware
 
