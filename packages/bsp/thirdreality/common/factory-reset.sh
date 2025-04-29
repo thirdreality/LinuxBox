@@ -8,24 +8,11 @@ function print_info() { echo -e "\e[1;34m[${SCRIPT}] INFO:\e[0m $1"; }
 function print_error() { echo -e "\e[1;31m[${SCRIPT}] ERROR:\e[0m $1"; }
 function print_request() {  echo -n -e "\e[1;34m[${SCRIPT}] INFO:\e[0m $1"; }
 
-if [[ -f "/srv/homeassistant/bin/hass" ]]; then
-    print_info "Stop and remove home-assistant.service & matter-server.service"
-
-    systemctl stop home-assistant.service > /dev/null 2>&1
-    systemctl stop matter-server.service > /dev/null 2>&1
-
-    dpkg -r thirdreality-hacore > /dev/null 2>&1 || true
-    dpkg -r thirdreality-python3.13 > /dev/null 2>&1 || true
-    dpkg -r thirdreality-hacore-config > /dev/null 2>&1 || true
-
-    print_info "Selected containers stopped and images removed successfully."
-fi
-
-
 repositories_to_remove=(
     "ghcr.io/home-assistant/odroid-n2-homeassistant"
     "ghcr.io/home-assistant/aarch64-hassio-supervisor"
     "homeassistant/aarch64-addon-matter-server"
+    "homeassistant/aarch64-addon-otbr"
     "ghcr.io/home-assistant/aarch64-hassio-dns"
     "ghcr.io/home-assistant/aarch64-hassio-cli"
     "ghcr.io/home-assistant/aarch64-hassio-multicast"
@@ -33,56 +20,150 @@ repositories_to_remove=(
     "ghcr.io/home-assistant/aarch64-hassio-observer"
 )
 
-if [[ -f /usr/sbin/hassio-supervisor ]]; then    
-    systemctl stop haos-agent > /dev/null 2>&1
-    systemctl stop hassio-apparmor > /dev/null 2>&1
-    systemctl stop hassio-supervisor > /dev/null 2>&1
-    apt-get purge -y homeassistant-supervised\* > /dev/null 2>&1 || true
-    dpkg -r homeassistant-supervised > /dev/null 2>&1 || true
-    dpkg -r os-agent > /dev/null 2>&1 || true
+error_handler() {
+    local lineno=$1
+    echo "Error occurred at line $lineno"
+}
 
-    dpkg -r thirdreality-hassio-config > /dev/null 2>&1 || true
+trap 'error_handler $LINENO' ERR
 
-    # Stop and kill containers and images.
-    for repo in "${repositories_to_remove[@]}"; do
-        images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo")
-        for image in $images; do
-            containers=$(docker ps -a -q --filter ancestor="$image")
-            if [ -n "$containers" ]; then
-                print_info "Stopping containers based on image: $image"
-                docker stop $containers
-                docker rm $containers
+function _remove_otbr_agent()
+{
+    /usr/bin/systemctl stop otbr-web || true
+    /usr/bin/systemctl stop otbr-agent || true
+
+    /usr/bin/systemctl disable otbr-web || true
+    /usr/bin/systemctl disable otbr-agent || true
+
+    killall otbr-web otbr-agent || true
+
+    /usr/bin/systemctl stop otbr-firewall || true
+    /usr/bin/systemctl disable otbr-firewall || true
+
+    if [ -f "/usr/sbin/update-rc.d" ]; then
+        /usr/sbin/update-rc.d otbr-firewall remove || true
+    fi
+
+    /usr/bin/systemctl daemon-reload
+
+    test ! -f ${FIREWALL_SERVICE} || rm ${FIREWALL_SERVICE}
+
+    test ! -f ${SYSCTL_ACCEPT_RA_FILE} || rm -v ${SYSCTL_ACCEPT_RA_FILE}
+    test ! -f ${SYSCTL_IP_FORWARD_FILE} || rm -v ${SYSCTL_IP_FORWARD_FILE}
+
+    echo "Restoring /etc/iproute2/rt_tables ..."
+    sed -i.bak '/88\s\+openthread/d' /etc/iproute2/rt_tables
+
+    rm -rf /lib/libnss_mdns.so.2
+    rm -rf /usr/lib/libdns_sd.so
+
+    rm -rf /etc/rc2.d/S52mdns 
+	rm -rf /etc/rc2.d/S52mdns
+	rm -rf /etc/rc3.d/S52mdns
+	rm -rf /etc/rc4.d/S52mdns
+	rm -rf /etc/rc5.d/S52mdns
+	rm -rf /etc/rc0.d/K16mdns
+	rm -rf /etc/rc6.d/K16mdns
+
+    sysctl -p /etc/sysctl.conf
+}
+
+remove_homeassistant_core()
+{
+    _remove_otbr_agent
+
+    if [[ -f "/srv/homeassistant/bin/hass" ]]; then
+        /usr/bin/systemctl stop home-assistant || true
+        /usr/bin/systemctl stop home-assistant || true
+
+        /usr/bin/systemctl disable matter-server || true
+        /usr/bin/systemctl disable matter-server || true
+
+        dpkg -r thirdreality-hacore > /dev/null 2>&1 || true
+
+        dpkg -r thirdreality-python3 > /dev/null 2>&1 || true
+        dpkg -r thirdreality-python3.13 > /dev/null 2>&1 || true
+        dpkg -r thirdreality-hacore-config > /dev/null 2>&1 || true
+
+        dpkg -r thirdreality-otbr-agent > /dev/null 2>&1 || true
+
+        print_info "Selected containers stopped and images removed successfully."
+    fi
+}
+
+remove_homeassistant_supervised()
+{
+    if [ -f /usr/sbin/hassio-supervisor ]; then    
+        systemctl stop haos-agent > /dev/null 2>&1
+        systemctl stop hassio-apparmor > /dev/null 2>&1
+        systemctl stop hassio-supervisor > /dev/null 2>&1
+        apt-get purge -y homeassistant-supervised\* > /dev/null 2>&1 || true
+        dpkg -r homeassistant-supervised > /dev/null 2>&1 || true
+        dpkg -r os-agent > /dev/null 2>&1 || true
+
+        dpkg -r thirdreality-hassio-config > /dev/null 2>&1 || true
+
+        # Stop and kill containers and images.
+        for repo in "${repositories_to_remove[@]}"; do
+            images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo" || true)
+            if [ ! -z "$images" ]; then
+                for image in $images; do
+                    containers=$(docker ps -a -q --filter ancestor="$image")
+                    if [ -n "$containers" ]; then
+                        print_info "Stopping containers based on image: $image"
+                        docker stop $containers
+                        docker rm $containers
+                    fi
+                        
+                    print_info "Removing image: $image"
+                    docker rmi "$image"
+                done
             fi
-                
-            print_info "Removing image: $image"
-            docker rmi "$image"
-            one
-    done
+        done
 
-    print_info "Selected containers stopped and images removed successfully."
+        print_info "Selected containers stopped and images removed successfully."
 
-    sleep 5
-    docker system prune -a -f > /dev/null 2>&1
+        sleep 5
+        docker system prune -a -f > /dev/null 2>&1
 
-    if [ -e "" ]; then
-        rm -rf /etc/hassio.jon
+        if [ -f "/etc/hassio.json" ]; then
+            rm -rf /etc/hassio.json
+        fi
+            
+        if [ -e "/var/lib/homeassistant" ]; then
+            rm -rf /var/lib/homeassistant
+        fi
+
+        if [ -d "/usr/share/hassio" ]; then
+            rm -rf /usr/share/hassio
+        fi
+
+        print_info "Remove old Home Assistant done"
+    else
+        print_error "Home Assistant Supervised is not founed."
     fi
-        
-    if [ -e "/var/lib/homeassistant" ]; then
-        rm -rf /var/lib/homeassistant
+}
+
+
+remove_zigpy_tools()
+{
+    if [ -e "/usr/local/thirdreality/zigpy_tools/bin/activate" ]; then
+        dpkg -r thirdreality-zigpy-tools > /dev/null 2>&1 || true
+
+        print_info "Remove old thirdreality zigpy-tools done"
     fi
+}
 
-    print_info "Remove old Home Assistant done"
-else
-    print_error "Home Assistant Supervised is not founed."
-fi
 
-if [ -e "/usr/local/thirdreality/zigpy_tools/bin/activate" ]; then
-    dpkg -r thirdreality-zigpy-tools > /dev/null 2>&1 || true
-fi
 
-#docker stop $(docker ps -q) 2>/dev/null
-#docker system prune -a -f
+
+
+
+
+remove_homeassistant_supervised
+
+remove_zigpy_tools
+
 
 rm -rf /usr/share/hassio rm -rf /var/lib/homeassistant
 

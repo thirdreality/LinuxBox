@@ -352,18 +352,20 @@ check_and_uninstall_suervised_process()
 
         # Stop and kill containers and images.
         for repo in "${repositories_to_remove[@]}"; do
-            images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo")
-            for image in $images; do
-                containers=$(docker ps -a -q --filter ancestor="$image")
-                if [ -n "$containers" ]; then
-                    print_info "Stopping containers based on image: $image"
-                    docker stop $containers
-                    docker rm $containers
-                fi
-                
-                print_info "Removing image: $image"
-                docker rmi "$image"
-            done
+            images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo" || true)
+            if [ ! -z "$images" ]; then
+                for image in $images; do
+                    containers=$(docker ps -a -q --filter ancestor="$image")
+                    if [ -n "$containers" ]; then
+                        print_info "Stopping containers based on image: $image"
+                        docker stop $containers
+                        docker rm $containers
+                    fi
+                    
+                    print_info "Removing image: $image"
+                    docker rmi "$image"
+                done
+            fi
         done
 
         print_info "Selected containers stopped and images removed successfully."

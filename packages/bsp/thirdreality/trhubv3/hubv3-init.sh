@@ -7,8 +7,6 @@ GPIO_ACTIVE_LOW=0
 GPIO_ACTIVE_HIGH=1
 
 GPIOS=(
-  # Discrete inputs: 1, 2, 3, 4
-
   # Zigbee module: RESET, BOOT
   "427 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
   "429 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
@@ -58,5 +56,15 @@ sleep 0.5
 gpioset 0 1=0
 sleep 0.5
 gpioset 0 1=1
+
+
+echo "${0}: Reset Thread module ..."
+gpioset 0 29=0
+sleep 0.5
+gpioset 0 27=1
+sleep 0.5
+gpioset 0 27=0
+sleep 0.5
+gpioset 0 27=1
 
 exit 0

@@ -227,6 +227,7 @@ repositories_to_remove=(
     "ghcr.io/home-assistant/odroid-n2-homeassistant"
     "ghcr.io/home-assistant/aarch64-hassio-supervisor"
     "homeassistant/aarch64-addon-matter-server"
+    "homeassistant/aarch64-addon-otbr"
     "ghcr.io/home-assistant/aarch64-hassio-dns"
     "ghcr.io/home-assistant/aarch64-hassio-cli"
     "ghcr.io/home-assistant/aarch64-hassio-multicast"
@@ -245,45 +246,37 @@ check_and_uninstall_suervised_process()
         dpkg -r homeassistant-supervised-jethome > /dev/null 2>&1 || true
         dpkg -r os-agent > /dev/null 2>&1
 
-        # docker ps --format json|jq -r .Names | grep -E 'addon_|hassio_' | xargs -n 1 docker stop || true
-        # sleep 1
-        # if [ -n "$(docker ps --format json|jq -r .Names | grep -E 'addon_|hassio_')" ]; then
-        #     print_info "Wait for stop containers"
-        #     docker ps --format json|jq -r .Names | grep -E 'addon_|hassio_' | xargs -n 1 docker stop  || true
-        #     sleep 5
-        # fi
-
         # Stop and kill containers and images.
         for repo in "${repositories_to_remove[@]}"; do
-            images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo")
-            for image in $images; do
-                containers=$(docker ps -a -q --filter ancestor="$image")
-                if [ -n "$containers" ]; then
-                    print_info "Stopping containers based on image: $image"
-                    docker stop $containers
-                    docker rm $containers
-                fi
-                
-                print_info "Removing image: $image"
-                docker rmi "$image"
-            done
+            images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo" || true)
+            if [ ! -z "$images" ]; then
+                for image in $images; do
+                    containers=$(docker ps -a -q --filter ancestor="$image")
+                    if [ -n "$containers" ]; then
+                        print_info "Stopping containers based on image: $image"
+                        docker stop $containers
+                        docker rm $containers
+                    fi
+                    
+                    print_info "Removing image: $image"
+                    docker rmi "$image"
+                done
+            fi
         done
 
         print_info "Selected containers stopped and images removed successfully."
 
         sleep 5
         docker system prune -a -f > /dev/null 2>&1
-        docker system prune -a -f > /dev/null 2>&1
 
-        if [ -e "" ]; then
-            rm -rf /etc/hassio.jon
+        if [ -e "/etc/hassio.json" ]; then
+            rm -rf /etc/hassio.json
         fi
         
         if [ -e "/var/lib/homeassistant" ]; then
             rm -rf /var/lib/homeassistant
         fi
         
-
         print_info "Remove old Home Assistant done"
     else
         print_error "Home Assistant Supervised is not founed."
