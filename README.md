@@ -69,7 +69,7 @@ More detail information please check the wiki: [How-to-burn-the-image-to-LinuxBo
 
 
 ## Tricks for using LinuxBox
-
+sys
 ### HomeAssistant
 
 Thirdreality dev team supply a new way to install home assistant core in 3-4 minutes.
