@@ -6,8 +6,6 @@ board="trhubv3"
 destination=""
 enable_homeassistant="no"
 
-#!/bin/bash
-
 # 显示使用说明的函数
 usage() {
     echo "Usage: $0 [-b board:trhubv3|trhubv3b|linuxbox] -d [cn|us|kr] -s"
