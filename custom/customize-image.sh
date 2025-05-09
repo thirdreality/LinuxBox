@@ -65,6 +65,7 @@ install_docker_debs() {
         "docker-buildx-plugin_"
         "docker-compose-plugin_"
     )
+
     for deb_prefix in "${debs[@]}"; do
         file=$(find /tmp/overlay/docker-deb -name "${deb_prefix}*.deb" | head -n 1)
         if [ -n "$file" ]; then
@@ -114,37 +115,38 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/system.conf
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/user.conf
-
-	if [ -f "/tmp/overlay/hassio-supervisor" ]; then
-		mkdir -p "/var/lib/homeassistant/apparmor"
-		cp /tmp/overlay/hassio-supervisor /var/lib/homeassistant/apparmor/hassio-supervisor
-
-		mkdir -p /usr/share/hassio/apparmor
-		cp /tmp/overlay/hassio-supervisor /usr/share/hassio/apparmor/hassio-supervisor
-	fi
-
-	if [ -f "/tmp/overlay/homeassistant-config.tar.gz" ]; then
-		# HomeAssistant 默认配置，和初始设备
-		echo "install homeassistant-config.tar.gz ... "
-		mkdir -p "/var/lib/homeassistant"
-		tar -zxvf /tmp/overlay/homeassistant-config.tar.gz -C /var/lib/homeassistant/ > /dev/null 
-	fi
 	
-	if [ -f "/tmp/overlay/python3.deb" ]; then
-		dpkg -i "/tmp/overlay/python3.deb" || sudo apt-get install -f
-	fi
+	# if [ -f "/tmp/overlay/python3.deb" ]; then
+	# 	dpkg -i "/tmp/overlay/python3.deb" || sudo apt-get install -f
+	# fi
 
-	if [ -f "/tmp/overlay/hacore.deb" ]; then
-		dpkg -i "/tmp/overlay/hacore.deb" || sudo apt-get install -f
-	fi
+	# if [ -f "/tmp/overlay/hacore.deb" ]; then
+	# 	dpkg -i "/tmp/overlay/hacore.deb" || sudo apt-get install -f
+	# fi
 
-	if [ -f "/tmp/overlay/hub_service.deb" ]; then
-		dpkg -i "/tmp/overlay/hub_service.deb" || sudo apt-get install -f
-	fi
+	# if [ -f "/tmp/overlay/hub_service.deb" ]; then
+	# 	dpkg -i "/tmp/overlay/hub_service.deb" || sudo apt-get install -f
+	# fi
 
-	install_docker_debs
+	# if [ -e "/tmp/overlay/docker-deb" ]; then
+	# 	install_docker_debs
+	# 	apt autoremove -y
+	# fi
 
-	apt autoremove -y 
+	# if [ -f "/tmp/overlay/homeassistant-config.tar.gz" ]; then
+	# 	# HomeAssistant 默认配置，和初始设备
+	# 	echo "install homeassistant-config.tar.gz ... "
+	# 	mkdir -p "/var/lib/homeassistant"
+	# 	tar -zxvf /tmp/overlay/homeassistant-config.tar.gz -C /var/lib/homeassistant/ > /dev/null 
+	# fi
+
+	# if [ -f "/tmp/overlay/hassio-supervisor" ]; then
+	# 	mkdir -p "/var/lib/homeassistant/apparmor"
+	# 	cp /tmp/overlay/hassio-supervisor /var/lib/homeassistant/apparmor/hassio-supervisor
+
+	# 	mkdir -p /usr/share/hassio/apparmor
+	# 	cp /tmp/overlay/hassio-supervisor /usr/share/hassio/apparmor/hassio-supervisor
+	# fi	
 
 	mkdir -p /usr/local/thirdreality/bin
 	mkdir -p /usr/local/thirdreality/config
@@ -154,11 +156,13 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 	mkdir -p /usr/local/hubv3/config
 	mkdir -p /usr/local/hubv3/data
 
+	mkdir -p /var/lib/homeassistant/homeassistant
+	mkdir -p /var/lib/homeassistant/matter_server
+
 	rm -rf /var/lib/apt/lists/*
 	rm -rf /usr/lib/firmware/qcom
 	rm -rf /usr/lib/firmware/{aic8800,ap6210,ap6212,ap6275p,ath10k,ath11k,ath12k,mediatek,novatek,rtw88,rtw89}
-	
-	rm -rf /usr/lib/linux-image-5.10.235-meson64/rockchip
+	rm -rf /usr/lib/linux-image-5.10.237-meson64/rockchip
 }
 
 InstallOpenMediaVault() {

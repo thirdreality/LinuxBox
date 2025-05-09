@@ -1,17 +1,18 @@
 #!/bin/sh
+# refer to pinctrl-meson-axg.c
 
 reset_module()
 {
     if [ "$1" = "zigbee" ]; then
-        # Zigbee reset: GPIOZ_1
+        # Zigbee reset: DB_RSTN1/GPIOZ_1
         gpioset 0 1=0
         sleep 0.1
         gpioset 0 1=1
     elif [ "$1" = "thread" ]; then
-        # Thread reset: GPIOZ_2 (假如我们用这个引脚，具体根据硬件定义)
-        gpioset 0 2=0
+        # Thread reset: DB_RSTN2/GPIOA_1
+        gpioset 0 27=0
         sleep 0.1
-        gpioset 0 2=1
+        gpioset 0 27=1
     else
         echo "Invalid mode: $1. Use 'zigbee' or 'thread'."
         exit 1
@@ -22,7 +23,7 @@ reset_module()
 enter_isp_mode()
 {
     if [ "$1" = "zigbee" ]; then
-        # Zigbee boot: GPIOZ_3
+        # Zigbee boot: DB_BOOT1/GPIOZ_3
         gpioset 0 3=1
         sleep 0.1
 
@@ -30,13 +31,13 @@ enter_isp_mode()
 
         gpioset 0 3=0
     elif [ "$1" = "thread" ]; then
-        # Thread boot: GPIOZ_4 (假如我们用这个引脚，具体根据硬件定义)
-        gpioset 0 4=1
+        # Thread boot: DB_BOOT2/GPIOA_3
+        gpioset 0 29=1
         sleep 0.1
 
         reset_module "thread"
 
-        gpioset 0 4=0
+        gpioset 0 29=0
     else
         echo "Invalid mode: $1. Use 'zigbee' or 'thread'."
         exit 1
@@ -48,10 +49,11 @@ enter_isp_mode()
 disable_isp()
 {
     if [ "$1" = "zigbee" ]; then
-        # Zigbee boot: GPIOZ_3
+        # Zigbee boot: DB_BOOT1/GPIOZ_3
         gpioset 0 3=0
     elif [ "$1" = "thread" ]; then
-        gpioset 0 4=0
+        # Thread boot: DB_BOOT2/GPIOA_3
+        gpioset 0 29=0
     fi
     sleep 0.1
 }
@@ -71,13 +73,24 @@ bflb_pip_install_dependence()
 flash_firmware()
 {
     mode=$1
+    image_size=$2
+    image_size_dir=""
+
+    if [ "$image_size" = "1m" ]; then
+        image_size_dir="partition_1m_images"
+    elif [ "$image_size" = "2m" ]; then
+        image_size_dir="partition_2m_images"
+    else
+        echo "Invalid image size: $image_size. Use '1m' or '2m'."
+        exit 1    
+    fi
 
     if [ "$mode" = "zigbee" ]; then
         port="/dev/ttyAML3"
-        firmware="/usr/lib/firmware/bl706/zigbee_bl706_whole_flash_data.bin"
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigbee_whole_img.bin"
     elif [ "$mode" = "thread" ]; then
         port="/dev/ttyAML6"
-        firmware="/usr/lib/firmware/bl706/thread_bl706_whole_flash_data.bin"
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/thread_whole_img.bin"
     else
         echo "Invalid mode: $mode. Use 'zigbee' or 'thread'."
         exit 1
@@ -90,6 +103,7 @@ flash_firmware()
 
     enter_isp_mode $mode
 
+    echo "Burning Image, mode: $mode. port: $port . firmware: $firmware"
     python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=2000000 --addr=0x0 --firmware="$firmware" --single
 
     if [ $? -eq 0 ]; then
@@ -105,21 +119,24 @@ flash_firmware()
 
 case "$1" in
     start)
-    echo "BL706: start..."
-    disable_isp "zigbee" # Default to zigbee if mode not specified
-    reset_module "zigbee"
+    mode=${2:-zigbee}  # default to zigbee if no second argument
+    echo "BL706: start $mode ..."
+    disable_isp $mode # Default to zigbee if mode not specified
+    reset_module $mode
     ;;
 
     restart)
-    echo "BL706: restart..."
-    disable_isp "zigbee" # Default to zigbee if mode not specified
-    reset_module "zigbee"
+    mode=${2:-zigbee}  # default to zigbee if no second argument
+    echo "BL706: restart $mode ..."
+    disable_isp $mode # Default to zigbee if mode not specified
+    reset_module $mode
     ;;
 
     flash)
-    mode=${2:-zigbee}  # default to zigbee if no second argument
-    echo "BL706: flash $mode..."
-    flash_firmware $mode
+    mode=${2:-zigbee}  # [zigbee|thread]: default to zigbee if no second argument
+    image_size=${3:-1m}  # [1m|2m]: default to 1m
+    echo "BL706: flash $mode with images size: $image_size ..."
+    flash_firmware $mode $image_size
     disable_isp $mode
     reset_module $mode
     ;;
@@ -130,7 +147,7 @@ case "$1" in
     ;;
 
     *)
-    echo "Usage: $0 {start|restart|flash [zigbee|thread]|install}"
+    echo "Usage: $0 {start [zigbee|thread]|restart [zigbee|thread]|flash [zigbee|thread] [1m|2m]|install}"
     exit 1
     ;;
 esac
