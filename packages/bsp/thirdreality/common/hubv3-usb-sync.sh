@@ -27,7 +27,11 @@ on_exit() {
     
     # Custom actions before the script exits
     echo "Running cleanup tasks..."
-    /lib/thirdreality/hubv3-monitor.py set mqtt_pared
+    if [ -e "/usr/local/bin/supervisor" ]; then
+        /usr/local/bin/supervisor led mqtt_pared
+    else
+        /lib/thirdreality/hubv3-monitor.py set mqtt_pared
+    fi
 
     if [ "$exit_code" -ne 0 ]; then
       echo "An error occurred during the execution of the script. Exit code $exit_code"
@@ -141,9 +145,11 @@ dpkg_install() {
 install_core_matter_debs() {
     echo "Installing core matter debs..."
 
-    /lib/thirdreality/hubv3-monitor.py set mqtt_paring || {
-        echo "Warning: Failed to set LED to pairing mode" >&2
-    }
+    if [ -e "/usr/local/bin/supervisor" ]; then
+        /usr/local/bin/supervisor led mqtt_paring
+    else
+        /lib/thirdreality/hubv3-monitor.py set mqtt_paring
+    fi
 
     # 安装 hacore-config
     # 检查是否已经安装 thirdreality-hacore-config 包， 注意：这个包不能升级!!!!
@@ -192,17 +198,12 @@ install_core_matter_debs() {
         echo "Warning: No otbr-agent deb file found in $WORK_DIR" >&2
     fi
 
-    # 重启健康检查服务（如果之前停止了）
-    #if [ -e "/lib/systemd/system/thirdreality-health-checker.service" ]; then
-    #    /usr/bin/systemctl start thirdreality-health-checker.service || {
-    #        echo "Warning: Failed to restart health-checker service" >&2
-    #    }
-    #fi    
-
-    # LED恢复（无论成功与否都尝试）
-    /lib/thirdreality/hubv3-monitor.py set mqtt_pared || {
-        echo "Warning: Failed to restore LED status" >&2
-    }
+    if [ -e "/usr/local/bin/supervisor" ]; then
+        /usr/local/bin/supervisor led mqtt_pared
+        /usr/local/bin/supervisor ota update
+    else
+        /lib/thirdreality/hubv3-monitor.py set mqtt_pared
+    fi
 }
 
 
@@ -213,9 +214,11 @@ install_all_deb_images() {
     local deb_installed=0  # Track if any deb was installed
 
     # LED indication (continue on error)
-    /lib/thirdreality/hubv3-monitor.py set mqtt_paring || {
-        echo "Warning: Failed to set LED pairing mode" >&2
-    }
+    if [ -e "/usr/local/bin/supervisor" ]; then
+        /usr/local/bin/supervisor led mqtt_paring
+    else
+        /lib/thirdreality/hubv3-monitor.py set mqtt_paring
+    fi
 
     # Process .deb files
     deb_files=$(find "$WORK_DIR" -maxdepth 1 -name "*.deb" -type f)
@@ -265,18 +268,17 @@ install_all_deb_images() {
         echo "No Docker image files found in $WORK_DIR"
     fi
 
-    # 重启健康检查服务（如果之前停止了）
-    #if [ -e "/lib/systemd/system/thirdreality-health-checker.service" ]; then
-    #    /usr/bin/systemctl start thirdreality-health-checker.service || {
-    #        echo "Warning: Failed to restart health-checker service" >&2
-    #    }
-    #fi
-
     # Final LED indication (always attempt)
-    /lib/thirdreality/hubv3-monitor.py set mqtt_pared || {
-        echo "Warning: Failed to restore LED status" >&2
-        overall_status=1
-    }
+    if [ -e "/usr/local/bin/supervisor" ]; then
+        /usr/local/bin/supervisor led mqtt_pared
+    else
+        /lib/thirdreality/hubv3-monitor.py set mqtt_pared
+    fi
+
+    # /lib/thirdreality/hubv3-monitor.py set mqtt_pared || {
+    #     echo "Warning: Failed to restore LED status" >&2
+    #     overall_status=1
+    # }
 
     return $overall_status
 }

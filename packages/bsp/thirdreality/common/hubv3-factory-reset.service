@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/lib/armbian/factory_reset.sh
+ExecStart=/lib/armbian/factory-reset.sh
 RemainAfterExit=true
 TimeoutStartSec=60
 StandardOutput=console

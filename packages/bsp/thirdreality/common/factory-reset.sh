@@ -154,18 +154,14 @@ remove_zigpy_tools()
     fi
 }
 
-
-
-
-
-
+remove_homeassistant_core
 
 remove_homeassistant_supervised
 
 remove_zigpy_tools
 
-
-rm -rf /usr/share/hassio rm -rf /var/lib/homeassistant
+rm -rf /usr/share/hassio 
+rm -rf /var/lib/homeassistant
 
 sync
 
@@ -184,6 +180,9 @@ fi
 #systemctl enable setupwifi.service
 
 echo "Factory reset completed. Rebooting now..."
+
+mkdir -p /var/lib/homeassistant/homeassistant
+mkdir -p /var/lib/homeassistant/matter_server
 
 sleep 5
 

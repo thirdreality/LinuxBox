@@ -80,6 +80,8 @@ install_docker_debs() {
 }
 
 InstallForHubV3() {
+
+	echo "InstallForHubV3 ..."
 	#apt update
 	#apt install ufw -y
 	#apt install libcurl4 libmbedtls14 libmbedcrypto7 libmbedx509-1 libcjson1 libwebsockets16 -y
@@ -146,7 +148,12 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 
 	# 	mkdir -p /usr/share/hassio/apparmor
 	# 	cp /tmp/overlay/hassio-supervisor /usr/share/hassio/apparmor/hassio-supervisor
-	# fi	
+	# fi
+
+	if [  -d "/tmp/overlay/bl706_cache" ]; then
+		Install pip3 packages for bl706/702 flash tools ...
+		pip install --no-index --find-links=/tmp/overlay/bl706_cache pylink-square==0.5.0  pyserial==3.5 ecdsa==0.15  portalocker==2.0.0 pycryptodome==3.9.8 bflb-crypto-plus==1.0 pycklink==0.1.1 --break-system-packages
+	fi
 
 	mkdir -p /usr/local/thirdreality/bin
 	mkdir -p /usr/local/thirdreality/config
