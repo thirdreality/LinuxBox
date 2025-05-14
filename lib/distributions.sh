@@ -424,6 +424,16 @@ POST_INSTALL_KERNEL_DEBS
 		fi
 	fi
 
+	if [[ "${REPOSITORY_INSTALL}" != *linuxbox-supervisor* ]]; then
+		if [[ $BUILD_MINIMAL != yes ]]; then
+			install_deb_chroot "${DEB_STORAGE}/linuxbox-supervisor_${REVISION}.deb"
+		fi
+	else
+		if [[ $BUILD_MINIMAL != yes ]]; then
+			install_deb_chroot "linuxbox-supervisor" "remote"
+		fi
+	fi
+
 	# install kernel sources
 	if [[ -f ${DEB_STORAGE}/${CHOSEN_KSRC}_${REVISION}_all.deb && $INSTALL_KSRC == yes ]]; then
 		install_deb_chroot "${DEB_STORAGE}/${CHOSEN_KSRC}_${REVISION}_all.deb"

@@ -7,8 +7,8 @@ Type=oneshot
 ExecStart=/lib/armbian/factory-reset.sh
 RemainAfterExit=true
 TimeoutStartSec=60
-StandardOutput=console
-StandardError=console
+StandardOutput=journal
+StandardError=journal
 
 
 [Install]
