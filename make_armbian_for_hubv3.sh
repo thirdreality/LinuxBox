@@ -64,7 +64,8 @@ if [ ! -d "$current_dir/userpatches" ]; then
         cp $current_dir/custom/config-hubv3-images.conf $current_dir/userpatches
         cp $current_dir/custom/config-jethubj100-images.conf $current_dir/userpatches
 		cp $current_dir/custom/customize-image.sh $current_dir/userpatches
-        cp $current_dir/custom/*.deb $current_dir/userpatches/overlay/
+        #cp $current_dir/custom/*.deb $current_dir/userpatches/overlay/
+        cp $current_dir/custom/bl706_cache $current_dir/userpatches/overlay/ -R
     fi
 
     if [[ $enable_homeassistant == yes ]]; then

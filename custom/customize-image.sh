@@ -151,7 +151,7 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 	# fi
 
 	if [  -d "/tmp/overlay/bl706_cache" ]; then
-		Install pip3 packages for bl706/702 flash tools ...
+		echo "Install pip3 packages for bl706/702 flash tools ..."
 		pip install --no-index --find-links=/tmp/overlay/bl706_cache pylink-square==0.5.0  pyserial==3.5 ecdsa==0.15  portalocker==2.0.0 pycryptodome==3.9.8 bflb-crypto-plus==1.0 pycklink==0.1.1 --break-system-packages
 	fi
 
