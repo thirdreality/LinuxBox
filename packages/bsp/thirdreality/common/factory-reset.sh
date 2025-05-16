@@ -4,6 +4,10 @@ set -e
 
 SCRIPT="HubV3"
 
+FIREWALL_SERVICE="/etc/init.d/otbr-firewall"
+SYSCTL_ACCEPT_RA_FILE="/etc/sysctl.d/60-otbr-accept-ra.conf"
+SYSCTL_IP_FORWARD_FILE="/etc/sysctl.d/60-otbr-ip-forward.conf"
+
 function print_info() { echo -e "\e[1;34m[${SCRIPT}] INFO:\e[0m $1"; }
 function print_error() { echo -e "\e[1;31m[${SCRIPT}] ERROR:\e[0m $1"; }
 function print_request() {  echo -n -e "\e[1;34m[${SCRIPT}] INFO:\e[0m $1"; }
@@ -44,51 +48,44 @@ function _remove_otbr_agent()
         /usr/sbin/update-rc.d otbr-firewall remove || true
     fi
 
-    /usr/bin/systemctl daemon-reload
+    test ! -f ${FIREWALL_SERVICE} || rm ${FIREWALL_SERVICE} || true
 
-    test ! -f ${FIREWALL_SERVICE} || rm ${FIREWALL_SERVICE}
+    test ! -f ${SYSCTL_ACCEPT_RA_FILE} || rm -v ${SYSCTL_ACCEPT_RA_FILE} || true
+    test ! -f ${SYSCTL_IP_FORWARD_FILE} || rm -v ${SYSCTL_IP_FORWARD_FILE} || true
 
-    test ! -f ${SYSCTL_ACCEPT_RA_FILE} || rm -v ${SYSCTL_ACCEPT_RA_FILE}
-    test ! -f ${SYSCTL_IP_FORWARD_FILE} || rm -v ${SYSCTL_IP_FORWARD_FILE}
-
-    echo "Restoring /etc/iproute2/rt_tables ..."
     sed -i.bak '/88\s\+openthread/d' /etc/iproute2/rt_tables
 
-    rm -rf /lib/libnss_mdns.so.2
-    rm -rf /usr/lib/libdns_sd.so
+    test ! -f /lib/libnss_mdns.so.2 || rm -rf /lib/libnss_mdns.so.2 || true
+    test ! -f /usr/lib/libdns_sd.so || rm -rf /usr/lib/libdns_sd.so || true
 
-    rm -rf /etc/rc2.d/S52mdns 
-	rm -rf /etc/rc2.d/S52mdns
-	rm -rf /etc/rc3.d/S52mdns
-	rm -rf /etc/rc4.d/S52mdns
-	rm -rf /etc/rc5.d/S52mdns
-	rm -rf /etc/rc0.d/K16mdns
-	rm -rf /etc/rc6.d/K16mdns
+    test ! -f /etc/rc2.d/S52mdns || rm -rf /etc/rc2.d/S52mdns || true
+    test ! -f /etc/rc3.d/S52mdns || rm -rf /etc/rc3.d/S52mdns || true
+    test ! -f /etc/rc4.d/S52mdns || rm -rf /etc/rc4.d/S52mdns || true
+    test ! -f /etc/rc5.d/S52mdns || rm -rf /etc/rc5.d/S52mdns || true
+    test ! -f /etc/rc0.d/K16mdns || rm -rf /etc/rc0.d/K16mdns || true
+    test ! -f /etc/rc6.d/K16mdns || rm -rf /etc/rc6.d/K16mdns || true
 
-    sysctl -p /etc/sysctl.conf
+    sysctl -p /etc/sysctl.conf || true
 }
 
 remove_homeassistant_core()
 {
+    /usr/bin/systemctl stop home-assistant || true
+    /usr/bin/systemctl stop home-assistant || true
+
+    /usr/bin/systemctl disable matter-server || true
+    /usr/bin/systemctl disable matter-server || true
+
+    dpkg --configure -a
+
+    apt purge -y thirdreality-hacore || true
+    apt purge -y thirdreality-hacore-config  || true
+    apt purge -y thirdreality-python3.13 || true
+    apt purge -y thirdreality-python3 || true
+    apt purge -y thirdreality-otbr-agent  || true    
+    apt autoremove -y
+
     _remove_otbr_agent
-
-    if [[ -f "/srv/homeassistant/bin/hass" ]]; then
-        /usr/bin/systemctl stop home-assistant || true
-        /usr/bin/systemctl stop home-assistant || true
-
-        /usr/bin/systemctl disable matter-server || true
-        /usr/bin/systemctl disable matter-server || true
-
-        dpkg -r thirdreality-hacore > /dev/null 2>&1 || true
-
-        dpkg -r thirdreality-python3 > /dev/null 2>&1 || true
-        dpkg -r thirdreality-python3.13 > /dev/null 2>&1 || true
-        dpkg -r thirdreality-hacore-config > /dev/null 2>&1 || true
-
-        dpkg -r thirdreality-otbr-agent > /dev/null 2>&1 || true
-
-        print_info "Selected containers stopped and images removed successfully."
-    fi
 }
 
 remove_homeassistant_supervised()
@@ -140,7 +137,7 @@ remove_homeassistant_supervised()
 
         print_info "Remove old Home Assistant done"
     else
-        print_error "Home Assistant Supervised is not founed."
+        print_error "Home Assistant Supervised is not found."
     fi
 }
 
@@ -154,6 +151,11 @@ remove_zigpy_tools()
     fi
 }
 
+
+echo "System is start to perform factory reset actions. " | wall
+
+/usr/local/bin/supervisor led reboot
+
 remove_homeassistant_core
 
 remove_homeassistant_supervised
@@ -163,7 +165,7 @@ remove_zigpy_tools
 rm -rf /usr/share/hassio 
 rm -rf /var/lib/homeassistant
 
-sync
+/usr/bin/sync
 
 sleep 0.5
 
@@ -179,12 +181,18 @@ fi
 #/usr/sbin/dhclient -r wlan0
 #systemctl enable setupwifi.service
 
-echo "Factory reset completed. Rebooting now..."
+/usr/bin/systemctl daemon-reload || true
+
+echo "Factory reset completed. Rebooting now..."  | wall
 
 mkdir -p /var/lib/homeassistant/homeassistant
 mkdir -p /var/lib/homeassistant/matter_server
 
-sleep 5
+
+
+/usr/bin/sync
+sleep 2
+/usr/bin/sync
 
 /usr/sbin/reboot
 
