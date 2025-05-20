@@ -29,8 +29,6 @@ on_exit() {
     echo "Running cleanup tasks..."
     if [ -e "/usr/local/bin/supervisor" ]; then
         /usr/local/bin/supervisor led mqtt_pared
-    else
-        /lib/thirdreality/hubv3-monitor.py set mqtt_pared
     fi
 
     if [ "$exit_code" -ne 0 ]; then
@@ -46,7 +44,6 @@ error_handler() {
 # trap 'error_handler $LINENO' ERR
 trap "on_exit" EXIT
 
-
 while getopts "d:" opt; do
   case ${opt} in
     d )
@@ -61,21 +58,28 @@ done
 
 echo "Using directory: ${WORK_DIR}"
 
-install_normal_debs() {
-    echo "Finding and installing normal deb packages..."
+exclude_patterns=(
+    "ca-certificates_"
+    "docker-ce-cli_"
+    "containerd.io_"
+    "docker-buildx-plugin_"
+    "docker-compose-plugin_"
+    "docker-ce-rootless-extras_"
+    "docker-ce_"
+    "hassio-config"
+    "os-agent"
+    "homeassistant-supervised"
 
-    exclude_patterns=(
-        "ca-certificates_"
-        "docker-ce-cli_"
-        "containerd.io_"
-        "docker-buildx-plugin_"
-        "docker-compose-plugin_"
-        "docker-ce-rootless-extras_"
-        "docker-ce_"
-        "hassio-config"
-        "os-agent"
-        "homeassistant-supervised"
-    )
+    "hacore-config_"
+    "python3_"
+    "hacore_"
+    "otbr-agent_"
+
+    "linuxbox-supervisor_"
+)
+
+install_extra_debs() {
+    echo "[POST]Finding and installing normal deb packages..."
 
     deb_files=$(find "$WORK_DIR" -maxdepth 1 -name "*.deb" -type f)
 
@@ -89,13 +93,13 @@ install_normal_debs() {
         for pattern in "${exclude_patterns[@]}"; do
             if [[ "$deb_file" == *"$pattern"* ]]; then
                 exclude=true
-                echo "Skipping excluded file: $deb_file"
+                echo "[POST]Skipping excluded file: $deb_file"
                 break
             fi
         done
 
         if [ "$exclude" = false ]; then
-            echo "Installing: $deb_file"
+            echo "[POST]Installing: $deb_file"
             sudo dpkg -i "$deb_file"
             installed=0
         fi
@@ -104,7 +108,7 @@ install_normal_debs() {
     if [ "$installed" -eq 0 ]; then
         # Attempt to fix any potential broken dependencies
         echo "Attempting to fix broken dependencies..."
-        sudo apt-get install -f -y
+        apt-get install -f -y || true
     fi
 }
 
@@ -141,15 +145,21 @@ dpkg_install() {
     fi
 }
 
+install_supervisor_debs() {
+    echo "Try to installing supervisor debs..."
+
+    # 安装 linux supervisor
+    supervisor_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "linuxbox-supervisor_*.deb" -type f | head -n 1)
+    if [ -n "$supervisor_deb_file" ]; then
+        install_deb_if_needed "$supervisor_deb_file" "linuxbox-supervisor"
+    else
+        echo "Warning: No linuxbox supervisor deb file found in $WORK_DIR" >&2
+    fi
+}
+
 # main procedure - 2
 install_core_matter_debs() {
     echo "Installing core matter debs..."
-
-    if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_paring
-    else
-        /lib/thirdreality/hubv3-monitor.py set mqtt_paring
-    fi
 
     # 安装 hacore-config
     # 检查是否已经安装 thirdreality-hacore-config 包， 注意：这个包不能升级!!!!
@@ -199,13 +209,9 @@ install_core_matter_debs() {
     fi
 
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_pared
         /usr/local/bin/supervisor ota update
-    else
-        /lib/thirdreality/hubv3-monitor.py set mqtt_pared
     fi
 }
-
 
 # main procedure - 3
 install_all_deb_images() {
@@ -216,8 +222,6 @@ install_all_deb_images() {
     # LED indication (continue on error)
     if [ -e "/usr/local/bin/supervisor" ]; then
         /usr/local/bin/supervisor led mqtt_paring
-    else
-        /lib/thirdreality/hubv3-monitor.py set mqtt_paring
     fi
 
     # Process .deb files
@@ -271,45 +275,42 @@ install_all_deb_images() {
     # Final LED indication (always attempt)
     if [ -e "/usr/local/bin/supervisor" ]; then
         /usr/local/bin/supervisor led mqtt_pared
-    else
-        /lib/thirdreality/hubv3-monitor.py set mqtt_pared
     fi
-
-    # /lib/thirdreality/hubv3-monitor.py set mqtt_pared || {
-    #     echo "Warning: Failed to restore LED status" >&2
-    #     overall_status=1
-    # }
 
     return $overall_status
 }
 
 main_procedure()
 {
+    install_supervisor_debs
+
+    if [ -e "/usr/local/bin/supervisor" ]; then
+        /usr/local/bin/supervisor led mqtt_paring
+    fi
+
+    # install home-assistant-core
+    is_home_assistant_running=$(systemctl is-active --quiet home-assistant.service && echo "yes" || echo "no")
     hacore_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore-config_*.deb" -type f | head -n 1)
     hacore_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore_*.deb" -type f | head -n 1)
     otbr_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "otbr-agent_*.deb" -type f | head -n 1)
 
-    is_home_assistant_running=$(systemctl is-active --quiet home-assistant.service && echo "yes" || echo "no")
-
-    if [[ -n "$hacore_config_deb_file" || -n "$hacore_deb_file" || -n "$otbr_deb_file" || "$is_home_assistant_running" == "yes" ]]; then
+    if [[ "$is_home_assistant_running" == "yes" || -n "$hacore_config_deb_file" || -n "$hacore_deb_file" || -n "$otbr_deb_file" ]]; then
         install_core_matter_debs
     else
         echo "TODO: install_all_deb_images"
-
-        install_normal_debs
-        install_all_deb_images
-
-        # hassio_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hassio-config_*.deb" -type f | head -n 1)
-        
-        # is_hassio_supervisored_enabled=$(systemctl is-enabled --quiet hassio-supervisor.service && echo "yes" || echo "no")
-
-        # if [[ -n "$hassio_config_deb_file" || "$is_hassio_supervisored_enabled" == "yes" ]]; then
-        #     install_supervised_docker
-        # else
-        #     install_all_deb_images
-        # fi
+        # install_all_deb_images
     fi
 
+    # install zigbee2mqtt
+
+    # install HomeBridge
+
+
+    install_extra_debs
+
+    if [ -e "/usr/local/bin/supervisor" ]; then
+        /usr/local/bin/supervisor led mqtt_pared
+    fi
 }
 
 

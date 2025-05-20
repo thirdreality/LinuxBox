@@ -4,6 +4,7 @@ After=basic.target
 
 [Service]
 Type=simple
+ExecStartPre=/bin/bash -c 'if [ -f /lib/thirdreality/hubv3-usb-sync-latest.sh ]; then mv /lib/thirdreality/hubv3-usb-sync-latest.sh /usr/lib/thirdreality/hubv3-usb-sync.sh; fi'
 ExecStart=/usr/lib/thirdreality/hubv3-usb-sync.sh
 StandardOutput=journal
 StandardError=journal

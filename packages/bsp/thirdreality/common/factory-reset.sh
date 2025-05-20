@@ -76,7 +76,7 @@ remove_homeassistant_core()
     /usr/bin/systemctl disable matter-server || true
     /usr/bin/systemctl disable matter-server || true
 
-    dpkg --configure -a
+    dpkg --configure -a || true
 
     apt purge -y thirdreality-hacore || true
     apt purge -y thirdreality-hacore-config  || true
@@ -141,7 +141,6 @@ remove_homeassistant_supervised()
     fi
 }
 
-
 remove_zigpy_tools()
 {
     if [ -e "/usr/local/thirdreality/zigpy_tools/bin/activate" ]; then
@@ -151,10 +150,11 @@ remove_zigpy_tools()
     fi
 }
 
-
 echo "System is start to perform factory reset actions. " | wall
 
-/usr/local/bin/supervisor led reboot
+if [ -e "/usr/local/bin/supervisor" ]; then
+    /usr/local/bin/supervisor led factory_reset
+fi
 
 remove_homeassistant_core
 
@@ -164,6 +164,7 @@ remove_zigpy_tools
 
 rm -rf /usr/share/hassio 
 rm -rf /var/lib/homeassistant
+rm -rf /var/lib/thread
 
 /usr/bin/sync
 
@@ -183,11 +184,11 @@ fi
 
 /usr/bin/systemctl daemon-reload || true
 
-echo "Factory reset completed. Rebooting now..."  | wall
-
 mkdir -p /var/lib/homeassistant/homeassistant
 mkdir -p /var/lib/homeassistant/matter_server
 
+
+echo "Factory reset completed. Rebooting now..."  | wall
 
 
 /usr/bin/sync
@@ -195,5 +196,3 @@ sleep 2
 /usr/bin/sync
 
 /usr/sbin/reboot
-
-
