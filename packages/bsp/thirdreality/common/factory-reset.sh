@@ -78,12 +78,16 @@ remove_homeassistant_core()
 
     dpkg --configure -a || true
 
-    apt purge -y thirdreality-hacore || true
-    apt purge -y thirdreality-hacore-config  || true
-    apt purge -y thirdreality-python3.13 || true
-    apt purge -y thirdreality-python3 || true
-    apt purge -y thirdreality-otbr-agent  || true    
-    apt autoremove -y
+    apt-get purge -y thirdreality-hacore || true
+    apt-get purge -y thirdreality-hacore-config  || true
+    apt-get purge -y thirdreality-python3.13 || true
+    apt-get purge -y thirdreality-python3 || true
+    apt-get purge -y thirdreality-otbr-agent  || true    
+    apt-get purge -y thirdreality-zigbee-mqtt  || true
+
+    apt-get autoremove -y
+    systemctl daemon-reload
+    userdel mosquitto > /dev/null 2>&1 || true
 
     _remove_otbr_agent
 }

@@ -28,7 +28,7 @@ on_exit() {
     # Custom actions before the script exits
     echo "Running cleanup tasks..."
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_pared
+        /usr/local/bin/supervisor led mqtt_pared  || true
     fi
 
     if [ "$exit_code" -ne 0 ]; then
@@ -76,6 +76,8 @@ exclude_patterns=(
     "otbr-agent_"
 
     "linuxbox-supervisor_"
+
+    "zigbee-mqtt_"
 )
 
 install_extra_debs() {
@@ -209,7 +211,75 @@ install_core_matter_debs() {
     fi
 
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor ota update
+        /usr/local/bin/supervisor ota update  || true
+    fi
+}
+
+install_zigbee2mqtt_debs() {
+    echo "Try to installing zigbee2mqtt debs..."
+
+    # 安装 zigbee-mqtt_2.3.0.deb
+    # 检查是否已经安装 thirdreality-zigbee-mqtt 包， 
+    if ! dpkg -l | grep -q "^ii\s*thirdreality-zigbee-mqtt"; then
+        zigbee_mqtt_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigbee-mqtt_*.deb" -type f | head -n 1)
+        if [ -n "$zigbee_mqtt_deb_file" ]; then
+            echo "Remove extra dependency for : $zigbee_mqtt_deb_file"
+
+            # 先精确判断mosquitto及其client是否安装
+            if dpkg -l mosquitto mosquitto-clients | grep -q '^ii'; then
+                echo "Removing mosquitto and/or mosquitto-clients packages  for conflict ..."
+                systemctl stop mosquitto || true
+                systemctl disable mosquitto || true
+                rm -f /etc/systemd/system/mosquitto.service || true
+                rm -f /lib/systemd/system/mosquitto.service || true
+                systemctl daemon-reload || true
+                systemctl reset-failed || true
+            fi
+
+            z2m_packages=(
+                "mosquitto"
+                "mosquitto-clients"
+                "libmosquitto1"
+                "libcjson1"
+                "libdlt2"
+                "nodejs"
+                "libsystemd-dev"
+            )
+            for pkg in "${z2m_packages[@]}"; do
+                echo "Attempting to remove package: $pkg"
+                if dpkg -s "$pkg" &>/dev/null; then
+                    if apt-get purge -y "$pkg"; then
+                        echo "Package '$pkg' removed successfully."
+                    else
+                        echo "Error removing package '$pkg'. Review logs for details."
+                    fi
+                else
+                    echo "Package '$pkg' is not installed or already removed."
+                fi
+            done
+
+            apt-get autoremove -y
+            systemctl daemon-reload
+            userdel mosquitto
+
+            echo "Installing: $zigbee_mqtt_deb_file"
+            if ! DEBIAN_FRONTEND=noninteractive dpkg -i "$zigbee_mqtt_deb_file"; then
+                echo "Warning: Failed to install $zigbee_mqtt_deb_file" >&2
+            else
+                apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
+            fi
+        else
+            echo "Warning: No zigbee-mqtt deb file found in $WORK_DIR" >&2
+        fi
+    else
+        echo "thirdreality-hacore-config is already installed, Upgrading."
+
+        echo "Installing: $zigbee_mqtt_deb_file"
+        if ! DEBIAN_FRONTEND=noninteractive dpkg -i "$zigbee_mqtt_deb_file"; then
+            echo "Warning: Failed to install $zigbee_mqtt_deb_file" >&2
+        else
+            apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
+        fi        
     fi
 }
 
@@ -221,7 +291,7 @@ install_all_deb_images() {
 
     # LED indication (continue on error)
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_paring
+        /usr/local/bin/supervisor led mqtt_paring  || true
     fi
 
     # Process .deb files
@@ -274,7 +344,7 @@ install_all_deb_images() {
 
     # Final LED indication (always attempt)
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_pared
+        /usr/local/bin/supervisor led mqtt_pared  || true
     fi
 
     return $overall_status
@@ -285,7 +355,7 @@ main_procedure()
     install_supervisor_debs
 
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_paring
+        /usr/local/bin/supervisor led mqtt_paring  || true
     fi
 
     # install home-assistant-core
@@ -302,6 +372,7 @@ main_procedure()
     fi
 
     # install zigbee2mqtt
+    install_zigbee2mqtt_debs
 
     # install HomeBridge
 
@@ -309,7 +380,7 @@ main_procedure()
     install_extra_debs
 
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_pared
+        /usr/local/bin/supervisor led mqtt_pared || true
     fi
 }
 
