@@ -70,26 +70,61 @@ function _remove_otbr_agent()
 
 remove_homeassistant_core()
 {
-    /usr/bin/systemctl stop home-assistant || true
-    /usr/bin/systemctl stop home-assistant || true
+    /usr/bin/systemctl stop home-assistant > /dev/null || true
+    /usr/bin/systemctl stop home-assistant > /dev/null || true
 
-    /usr/bin/systemctl disable matter-server || true
-    /usr/bin/systemctl disable matter-server || true
+    /usr/bin/systemctl disable matter-server > /dev/null || true
+    /usr/bin/systemctl disable matter-server > /dev/null || true
 
     dpkg --configure -a || true
 
-    apt-get purge -y thirdreality-hacore || true
-    apt-get purge -y thirdreality-hacore-config  || true
-    apt-get purge -y thirdreality-python3.13 || true
-    apt-get purge -y thirdreality-python3 || true
-    apt-get purge -y thirdreality-otbr-agent  || true    
-    apt-get purge -y thirdreality-zigbee-mqtt  || true
+    apt-get purge -y thirdreality-hacore > /dev/null || true
+    apt-get purge -y thirdreality-hacore-config > /dev/null  || true
+    apt-get purge -y thirdreality-python3.13 > /dev/null || true
+    apt-get purge -y thirdreality-python3 > /dev/null || true
+    apt-get purge -y thirdreality-otbr-agent  > /dev/null || true    
+    apt-get purge -y thirdreality-zigbee-mqtt  > /dev/null || true
 
     apt-get autoremove -y
     systemctl daemon-reload
-    userdel mosquitto > /dev/null 2>&1 || true
 
     _remove_otbr_agent
+}
+
+remove_zigbee2mqtt()
+{
+    /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null || true
+    /usr/bin/systemctl stop mosquitto.service > /dev/null || true
+
+    /usr/bin/systemctl disable zigbee2mqtt.service > /dev/null || true
+    /usr/bin/systemctl disable mosquitto.service > /dev/null|| true
+
+    dpkg --configure -a || true
+
+    apt-get purge -y thirdreality-zigbee-mqtt || true
+    apt-get purge -y nodejs libsystemd-dev  || true
+    apt-get purge -y mosquitto mosquitto-clients || true
+    apt-get purge -y libmosquitto1 libcjson1 libdlt2 || true
+
+    apt-get autoremove -y /dev/null || true
+    systemctl daemon-reload
+    userdel mosquitto > /dev/null 2>&1 || true
+}
+
+remove_openhab()
+{
+    /usr/bin/systemctl stop openhab.service > /dev/null || true
+    /usr/bin/systemctl disable openhab.service > /dev/null || true
+
+    apt-get purge -y openhab* || true
+    apt-get purge -y openjdk-17-jre* || true
+
+    rm -rf /usr/share/keyrings/openhab.gpg || true
+    rm -rf /etc/apt/sources.list.d/openhab.list || true
+    rm -rf /var/log/openhab || true
+
+    apt-get autoremove -y /dev/null || true
+    systemctl daemon-reload
 }
 
 remove_homeassistant_supervised()
@@ -160,11 +195,24 @@ if [ -e "/usr/local/bin/supervisor" ]; then
     /usr/local/bin/supervisor led factory_reset
 fi
 
+# remove default target
 remove_homeassistant_core
 
+# remove zigbee2mqtt
+remove_zigbee2mqtt
+
+# remove openhab
+remove_openhab
+
+# remove homeassistant supervised
 remove_homeassistant_supervised
 
 remove_zigpy_tools
+
+
+# Query and remove all packages matching "thirdreality", leaving room for future upgrades
+dpkg --list | grep thirdreality | awk '{print $2}' | xargs apt-get remove -y
+
 
 rm -rf /usr/share/hassio 
 rm -rf /var/lib/homeassistant

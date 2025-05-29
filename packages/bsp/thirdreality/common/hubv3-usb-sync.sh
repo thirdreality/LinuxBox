@@ -11,7 +11,8 @@ TIMEOUT=1200
 
 export LC_ALL DEBIAN_FRONTEND APT_LISTCHANGES_FRONTEND MACHINE
 
-WORK_DIR="/mnt"
+WORK_DIR="/mnt/R3-Install"
+EXTRA_WORK_DIR="/mnt/archives"
 CONFIG_DIR="/var/lib/homeassistant"
 
 set -e
@@ -59,16 +60,16 @@ done
 echo "Using directory: ${WORK_DIR}"
 
 exclude_patterns=(
-    "ca-certificates_"
-    "docker-ce-cli_"
-    "containerd.io_"
-    "docker-buildx-plugin_"
-    "docker-compose-plugin_"
-    "docker-ce-rootless-extras_"
-    "docker-ce_"
-    "hassio-config"
-    "os-agent"
-    "homeassistant-supervised"
+    # "ca-certificates_"
+    # "docker-ce-cli_"
+    # "containerd.io_"
+    # "docker-buildx-plugin_"
+    # "docker-compose-plugin_"
+    # "docker-ce-rootless-extras_"
+    # "docker-ce_"
+    # "hassio-config"
+    # "os-agent"
+    # "homeassistant-supervised"
 
     "hacore-config_"
     "python3_"
@@ -78,12 +79,13 @@ exclude_patterns=(
     "linuxbox-supervisor_"
 
     "zigbee-mqtt_"
+    "zigpy_handler_"
 )
 
 install_extra_debs() {
-    echo "[POST]Finding and installing normal deb packages..."
+    echo "[EXTRA]Finding and installing normal deb packages..."
 
-    deb_files=$(find "$WORK_DIR" -maxdepth 1 -name "*.deb" -type f)
+    deb_files=$(find "$EXTRA_WORK_DIR" -maxdepth 1 -name "*.deb" -type f)
 
     if [ -z "$deb_files" ]; then
         return
@@ -95,14 +97,14 @@ install_extra_debs() {
         for pattern in "${exclude_patterns[@]}"; do
             if [[ "$deb_file" == *"$pattern"* ]]; then
                 exclude=true
-                echo "[POST]Skipping excluded file: $deb_file"
+                echo "[EXTRA]Skipping excluded file: $deb_file"
                 break
             fi
         done
 
         if [ "$exclude" = false ]; then
-            echo "[POST]Installing: $deb_file"
-            sudo dpkg -i "$deb_file"
+            echo "[EXTRA]Installing: $deb_file"
+            dpkg -i "$deb_file"
             installed=0
         fi
     done
@@ -110,7 +112,7 @@ install_extra_debs() {
     if [ "$installed" -eq 0 ]; then
         # Attempt to fix any potential broken dependencies
         echo "Attempting to fix broken dependencies..."
-        apt-get install -f -y || true
+        apt-get install -f -y > /dev/null || true
     fi
 }
 
@@ -223,50 +225,20 @@ install_zigbee2mqtt_debs() {
     if ! dpkg -l | grep -q "^ii\s*thirdreality-zigbee-mqtt"; then
         zigbee_mqtt_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigbee-mqtt_*.deb" -type f | head -n 1)
         if [ -n "$zigbee_mqtt_deb_file" ]; then
-            echo "Remove extra dependency for : $zigbee_mqtt_deb_file"
-
-            # 先精确判断mosquitto及其client是否安装
-            if dpkg -l mosquitto mosquitto-clients | grep -q '^ii'; then
-                echo "Removing mosquitto and/or mosquitto-clients packages  for conflict ..."
-                systemctl stop mosquitto || true
-                systemctl disable mosquitto || true
-                rm -f /etc/systemd/system/mosquitto.service || true
-                rm -f /lib/systemd/system/mosquitto.service || true
-                systemctl daemon-reload || true
-                systemctl reset-failed || true
-            fi
-
-            z2m_packages=(
-                "mosquitto"
-                "mosquitto-clients"
-                "libmosquitto1"
-                "libcjson1"
-                "libdlt2"
-                "nodejs"
-                "libsystemd-dev"
-            )
-            for pkg in "${z2m_packages[@]}"; do
-                echo "Attempting to remove package: $pkg"
-                if dpkg -s "$pkg" &>/dev/null; then
-                    if apt-get purge -y "$pkg"; then
-                        echo "Package '$pkg' removed successfully."
-                    else
-                        echo "Error removing package '$pkg'. Review logs for details."
-                    fi
-                else
-                    echo "Package '$pkg' is not installed or already removed."
-                fi
-            done
-
-            apt-get autoremove -y
-            systemctl daemon-reload
-            userdel mosquitto
 
             echo "Installing: $zigbee_mqtt_deb_file"
             if ! DEBIAN_FRONTEND=noninteractive dpkg -i "$zigbee_mqtt_deb_file"; then
                 echo "Warning: Failed to install $zigbee_mqtt_deb_file" >&2
             else
                 apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
+
+                # 如果安装成功，安装依赖项
+                if [ -e "/usr/lib/thirdreality/post-install-zigbee2mqtt.sh" ]; then
+                    /usr/lib/thirdreality/post-install-zigbee2mqtt.sh > /dev/null || true
+                fi
+
+                apt-get install -f > /dev/null || true
+
             fi
         else
             echo "Warning: No zigbee-mqtt deb file found in $WORK_DIR" >&2
@@ -279,7 +251,31 @@ install_zigbee2mqtt_debs() {
             echo "Warning: Failed to install $zigbee_mqtt_deb_file" >&2
         else
             apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
+                
+            # 如果安装成功，安装依赖项
+            if [ -e "/usr/lib/thirdreality/post-install-zigbee2maqtt.sh" ]; then
+                /usr/lib/thirdreality/post-install-zigbee2maqtt.sh > /dev/null || true
+                apt-get install -f > /dev/null || true
+            fi            
         fi        
+    fi
+}
+
+install_openhab_debs() 
+{
+    echo "Try to installing openHab debs..."
+}
+
+install_zigpy_handler_debs()
+{
+    echo "Try to installing zigpy device handler debs..."
+
+    # 安装 zigpy_handler_*.deb
+    zigpy_handler_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigpy_handler_*.deb" -type f | head -n 1)
+    if [ -n "$zigpy_handler_deb_file" ]; then
+        install_deb_if_needed "$zigpy_handler_deb_file" "thirdreality-zigpy-handler"
+    else
+        echo "Warning: No zigpy device handler deb file found in $WORK_DIR" >&2
     fi
 }
 
@@ -367,16 +363,34 @@ main_procedure()
     if [[ "$is_home_assistant_running" == "yes" || -n "$hacore_config_deb_file" || -n "$hacore_deb_file" || -n "$otbr_deb_file" ]]; then
         install_core_matter_debs
     else
-        echo "TODO: install_all_deb_images"
-        # install_all_deb_images
+        # 安装 python3
+        python3_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "python3_*.deb" -type f | head -n 1)
+        if [ -n "$python3_deb_file" ]; then
+            install_deb_if_needed "$python3_deb_file" "thirdreality-python3"
+        else
+            python3_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "python_*.deb" -type f | head -n 1)
+            if [ -n "$python3_deb_file" ]; then
+                install_deb_if_needed "$python3_deb_file" "thirdreality-python3"
+            fi
+        fi
+
+        # 安装 zigpy_tools
+        zigpy_tools_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigpy_tools_*.deb" -type f | head -n 1)
+        if [ -n "$zigpy_tools_deb_file" ]; then
+            install_deb_if_needed "$zigpy_tools_deb_file" "thirdreality-zigpy-tools"
+        fi        
     fi
 
     # install zigbee2mqtt
     install_zigbee2mqtt_debs
 
-    # install HomeBridge
+    # install openhab
+    install_openhab_debs
 
+    # install zigpy_handler
+    install_zigpy_handler_debs
 
+    # install all debs, leaving room for future upgrades
     install_extra_debs
 
     if [ -e "/usr/local/bin/supervisor" ]; then
