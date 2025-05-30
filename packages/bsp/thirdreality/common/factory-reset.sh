@@ -209,7 +209,6 @@ remove_homeassistant_supervised
 
 remove_zigpy_tools
 
-
 # Query and remove all packages matching "thirdreality", leaving room for future upgrades
 dpkg --list | grep thirdreality | awk '{print $2}' | xargs apt-get remove -y
 

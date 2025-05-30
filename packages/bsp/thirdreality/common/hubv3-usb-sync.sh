@@ -11,7 +11,7 @@ TIMEOUT=1200
 
 export LC_ALL DEBIAN_FRONTEND APT_LISTCHANGES_FRONTEND MACHINE
 
-WORK_DIR="/mnt/R3-Install"
+WORK_DIR="/mnt/R3Install"
 EXTRA_WORK_DIR="/mnt/archives"
 CONFIG_DIR="/var/lib/homeassistant"
 
@@ -80,6 +80,8 @@ exclude_patterns=(
 
     "zigbee-mqtt_"
     "zigpy_handler_"
+
+    "openhab_"
 )
 
 install_extra_debs() {
@@ -150,9 +152,9 @@ dpkg_install() {
 }
 
 install_supervisor_debs() {
-    echo "Try to installing supervisor debs..."
+    echo "Attempting to install supervisor debs..."
 
-    # 安装 linux supervisor
+    # Install linux supervisor
     supervisor_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "linuxbox-supervisor_*.deb" -type f | head -n 1)
     if [ -n "$supervisor_deb_file" ]; then
         install_deb_if_needed "$supervisor_deb_file" "linuxbox-supervisor"
@@ -165,8 +167,8 @@ install_supervisor_debs() {
 install_core_matter_debs() {
     echo "Installing core matter debs..."
 
-    # 安装 hacore-config
-    # 检查是否已经安装 thirdreality-hacore-config 包， 注意：这个包不能升级!!!!
+    # Install hacore-config
+    # Check if thirdreality-hacore-config package is already installed. NOTE: This package CANNOT be upgraded!!!!
     if ! dpkg -l | grep -q "^ii\s*thirdreality-hacore-config"; then
         hacore_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore-config_*.deb" -type f | head -n 1)
         if [ -n "$hacore_config_deb_file" ]; then
@@ -183,7 +185,7 @@ install_core_matter_debs() {
         echo "thirdreality-hacore-config is already installed, skipping installation."
     fi
 
-    # 安装 python3
+    # Install Python3
     python3_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "python3_*.deb" -type f | head -n 1)
     if [ -n "$python3_deb_file" ]; then
         install_deb_if_needed "$python3_deb_file" "thirdreality-python3"
@@ -204,7 +206,7 @@ install_core_matter_debs() {
         echo "Warning: No hacore deb file found in $WORK_DIR" >&2
     fi
 
-    # 安装 otbr-agent, otbr-agent_2023.07.10.deb
+    # Install otbr-agent (e.g., otbr-agent_2023.07.10.deb)
     otbr_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "otbr-agent_*.deb" -type f | head -n 1)
     if [ -n "$otbr_deb_file" ]; then
         install_deb_if_needed "$otbr_deb_file" "thirdreality-otbr-agent"
@@ -218,10 +220,10 @@ install_core_matter_debs() {
 }
 
 install_zigbee2mqtt_debs() {
-    echo "Try to installing zigbee2mqtt debs..."
+    echo "Attempting to install Zigbee2MQTT debs..."
 
-    # 安装 zigbee-mqtt_2.3.0.deb
-    # 检查是否已经安装 thirdreality-zigbee-mqtt 包， 
+    # Install zigbee-mqtt (e.g., zigbee-mqtt_2.3.0.deb)
+    # Check if thirdreality-zigbee-mqtt package is already installed
     if ! dpkg -l | grep -q "^ii\s*thirdreality-zigbee-mqtt"; then
         zigbee_mqtt_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigbee-mqtt_*.deb" -type f | head -n 1)
         if [ -n "$zigbee_mqtt_deb_file" ]; then
@@ -232,7 +234,7 @@ install_zigbee2mqtt_debs() {
             else
                 apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
 
-                # 如果安装成功，安装依赖项
+                # If installation is successful, install dependencies
                 if [ -e "/usr/lib/thirdreality/post-install-zigbee2mqtt.sh" ]; then
                     /usr/lib/thirdreality/post-install-zigbee2mqtt.sh > /dev/null || true
                 fi
@@ -244,7 +246,7 @@ install_zigbee2mqtt_debs() {
             echo "Warning: No zigbee-mqtt deb file found in $WORK_DIR" >&2
         fi
     else
-        echo "thirdreality-hacore-config is already installed, Upgrading."
+        echo "thirdreality-zigbee-mqtt is already installed, upgrading."
 
         echo "Installing: $zigbee_mqtt_deb_file"
         if ! DEBIAN_FRONTEND=noninteractive dpkg -i "$zigbee_mqtt_deb_file"; then
@@ -252,9 +254,9 @@ install_zigbee2mqtt_debs() {
         else
             apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
                 
-            # 如果安装成功，安装依赖项
-            if [ -e "/usr/lib/thirdreality/post-install-zigbee2maqtt.sh" ]; then
-                /usr/lib/thirdreality/post-install-zigbee2maqtt.sh > /dev/null || true
+            # If installation is successful, install dependencies
+            if [ -e "/usr/lib/thirdreality/post-install-zigbee2mqtt.sh" ]; then
+                /usr/lib/thirdreality/post-install-zigbee2mqtt.sh > /dev/null || true
                 apt-get install -f > /dev/null || true
             fi            
         fi        
@@ -263,14 +265,14 @@ install_zigbee2mqtt_debs() {
 
 install_openhab_debs() 
 {
-    echo "Try to installing openHab debs..."
+    echo "Attempting to install OpenHAB debs..."
 }
 
 install_zigpy_handler_debs()
 {
-    echo "Try to installing zigpy device handler debs..."
+    echo "Attempting to install zigpy device handler debs..."
 
-    # 安装 zigpy_handler_*.deb
+    # Install zigpy_handler_*.deb
     zigpy_handler_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigpy_handler_*.deb" -type f | head -n 1)
     if [ -n "$zigpy_handler_deb_file" ]; then
         install_deb_if_needed "$zigpy_handler_deb_file" "thirdreality-zigpy-handler"
@@ -363,7 +365,7 @@ main_procedure()
     if [[ "$is_home_assistant_running" == "yes" || -n "$hacore_config_deb_file" || -n "$hacore_deb_file" || -n "$otbr_deb_file" ]]; then
         install_core_matter_debs
     else
-        # 安装 python3
+        # Install Python3
         python3_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "python3_*.deb" -type f | head -n 1)
         if [ -n "$python3_deb_file" ]; then
             install_deb_if_needed "$python3_deb_file" "thirdreality-python3"
@@ -374,7 +376,7 @@ main_procedure()
             fi
         fi
 
-        # 安装 zigpy_tools
+        # Install zigpy_tools
         zigpy_tools_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigpy_tools_*.deb" -type f | head -n 1)
         if [ -n "$zigpy_tools_deb_file" ]; then
             install_deb_if_needed "$zigpy_tools_deb_file" "thirdreality-zigpy-tools"
