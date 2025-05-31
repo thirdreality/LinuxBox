@@ -12,7 +12,7 @@ TIMEOUT=1200
 export LC_ALL DEBIAN_FRONTEND APT_LISTCHANGES_FRONTEND MACHINE
 
 WORK_DIR="/mnt/R3Install"
-EXTRA_WORK_DIR="/mnt/archives"
+EXTRA_WORK_DIR="/mnt/R3Archives"
 CONFIG_DIR="/var/lib/homeassistant"
 
 set -e
@@ -87,10 +87,17 @@ exclude_patterns=(
 install_extra_debs() {
     echo "[EXTRA]Finding and installing normal deb packages..."
 
-    deb_files=$(find "$EXTRA_WORK_DIR" -maxdepth 1 -name "*.deb" -type f)
+    # Skip if directory doesn't exist
+    if [ ! -d "$EXTRA_WORK_DIR" ]; then
+        echo "[EXTRA]Directory $EXTRA_WORK_DIR does not exist, skipping extra debs installation"
+        return 0
+    fi
+
+    deb_files=$(find "$EXTRA_WORK_DIR" -maxdepth 1 -name "*.deb" -type f 2>/dev/null || true)
 
     if [ -z "$deb_files" ]; then
-        return
+        echo "[EXTRA]No deb files found in $EXTRA_WORK_DIR"
+        return 0
     fi
 
     local installed=1
@@ -116,6 +123,8 @@ install_extra_debs() {
         echo "Attempting to fix broken dependencies..."
         apt-get install -f -y > /dev/null || true
     fi
+
+    return 0
 }
 
 install_deb_if_needed() {
@@ -152,6 +161,10 @@ dpkg_install() {
 }
 
 install_supervisor_debs() {
+    if [ ! -d "$WORK_DIR" ]; then
+        return 0
+    fi
+
     echo "Attempting to install supervisor debs..."
 
     # Install linux supervisor
@@ -159,8 +172,9 @@ install_supervisor_debs() {
     if [ -n "$supervisor_deb_file" ]; then
         install_deb_if_needed "$supervisor_deb_file" "linuxbox-supervisor"
     else
-        echo "Warning: No linuxbox supervisor deb file found in $WORK_DIR" >&2
+        echo "No linuxbox supervisor deb file found in $WORK_DIR" >&2
     fi
+    return 0
 }
 
 # main procedure - 2
@@ -179,7 +193,7 @@ install_core_matter_debs() {
                 apt-mark manual "thirdreality-hacore-config" || echo "Warning: Failed to mark hacore-config as manual" >&2
             fi
         else
-            echo "Warning: No hacore-config deb file found in $WORK_DIR" >&2
+            echo "No hacore-config deb file found in $WORK_DIR" >&2
         fi
     else
         echo "thirdreality-hacore-config is already installed, skipping installation."
@@ -194,7 +208,7 @@ install_core_matter_debs() {
         if [ -n "$python3_deb_file" ]; then
             install_deb_if_needed "$python3_deb_file" "thirdreality-python3"
         else
-            echo "Warning: No python3 deb file found in $WORK_DIR" >&2
+            echo "No python3 deb file found in $WORK_DIR" >&2
         fi
     fi
 
@@ -203,7 +217,7 @@ install_core_matter_debs() {
     if [ -n "$hacore_deb_file" ]; then
         install_deb_if_needed "$hacore_deb_file" "thirdreality-hacore"
     else
-        echo "Warning: No hacore deb file found in $WORK_DIR" >&2
+        echo "No hacore deb file found in $WORK_DIR" >&2
     fi
 
     # Install otbr-agent (e.g., otbr-agent_2023.07.10.deb)
@@ -211,12 +225,14 @@ install_core_matter_debs() {
     if [ -n "$otbr_deb_file" ]; then
         install_deb_if_needed "$otbr_deb_file" "thirdreality-otbr-agent"
     else
-        echo "Warning: No otbr-agent deb file found in $WORK_DIR" >&2
+        echo "No otbr-agent deb file found in $WORK_DIR" >&2
     fi
 
     if [ -e "/usr/local/bin/supervisor" ]; then
         /usr/local/bin/supervisor ota update  || true
     fi
+
+    return 0
 }
 
 install_zigbee2mqtt_debs() {
@@ -243,7 +259,7 @@ install_zigbee2mqtt_debs() {
 
             fi
         else
-            echo "Warning: No zigbee-mqtt deb file found in $WORK_DIR" >&2
+            echo "No zigbee-mqtt deb file found in $WORK_DIR" >&2
         fi
     else
         echo "thirdreality-zigbee-mqtt is already installed, upgrading."
@@ -273,16 +289,27 @@ install_zigpy_handler_debs()
     echo "Attempting to install zigpy device handler debs..."
 
     # Install zigpy_handler_*.deb
-    zigpy_handler_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigpy_handler_*.deb" -type f | head -n 1)
+    if [ ! -d "$WORK_DIR" ]; then
+        echo "Warning: Directory $WORK_DIR does not exist, cannot install zigpy handler" >&2
+        return 0
+    fi
+    
+    zigpy_handler_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigpy_handler_*.deb" -type f 2>/dev/null | head -n 1)
     if [ -n "$zigpy_handler_deb_file" ]; then
         install_deb_if_needed "$zigpy_handler_deb_file" "thirdreality-zigpy-handler"
     else
         echo "Warning: No zigpy device handler deb file found in $WORK_DIR" >&2
+        # Don't fail the script if zigpy handler is not found
+        return 0
     fi
 }
 
 # main procedure - 3
 install_all_deb_images() {
+    if [ ! -d "$WORK_DIR" ]; then
+        return 0
+    fi
+
     echo "Installing all deb images and loading Docker images..."
     local overall_status=0
     local deb_installed=0  # Track if any deb was installed
@@ -356,41 +383,43 @@ main_procedure()
         /usr/local/bin/supervisor led mqtt_paring  || true
     fi
 
-    # install home-assistant-core
-    is_home_assistant_running=$(systemctl is-active --quiet home-assistant.service && echo "yes" || echo "no")
-    hacore_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore-config_*.deb" -type f | head -n 1)
-    hacore_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore_*.deb" -type f | head -n 1)
-    otbr_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "otbr-agent_*.deb" -type f | head -n 1)
+    if [ -d "$WORK_DIR" ]; then
+        # install home-assistant-core
+        is_home_assistant_running=$(systemctl is-active --quiet home-assistant.service && echo "yes" || echo "no")
+        hacore_config_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore-config_*.deb" -type f | head -n 1)
+        hacore_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore_*.deb" -type f | head -n 1)
+        otbr_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "otbr-agent_*.deb" -type f | head -n 1)
 
-    if [[ "$is_home_assistant_running" == "yes" || -n "$hacore_config_deb_file" || -n "$hacore_deb_file" || -n "$otbr_deb_file" ]]; then
-        install_core_matter_debs
-    else
-        # Install Python3
-        python3_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "python3_*.deb" -type f | head -n 1)
-        if [ -n "$python3_deb_file" ]; then
-            install_deb_if_needed "$python3_deb_file" "thirdreality-python3"
+        if [[ "$is_home_assistant_running" == "yes" || -n "$hacore_config_deb_file" || -n "$hacore_deb_file" || -n "$otbr_deb_file" ]]; then
+            install_core_matter_debs
         else
-            python3_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "python_*.deb" -type f | head -n 1)
+            # Install Python3
+            python3_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "python3_*.deb" -type f | head -n 1)
             if [ -n "$python3_deb_file" ]; then
                 install_deb_if_needed "$python3_deb_file" "thirdreality-python3"
+            else
+                python3_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "python_*.deb" -type f | head -n 1)
+                if [ -n "$python3_deb_file" ]; then
+                    install_deb_if_needed "$python3_deb_file" "thirdreality-python3"
+                fi
             fi
+
+            # Install zigpy_tools
+            zigpy_tools_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigpy_tools_*.deb" -type f | head -n 1)
+            if [ -n "$zigpy_tools_deb_file" ]; then
+                install_deb_if_needed "$zigpy_tools_deb_file" "thirdreality-zigpy-tools"
+            fi        
         fi
 
-        # Install zigpy_tools
-        zigpy_tools_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigpy_tools_*.deb" -type f | head -n 1)
-        if [ -n "$zigpy_tools_deb_file" ]; then
-            install_deb_if_needed "$zigpy_tools_deb_file" "thirdreality-zigpy-tools"
-        fi        
+        # install zigbee2mqtt
+        install_zigbee2mqtt_debs
+
+        # install openhab
+        install_openhab_debs
+
+        # install zigpy_handler
+        install_zigpy_handler_debs
     fi
-
-    # install zigbee2mqtt
-    install_zigbee2mqtt_debs
-
-    # install openhab
-    install_openhab_debs
-
-    # install zigpy_handler
-    install_zigpy_handler_debs
 
     # install all debs, leaving room for future upgrades
     install_extra_debs

@@ -76,7 +76,7 @@ remove_homeassistant_core()
     /usr/bin/systemctl disable matter-server > /dev/null || true
     /usr/bin/systemctl disable matter-server > /dev/null || true
 
-    dpkg --configure -a || true
+    dpkg --configure -a > /dev/null || true
 
     apt-get purge -y thirdreality-hacore > /dev/null || true
     apt-get purge -y thirdreality-hacore-config > /dev/null  || true
@@ -85,7 +85,7 @@ remove_homeassistant_core()
     apt-get purge -y thirdreality-otbr-agent  > /dev/null || true    
     apt-get purge -y thirdreality-zigbee-mqtt  > /dev/null || true
 
-    apt-get autoremove -y
+    apt-get autoremove -y > /dev/null || true
     systemctl daemon-reload
 
     _remove_otbr_agent
@@ -99,16 +99,18 @@ remove_zigbee2mqtt()
     /usr/bin/systemctl disable zigbee2mqtt.service > /dev/null || true
     /usr/bin/systemctl disable mosquitto.service > /dev/null|| true
 
-    dpkg --configure -a || true
+    dpkg --configure -a > /dev/null || true
 
-    apt-get purge -y thirdreality-zigbee-mqtt || true
-    apt-get purge -y nodejs libsystemd-dev  || true
-    apt-get purge -y mosquitto mosquitto-clients || true
-    apt-get purge -y libmosquitto1 libcjson1 libdlt2 || true
+    apt-get purge -y thirdreality-zigbee-mqtt > /dev/null || true
+    apt-get purge -y nodejs libsystemd-dev  > /dev/null || true
+    apt-get purge -y mosquitto mosquitto-clients > /dev/null || true
+    apt-get purge -y libmosquitto1 libcjson1 libdlt2 > /dev/null || true
 
     apt-get autoremove -y /dev/null || true
     systemctl daemon-reload
     userdel mosquitto > /dev/null 2>&1 || true
+
+    rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
 }
 
 remove_openhab()
@@ -116,12 +118,12 @@ remove_openhab()
     /usr/bin/systemctl stop openhab.service > /dev/null || true
     /usr/bin/systemctl disable openhab.service > /dev/null || true
 
-    apt-get purge -y openhab* || true
-    apt-get purge -y openjdk-17-jre* || true
+    apt-get purge -y openhab* > /dev/null || true
+    apt-get purge -y openjdk-17-jre* > /dev/null || true
 
-    rm -rf /usr/share/keyrings/openhab.gpg || true
-    rm -rf /etc/apt/sources.list.d/openhab.list || true
-    rm -rf /var/log/openhab || true
+    rm -rf /usr/share/keyrings/openhab.gpg > /dev/null || true
+    rm -rf /etc/apt/sources.list.d/openhab.list > /dev/null || true
+    rm -rf /var/log/openhab > /dev/null || true
 
     apt-get autoremove -y /dev/null || true
     systemctl daemon-reload
