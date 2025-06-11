@@ -29,7 +29,7 @@ on_exit() {
     # Custom actions before the script exits
     echo "Running cleanup tasks..."
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_pared  || true
+        /usr/local/bin/supervisor led sys_event_off  || true
     fi
 
     if [ "$exit_code" -ne 0 ]; then
@@ -132,6 +132,8 @@ install_deb_if_needed() {
     local package_name="$2"
     local current_version
     local deb_version
+
+    echo "+ ${deb_file}. " | wall
 
     current_version=$(dpkg-query -W -f='${Version}\n' "${package_name}" 2>/dev/null || true)    
     if [ -n "$current_version" ]; then
@@ -316,7 +318,7 @@ install_all_deb_images() {
 
     # LED indication (continue on error)
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_paring  || true
+        /usr/local/bin/supervisor led sys_firmware_updating  || true
     fi
 
     # Process .deb files
@@ -369,7 +371,7 @@ install_all_deb_images() {
 
     # Final LED indication (always attempt)
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_pared  || true
+        /usr/local/bin/supervisor led sys_event_off  || true
     fi
 
     return $overall_status
@@ -380,8 +382,10 @@ main_procedure()
     install_supervisor_debs
 
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_paring  || true
+        /usr/local/bin/supervisor led sys_firmware_updating  || true
     fi
+
+    echo "System is start to install deb packages. " | wall
 
     if [ -d "$WORK_DIR" ]; then
         # install home-assistant-core
@@ -425,7 +429,7 @@ main_procedure()
     install_extra_debs
 
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led mqtt_pared || true
+        /usr/local/bin/supervisor led sys_event_off || true
     fi
 }
 

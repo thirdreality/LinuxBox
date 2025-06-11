@@ -82,21 +82,6 @@ install_docker_debs() {
 InstallForHubV3() {
 
 	echo "InstallForHubV3 ..."
-	#apt update
-	#apt install ufw -y
-	#apt install libcurl4 libmbedtls14 libmbedcrypto7 libmbedx509-1 libcjson1 libwebsockets16 -y
-	#apt install libcurl4-openssl-dev libcjson-dev libwebsockets-dev libmbedtls-dev libyaml-dev -y
-
-	# update-alternatives --list iptables
-	# update-alternatives --set iptables /usr/sbin/iptables-legacy
-
-	# ufw allow from 127.0.0.1 to any port 8123
-	# ufw deny 8123
-
-	# ufw allow from 127.0.0.1 to any port 5580
-	# ufw deny 5580
-
-	# ufw allow 8080
 
 	#kernel modules to load at boot time
 	echo "aml_sdio" | sudo tee -a /etc/modules
@@ -118,6 +103,9 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/system.conf
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/user.conf
 	
+	BLUETOOTH_SERVICE="/usr/lib/systemd/system/bluetooth.service"
+	sed -i 's|ExecStart=/usr/libexec/bluetooth/bluetoothd|ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental|' "$BLUETOOTH_SERVICE" || true
+
 	# if [ -f "/tmp/overlay/python3.deb" ]; then
 	# 	dpkg -i "/tmp/overlay/python3.deb" || sudo apt-get install -f
 	# fi

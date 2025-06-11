@@ -165,6 +165,17 @@ install_common()
 		EOF
 	fi
 
+	if [ "${RELEASE}" == "bookworm" ]; then
+		cat <<-EOF > "${SDCARD}/etc/t3r-release"
+		PRETTY_NAME="LinuxBox Dev Edition"
+		NAME="LinuxBox/HubV3"
+		VERSION_ID="000800"
+		VERSION="v0.8.0"
+		HOME_URL="https://3reality.com/"
+		SUPPORT_URL="Support@3reality.com"
+		EOF
+	fi
+
 	# enable few bash aliases enabled in Ubuntu by default to make it even
 	sed "s/#alias ll='ls -l'/alias ll='ls -l'/" -i "${SDCARD}"/etc/skel/.bashrc
 	sed "s/#alias la='ls -A'/alias la='ls -A'/" -i "${SDCARD}"/etc/skel/.bashrc

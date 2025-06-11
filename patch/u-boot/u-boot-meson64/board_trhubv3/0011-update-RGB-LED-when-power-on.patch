@@ -1,0 +1,84 @@
+From f36a79e7667db4b2dfdaf52911635ed619159f59 Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@thirdreality.com>
+Date: Wed, 11 Jun 2025 16:47:41 +0800
+Subject: [PATCH] update RGB LED when power on
+
+---
+ board/amlogic/trhub-v3/trhub-v3.c | 54 +++++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
+
+diff --git a/board/amlogic/trhub-v3/trhub-v3.c b/board/amlogic/trhub-v3/trhub-v3.c
+index ef4d9e8713e..846dea52c56 100644
+--- a/board/amlogic/trhub-v3/trhub-v3.c
++++ b/board/amlogic/trhub-v3/trhub-v3.c
+@@ -16,6 +16,51 @@
+ #include <asm/arch/mem.h>
+ #include <u-boot/crc.h>
+ 
++#include <asm/gpio.h>
++
++#define RGB_RED_GPIO		89
++#define RGB_GREEN_GPIO		4
++#define RGB_BLUE_GPIO		5
++
++/* RGB LED 初始化函数 */
++static int rgb_led_init(void)
++{
++	int ret;
++
++	/* 初始化红色 LED GPIO - 直接设置为高电平 */
++	ret = gpio_request(RGB_RED_GPIO, "rgb_red");
++	if (ret) {
++		printf("RGB LED: Failed to request red GPIO %d\n", RGB_RED_GPIO);
++		return ret;
++	}
++	gpio_direction_output(RGB_RED_GPIO, 1);
++
++	/* 初始化绿色 LED GPIO - 直接设置为高电平 */
++	ret = gpio_request(RGB_GREEN_GPIO, "rgb_green");
++	if (ret) {
++		printf("RGB LED: Failed to request green GPIO %d\n", RGB_GREEN_GPIO);
++		goto err_green;
++	}
++	gpio_direction_output(RGB_GREEN_GPIO, 1);
++
++	/* 初始化蓝色 LED GPIO - 直接设置为高电平 */
++	ret = gpio_request(RGB_BLUE_GPIO, "rgb_blue");
++	if (ret) {
++		printf("RGB LED: Failed to request blue GPIO %d\n", RGB_BLUE_GPIO);
++		goto err_blue;
++	}
++	gpio_direction_output(RGB_BLUE_GPIO, 1);
++
++	printf("RGB LED initialized successfully (all pins set to HIGH)\n");
++	return 0;
++
++err_blue:
++	gpio_free(RGB_GREEN_GPIO);
++err_green:
++	gpio_free(RGB_RED_GPIO);
++	return ret;
++}
++
+ int misc_init_r(void)
+ {
+ 	u8 mac_addr[ARP_HLEN];
+@@ -28,6 +73,15 @@ int misc_init_r(void)
+ 	char keydata[256];
+ 	int ver=0;
+ 
++	/* 初始化 RGB LED */
++	ret = rgb_led_init();
++	if (ret) {
++		printf("Warning: RGB LED initialization failed\n");
++	} else {
++		/* RGB LED 初始化时已经设置为白色（所有引脚为高电平） */
++		printf("RGB LED initialized as WHITE (all pins HIGH)\n");
++	}
++
+ 	memset (mac_addr,0, sizeof(mac_addr));
+ 	sprintf(_cmdbuf, "store init");
+ 	if(!run_command(_cmdbuf, 0))
+-- 
+2.39.5
+
