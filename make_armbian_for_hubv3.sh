@@ -104,7 +104,7 @@ fi
 
 rm -rf $current_dir/output/images
 
-$(pwd)/compile.sh hubv3-images BOARD=${board} BRANCH=current RELEASE=bookworm \
+$(pwd)/compile.sh hubv3-images BOARD=${board} BRANCH=edge RELEASE=bookworm \
         BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
         COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no \
         UBOOT_MIRROR=github \
