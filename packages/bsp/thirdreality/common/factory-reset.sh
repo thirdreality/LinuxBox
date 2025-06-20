@@ -104,7 +104,7 @@ remove_zigbee2mqtt()
     apt-get purge -y thirdreality-zigbee-mqtt > /dev/null || true
     apt-get purge -y nodejs libsystemd-dev  > /dev/null || true
     apt-get purge -y mosquitto mosquitto-clients > /dev/null || true
-    apt-get purge -y libmosquitto1 libcjson1 libdlt2 > /dev/null || true
+    apt-get purge -y libmosquitto1 libdlt2 > /dev/null || true
 
     apt-get autoremove -y /dev/null || true
     systemctl daemon-reload

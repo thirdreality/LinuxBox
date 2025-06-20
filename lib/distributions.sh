@@ -169,8 +169,8 @@ install_common()
 		cat <<-EOF > "${SDCARD}/etc/t3r-release"
 		PRETTY_NAME="LinuxBox Dev Edition"
 		NAME="LinuxBox/HubV3"
-		VERSION_ID="000800"
-		VERSION="v0.8.0"
+		VERSION_ID="000900"
+		VERSION="v0.9.0"
 		HOME_URL="https://3reality.com/"
 		SUPPORT_URL="Support@3reality.com"
 		EOF
