@@ -89,8 +89,8 @@ flash_firmware()
         port="/dev/ttyAML3"
         firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigbee_whole_img.bin"
 
-        #define GPIOX_17	64
-        gpioget 0 64
+        # define GPIOX_17	64
+        # gpioget 0 64
     elif [ "$mode" = "thread" ]; then
         port="/dev/ttyAML6"
         firmware="/usr/lib/firmware/bl706/${image_size_dir}/thread_whole_img.bin"
