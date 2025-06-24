@@ -107,14 +107,14 @@ flash_firmware()
     enter_isp_mode $mode
 
     echo "Burning Image, mode: $mode. port: $port . firmware: $firmware"
-    python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=2000000 --addr=0x0 --firmware="$firmware" --single
+    python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=460800 --addr=0x0 --firmware="$firmware" --single
 
     if [ $? -eq 0 ]; then
         echo "Burn successfully"
     else
         echo "Burning failed, try again"
         bflb_pip_install_dependence
-        python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=2000000 --addr=0x0 --firmware="$firmware" --single
+        python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=460800 --addr=0x0 --firmware="$firmware" --single
     fi
 
     disable_isp $mode
