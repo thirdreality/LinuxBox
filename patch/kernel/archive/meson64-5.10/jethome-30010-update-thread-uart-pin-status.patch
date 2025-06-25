@@ -1,0 +1,25 @@
+From ac18da8aed83b815c229f15d34c29b2a0c466c2d Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Wed, 18 Jun 2025 10:25:41 +0800
+Subject: [PATCH] update thread uart pin status
+
+---
+ arch/arm64/boot/dts/amlogic/meson-axg.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
+index 685c2fef5e59..ae60b20a79e9 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
+@@ -1088,7 +1088,7 @@ mux {
+ 						groups = "uart_tx_b_x",
+ 							 "uart_rx_b_x";
+ 						function = "uart_b";
+-						bias-disable;
++                        bias-pull-up;
+ 					};
+ 				};
+ 
+-- 
+2.39.5
+

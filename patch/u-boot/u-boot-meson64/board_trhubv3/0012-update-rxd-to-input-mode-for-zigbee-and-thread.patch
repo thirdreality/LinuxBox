@@ -1,0 +1,228 @@
+From 9e4fc644060e772645506cf4cea4254f270bb21f Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Fri, 20 Jun 2025 18:08:44 +0800
+Subject: [PATCH] update rxd to input mode for zigbee and thread
+
+---
+ board/amlogic/trhub-v3/trhub-v3.c   |  48 ++++++++++++
+ board/amlogic/trhub-v3b/trhub-v3b.c | 115 ++++++++++++++++++++++++++--
+ 2 files changed, 157 insertions(+), 6 deletions(-)
+
+diff --git a/board/amlogic/trhub-v3/trhub-v3.c b/board/amlogic/trhub-v3/trhub-v3.c
+index 846dea52c56..742b5f1ff3f 100644
+--- a/board/amlogic/trhub-v3/trhub-v3.c
++++ b/board/amlogic/trhub-v3/trhub-v3.c
+@@ -22,6 +22,15 @@
+ #define RGB_GREEN_GPIO		4
+ #define RGB_BLUE_GPIO		5
+ 
++
++// GPIOZ_9 --> 9
++#define ZIGBEE_RXD_GPIO		9
++
++// GPIOX_17 --> 64
++#define THREAD_RXD_GPIO		64
++
++
++
+ /* RGB LED 初始化函数 */
+ static int rgb_led_init(void)
+ {
+@@ -61,6 +70,37 @@ err_green:
+ 	return ret;
+ }
+ 
++/* GPIO 输入初始化函数 */
++static int gpio_input_init(void)
++{
++	int ret;
++
++	/* 初始化 ZIGBEE_RXD_GPIO - 设置为输入模式 */
++	ret = gpio_request(ZIGBEE_RXD_GPIO, "zigbee_rxd");
++	if (ret) {
++		printf("GPIO INPUT: Failed to request ZIGBEE_RXD GPIO %d\n", ZIGBEE_RXD_GPIO);
++		return ret;
++	}
++	gpio_direction_input(ZIGBEE_RXD_GPIO);
++
++	/* 初始化 THREAD_RXD_GPIO - 设置为输入模式 */
++	ret = gpio_request(THREAD_RXD_GPIO, "thread_rxd");
++	if (ret) {
++		printf("GPIO INPUT: Failed to request THREAD_RXD GPIO %d\n", THREAD_RXD_GPIO);
++		goto err_thread;
++	}
++	gpio_direction_input(THREAD_RXD_GPIO);
++
++	printf("GPIO inputs initialized successfully (ZIGBEE_RXD: %d, THREAD_RXD: %d)\n", 
++		   ZIGBEE_RXD_GPIO, THREAD_RXD_GPIO);
++	return 0;
++
++err_thread:
++	gpio_free(ZIGBEE_RXD_GPIO);
++	return ret;
++}
++
++
+ int misc_init_r(void)
+ {
+ 	u8 mac_addr[ARP_HLEN];
+@@ -82,6 +122,14 @@ int misc_init_r(void)
+ 		printf("RGB LED initialized as WHITE (all pins HIGH)\n");
+ 	}
+ 
++	/* 初始化 GPIO 输入引脚 */
++	ret = gpio_input_init();
++	if (ret) {
++		printf("Warning: GPIO input initialization failed\n");
++	} else {
++		printf("GPIO inputs initialized successfully\n");
++	}
++
+ 	memset (mac_addr,0, sizeof(mac_addr));
+ 	sprintf(_cmdbuf, "store init");
+ 	if(!run_command(_cmdbuf, 0))
+diff --git a/board/amlogic/trhub-v3b/trhub-v3b.c b/board/amlogic/trhub-v3b/trhub-v3b.c
+index 74dca6e2ef9..742b5f1ff3f 100644
+--- a/board/amlogic/trhub-v3b/trhub-v3b.c
++++ b/board/amlogic/trhub-v3b/trhub-v3b.c
+@@ -16,6 +16,91 @@
+ #include <asm/arch/mem.h>
+ #include <u-boot/crc.h>
+ 
++#include <asm/gpio.h>
++
++#define RGB_RED_GPIO		89
++#define RGB_GREEN_GPIO		4
++#define RGB_BLUE_GPIO		5
++
++
++// GPIOZ_9 --> 9
++#define ZIGBEE_RXD_GPIO		9
++
++// GPIOX_17 --> 64
++#define THREAD_RXD_GPIO		64
++
++
++
++/* RGB LED 初始化函数 */
++static int rgb_led_init(void)
++{
++	int ret;
++
++	/* 初始化红色 LED GPIO - 直接设置为高电平 */
++	ret = gpio_request(RGB_RED_GPIO, "rgb_red");
++	if (ret) {
++		printf("RGB LED: Failed to request red GPIO %d\n", RGB_RED_GPIO);
++		return ret;
++	}
++	gpio_direction_output(RGB_RED_GPIO, 1);
++
++	/* 初始化绿色 LED GPIO - 直接设置为高电平 */
++	ret = gpio_request(RGB_GREEN_GPIO, "rgb_green");
++	if (ret) {
++		printf("RGB LED: Failed to request green GPIO %d\n", RGB_GREEN_GPIO);
++		goto err_green;
++	}
++	gpio_direction_output(RGB_GREEN_GPIO, 1);
++
++	/* 初始化蓝色 LED GPIO - 直接设置为高电平 */
++	ret = gpio_request(RGB_BLUE_GPIO, "rgb_blue");
++	if (ret) {
++		printf("RGB LED: Failed to request blue GPIO %d\n", RGB_BLUE_GPIO);
++		goto err_blue;
++	}
++	gpio_direction_output(RGB_BLUE_GPIO, 1);
++
++	printf("RGB LED initialized successfully (all pins set to HIGH)\n");
++	return 0;
++
++err_blue:
++	gpio_free(RGB_GREEN_GPIO);
++err_green:
++	gpio_free(RGB_RED_GPIO);
++	return ret;
++}
++
++/* GPIO 输入初始化函数 */
++static int gpio_input_init(void)
++{
++	int ret;
++
++	/* 初始化 ZIGBEE_RXD_GPIO - 设置为输入模式 */
++	ret = gpio_request(ZIGBEE_RXD_GPIO, "zigbee_rxd");
++	if (ret) {
++		printf("GPIO INPUT: Failed to request ZIGBEE_RXD GPIO %d\n", ZIGBEE_RXD_GPIO);
++		return ret;
++	}
++	gpio_direction_input(ZIGBEE_RXD_GPIO);
++
++	/* 初始化 THREAD_RXD_GPIO - 设置为输入模式 */
++	ret = gpio_request(THREAD_RXD_GPIO, "thread_rxd");
++	if (ret) {
++		printf("GPIO INPUT: Failed to request THREAD_RXD GPIO %d\n", THREAD_RXD_GPIO);
++		goto err_thread;
++	}
++	gpio_direction_input(THREAD_RXD_GPIO);
++
++	printf("GPIO inputs initialized successfully (ZIGBEE_RXD: %d, THREAD_RXD: %d)\n", 
++		   ZIGBEE_RXD_GPIO, THREAD_RXD_GPIO);
++	return 0;
++
++err_thread:
++	gpio_free(ZIGBEE_RXD_GPIO);
++	return ret;
++}
++
++
+ int misc_init_r(void)
+ {
+ 	u8 mac_addr[ARP_HLEN];
+@@ -28,6 +113,23 @@ int misc_init_r(void)
+ 	char keydata[256];
+ 	int ver=0;
+ 
++	/* 初始化 RGB LED */
++	ret = rgb_led_init();
++	if (ret) {
++		printf("Warning: RGB LED initialization failed\n");
++	} else {
++		/* RGB LED 初始化时已经设置为白色（所有引脚为高电平） */
++		printf("RGB LED initialized as WHITE (all pins HIGH)\n");
++	}
++
++	/* 初始化 GPIO 输入引脚 */
++	ret = gpio_input_init();
++	if (ret) {
++		printf("Warning: GPIO input initialization failed\n");
++	} else {
++		printf("GPIO inputs initialized successfully\n");
++	}
++
+ 	memset (mac_addr,0, sizeof(mac_addr));
+ 	sprintf(_cmdbuf, "store init");
+ 	if(!run_command(_cmdbuf, 0))
+@@ -48,14 +150,15 @@ int misc_init_r(void)
+ 			    {
+ 			      if (keydata[1] == '1')
+ 			      {
+-				sprintf(_cmdbuf, "%c%c",keydata[6],keydata[7]);
+-				env_set("hwrev", _cmdbuf);
+-				sprintf(_cmdbuf, "%c%c",keydata[8],keydata[9]);
+-				env_set("perev", _cmdbuf);
++					sprintf(_cmdbuf, "%c%c",keydata[6],keydata[7]);
++					env_set("hwrev", _cmdbuf);
++					sprintf(_cmdbuf, "%c%c",keydata[8],keydata[9]);
++					env_set("perev", _cmdbuf);
+ 			      }
+-			    }			
+-#endif
++			    }
++#endif			
+ 			}
++
+ 			// get serial
+ 			strcpy(keyname, "serial");
+ 			memset (keydata, 0, sizeof(keydata));
+-- 
+2.39.5
+
