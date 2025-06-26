@@ -442,6 +442,15 @@ main_procedure()
     if [ -e "/usr/local/bin/supervisor" ]; then
         /usr/local/bin/supervisor led sys_event_off || true
     fi
+
+    # Auto restore functionality
+    if [ -d "/mnt/3RBackup" ] && [ -e "/usr/local/bin/supervisor" ]; then
+        setting_files=$(find "/mnt/3RBackup" -maxdepth 1 -name "setting_*.tar.gz" -type f 2>/dev/null || true)
+        if [ -n "$setting_files" ]; then
+            echo "Found backup settings, attempting to restore..."
+            /usr/local/bin/supervisor setting restore || true
+        fi
+    fi
 }
 
 
