@@ -149,12 +149,20 @@ install_deb_if_needed() {
         if dpkg --compare-versions "$deb_version" gt "$current_version"; then
             echo "A newer version is available. Installing: ${deb_file}"
             dpkg_install "$deb_file"
+
+            if [ -e "/usr/local/bin/supervisor" ]; then
+                /usr/local/bin/supervisor setting updated  || true
+            fi            
         else
             echo "Installed version is up-to-date. No installation needed."
         fi
     else
         echo "${package_name} is not installed or version not available. Installing: ${deb_file}"
         dpkg_install "$deb_file"
+
+        if [ -e "/usr/local/bin/supervisor" ]; then
+            /usr/local/bin/supervisor setting updated  || true
+        fi            
     fi
 }
 
@@ -235,10 +243,6 @@ install_core_matter_debs() {
         echo "No otbr-agent deb file found in $WORK_DIR" >&2
     fi
 
-    if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor ota update  || true
-    fi
-
     return 0
 }
 
@@ -263,6 +267,10 @@ install_zigbee2mqtt_debs() {
             else
                 apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
 
+                if [ -e "/usr/local/bin/supervisor" ]; then
+                    /usr/local/bin/supervisor setting updated  || true
+                fi
+
                 # If installation is successful, install dependencies
                 if [ -e "/usr/lib/thirdreality/post-install-zigbee2mqtt.sh" ]; then
                     /usr/lib/thirdreality/post-install-zigbee2mqtt.sh > /dev/null || true
@@ -282,7 +290,11 @@ install_zigbee2mqtt_debs() {
             echo "Warning: Failed to install $zigbee_mqtt_deb_file" >&2
         else
             apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
-                
+        
+            if [ -e "/usr/local/bin/supervisor" ]; then
+                /usr/local/bin/supervisor setting updated  || true
+            fi         
+
             # If installation is successful, install dependencies
             if [ -e "/usr/lib/thirdreality/post-install-zigbee2mqtt.sh" ]; then
                 /usr/lib/thirdreality/post-install-zigbee2mqtt.sh > /dev/null || true
