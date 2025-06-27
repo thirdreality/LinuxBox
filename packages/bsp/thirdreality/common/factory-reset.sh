@@ -214,10 +214,14 @@ remove_zigpy_tools
 # Query and remove all packages matching "thirdreality", leaving room for future upgrades
 dpkg --list | grep thirdreality | awk '{print $2}' | xargs apt-get remove -y
 
+rm -rf /usr/share/hassio || true
+rm -rf /var/lib/homeassistant  || true
+rm -rf /var/lib/thread  || true
+rm -rf /lib/thirdreality/conf/*  || true
+rm -rf /lib/thirdreality/backup/*  || true
+rm -rf /lib/thirdreality/archives/* || true
 
-rm -rf /usr/share/hassio 
-rm -rf /var/lib/homeassistant
-rm -rf /var/lib/thread
+rm -rf /usr/lib/firmware/bl706/bflb_iot || true
 
 /usr/bin/sync
 
@@ -240,9 +244,11 @@ fi
 mkdir -p /var/lib/homeassistant/homeassistant
 mkdir -p /var/lib/homeassistant/matter_server
 
+if [ -e "/usr/local/bin/supervisor" ]; then
+    /usr/local/bin/supervisor led white
+fi
 
 echo "Factory reset completed. Rebooting now..."  | wall
-
 
 /usr/bin/sync
 sleep 2

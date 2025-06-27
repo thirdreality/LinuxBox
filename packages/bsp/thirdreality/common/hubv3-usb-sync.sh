@@ -456,10 +456,11 @@ main_procedure()
     fi
 
     # Auto restore functionality
-    if [ -d "/mnt/3RBackup" ] && [ -e "/usr/local/bin/supervisor" ]; then
-        setting_files=$(find "/mnt/3RBackup" -maxdepth 1 -name "setting_*.tar.gz" -type f 2>/dev/null || true)
+    if [ -d "/mnt/R3Backup" ] && [ -e "/usr/local/bin/supervisor" ]; then
+        setting_files=$(find "/mnt/R3Backup" -maxdepth 1 -name "setting_*.tar.gz" -type f 2>/dev/null || true)
         if [ -n "$setting_files" ]; then
             echo "Found backup settings, attempting to restore..."
+            echo "System found backup settings, attempting to restore..." | wall
             /usr/local/bin/supervisor setting restore || true
         fi
     fi
