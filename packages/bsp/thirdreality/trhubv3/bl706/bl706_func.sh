@@ -87,15 +87,20 @@ flash_firmware()
 
     if [ "$mode" = "zigbee" ]; then
         port="/dev/ttyAML3"
-        firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigbee_whole_img.bin"
-
-        # define GPIOX_17	64
-        # gpioget 0 64
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/blz_whole_img.bin"
+    elif [ "$mode" = "zigate" ]; then
+        port="/dev/ttyAML3"
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigate_whole_img.bin"
+        mode="zigbee"  # Set mode to zigbee for subsequent processing
+    elif [ "$mode" = "blz" ]; then
+        port="/dev/ttyAML3"
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/blz_whole_img.bin"
+        mode="zigbee"  # Set mode to zigbee for subsequent processing
     elif [ "$mode" = "thread" ]; then
         port="/dev/ttyAML6"
         firmware="/usr/lib/firmware/bl706/${image_size_dir}/thread_whole_img.bin"
     else
-        echo "Invalid mode: $mode. Use 'zigbee' or 'thread'."
+        echo "Invalid mode: $mode. Use 'zigbee', 'zigate', 'blz' or 'thread'."
         exit 1
     fi
 
