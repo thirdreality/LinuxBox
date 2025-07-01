@@ -79,7 +79,7 @@ flash_firmware()
     if [ "$image_size" = "1m" ]; then
         image_size_dir="partition_1m_images"
     elif [ "$image_size" = "2m" ]; then
-        image_size_dir="partition_2m_images"
+        image_size_dir="partition_1m_images" # 2m is not supported yet
     else
         echo "Invalid image size: $image_size. Use '1m' or '2m'."
         exit 1    
@@ -87,7 +87,8 @@ flash_firmware()
 
     if [ "$mode" = "zigbee" ]; then
         port="/dev/ttyAML3"
-        firmware="/usr/lib/firmware/bl706/${image_size_dir}/blz_whole_img.bin"
+        #firmware="/usr/lib/firmware/bl706/${image_size_dir}/blz_whole_img.bin"
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigate_whole_img.bin"
     elif [ "$mode" = "zigate" ]; then
         port="/dev/ttyAML3"
         firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigate_whole_img.bin"
