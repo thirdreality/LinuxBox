@@ -87,8 +87,8 @@ flash_firmware()
 
     if [ "$mode" = "zigbee" ]; then
         port="/dev/ttyAML3"
-        #firmware="/usr/lib/firmware/bl706/${image_size_dir}/blz_whole_img.bin"
-        firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigate_whole_img.bin"
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/blz_whole_img.bin"
+        #firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigate_whole_img.bin"
     elif [ "$mode" = "zigate" ]; then
         port="/dev/ttyAML3"
         firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigate_whole_img.bin"

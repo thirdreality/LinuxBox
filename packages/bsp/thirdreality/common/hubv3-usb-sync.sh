@@ -452,6 +452,7 @@ main_procedure()
     install_extra_debs
 
     if [ -e "/usr/local/bin/supervisor" ]; then
+        /usr/bin/sync
         /usr/local/bin/supervisor led sys_event_off || true
     fi
 
