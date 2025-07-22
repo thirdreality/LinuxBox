@@ -69,21 +69,19 @@ More detail information please check the wiki: [How-to-burn-the-image-to-LinuxBo
 
 
 ## Tricks for using LinuxBox
-sys
+
 ### HomeAssistant
 
-Thirdreality dev team supply a new way to install home assistant core in 3-4 minutes.
+Thirdreality dev team supply a new way to install home assistant core in 8-10 minutes.
 
-Check it in WIKI: [install-home-assistant-core-on-the-linuxbox](https://github.com/thirdreality/LinuxBox/wiki/Tricks#1how-to-fast-install-home-assistant-core-on-the-linuxbox)
+Check it in WIKI: [Tricks-for-Homeassistant](https://github.com/thirdreality/LinuxBox/wiki/Tricks-for-Homeassistant)
 
 
-### zigbee2mqtt
-
-To be continue ...
-
-### HomeKit bridge
+### OpenHab
 
 To be continue ...
+
+
 
 
 
