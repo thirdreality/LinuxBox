@@ -4,15 +4,15 @@ current_dir=$(pwd)
 
 board="trhubv3"
 destination=""
-enable_homeassistant="no"
+r3version="v1.0.0"
 
 # 显示使用说明的函数
 usage() {
-    echo "Usage: $0 [-b board:trhubv3|trhubv3b|linuxbox] -d [cn|us|kr] -s"
+    echo "Usage: $0 [-b board:trhubv3|trhubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
     exit 1
 }
 
-while getopts ":b:d:s" opt; do
+while getopts ":b:d:r:v:" opt; do
     case ${opt} in
         b)
             if [[ "$OPTARG" == "trhubv3" || "$OPTARG" == "trhubv3b" || "$OPTARG" == "linuxbox" ]]; then
@@ -31,8 +31,8 @@ while getopts ":b:d:s" opt; do
                 usage
             fi
             ;;
-        s)
-            enable_homeassistant=yes
+        r)
+            r3version=$OPTARG
             ;;
         \?)
             echo "Invalid option: -$OPTARG"
@@ -50,9 +50,16 @@ if [ -z "$board" ]; then
     usage
 fi
 
+# 默认用 r3version
+ver_no_v=${r3version#v}
+IFS='.' read -r major minor patch <<< "$ver_no_v"
+r3_version_id=$((10#$major * 10000 + 10#$minor * 100 + 10#$patch))
+
+# 输出参数
 echo "** Board selected: [ $board ]"
 echo "** Destination selected: [ $destination ]"
-echo "** HomeAssistant supported: [ $enable_homeassistant ]"
+echo "** R3 Version selected: [ $r3version ]"
+echo "** VERSION_ID calculated: [ $r3_version_id ]"
 
 URL_APPARMOR_PROFILE="https://version.home-assistant.io/apparmor.txt"
 
@@ -67,49 +74,39 @@ if [ ! -d "$current_dir/userpatches" ]; then
         #cp $current_dir/custom/*.deb $current_dir/userpatches/overlay/
         cp $current_dir/custom/bl706_cache $current_dir/userpatches/overlay/ -R
     fi
-
-    if [[ $enable_homeassistant == yes ]]; then
-        # keep apparmor.txt latest. apparmor.txt last update: Oct 26, 2023
-        cp $current_dir/custom/hassio-supervisor $current_dir/userpatches/overlay/hassio-supervisor
-        cp $current_dir/custom/homeassistant-config.tar.gz $current_dir/userpatches/overlay/homeassistant-config.tar.gz
-        curl -sL ${URL_APPARMOR_PROFILE} > "$current_dir/userpatches/overlay/hassio-supervisor"
-    fi
 else
-    if [[ $enable_homeassistant == yes ]]; then
-        if [ -e "$current_dir/userpatches/overlay/hassio-supervisor~" ]; then
-            mv "$current_dir/userpatches/overlay/hassio-supervisor~" "$current_dir/userpatches/overlay/hassio-supervisor"
-        fi
+    if [ -e "$current_dir/userpatches/overlay/hassio-supervisor~" ]; then
+        mv "$current_dir/userpatches/overlay/hassio-supervisor~" "$current_dir/userpatches/overlay/hassio-supervisor"
+    fi
 
-        if [ -e "$current_dir/userpatches/overlay/homeassistant-config.tar.gz~" ]; then
-            mv "$current_dir/userpatches/overlay/homeassistant-config.tar.gz~" "$current_dir/userpatches/overlay/homeassistant-config.tar.gz"
-        fi
+    if [ -e "$current_dir/userpatches/overlay/homeassistant-config.tar.gz~" ]; then
+        mv "$current_dir/userpatches/overlay/homeassistant-config.tar.gz~" "$current_dir/userpatches/overlay/homeassistant-config.tar.gz"
+    fi
 
-        if [ -e "$current_dir/userpatches/overlay/docker-deb~" ]; then
-            mv "$current_dir/userpatches/overlay/docker-deb~" "$current_dir/userpatches/overlay/docker-deb"
-        fi
-    else
-        if [ -e "$current_dir/userpatches/overlay/hassio-supervisor" ]; then
-            mv "$current_dir/userpatches/overlay/hassio-supervisor" "$current_dir/userpatches/overlay/hassio-supervisor~"
-        fi
+    if [ -e "$current_dir/userpatches/overlay/docker-deb~" ]; then
+        mv "$current_dir/userpatches/overlay/docker-deb~" "$current_dir/userpatches/overlay/docker-deb"
+    fi
 
-        if [ -e "$current_dir/userpatches/overlay/homeassistant-config.tar.gz" ]; then
-            mv "$current_dir/userpatches/overlay/homeassistant-config.tar.gz" "$current_dir/userpatches/overlay/homeassistant-config.tar.gz~"
-        fi
+    if [ -e "$current_dir/userpatches/overlay/hassio-supervisor" ]; then
+        mv "$current_dir/userpatches/overlay/hassio-supervisor" "$current_dir/userpatches/overlay/hassio-supervisor~"
+    fi
 
-        if [ -e "$current_dir/userpatches/overlay/docker-deb" ]; then
-            mv "$current_dir/userpatches/overlay/docker-deb" "$current_dir/userpatches/overlay/docker-deb~"
-        fi        
+    if [ -e "$current_dir/userpatches/overlay/homeassistant-config.tar.gz" ]; then
+        mv "$current_dir/userpatches/overlay/homeassistant-config.tar.gz" "$current_dir/userpatches/overlay/homeassistant-config.tar.gz~"
+    fi
+
+    if [ -e "$current_dir/userpatches/overlay/docker-deb" ]; then
+        mv "$current_dir/userpatches/overlay/docker-deb" "$current_dir/userpatches/overlay/docker-deb~"
     fi
 fi
 
 rm -rf $current_dir/output/images
 
-$(pwd)/compile.sh hubv3-images BOARD=${board} BRANCH=current RELEASE=bookworm \
+$(pwd)/compile.sh hubv3-images BOARD=${board} BRANCH=current RELEASE=bookworm R3VERSION=${r3version} R3VERSION_ID=${r3_version_id} \
         BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
         COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no \
         UBOOT_MIRROR=github \
-        DOWNLOAD_MIRROR=${destination} \
-        BUILD_DOCKER=${enable_homeassistant}
+        DOWNLOAD_MIRROR=${destination}
 
 IMG_FILE=$(find "$current_dir/output/images" -maxdepth 1 -type f -name "*.img")
 
@@ -132,7 +129,10 @@ if [[ -n "$IMG_FILE" ]]; then
         mkdir -p ${current_dir}/output/images/
         mv "$IMGBURN" ${current_dir}/output/images/
         IMGBURN=$(find ${current_dir}/output -maxdepth 4 -type f -name "*.burn.img")
-        echo "File build: $IMGBURN"
+        # 重命名 .burn.img 为 .${r3version}.img
+        new_imgburn="${IMGBURN/.burn.img/.${r3version}.img}"
+        mv "$IMGBURN" "$new_imgburn"
+        echo "File build: $new_imgburn"
     else
         echo "Fail: No burn.img file exist."
     fi 

@@ -170,8 +170,8 @@ install_common()
 		PRETTY_NAME="LinuxBox Dev Edition"
 		NAME="LinuxBox/HubV3"
 		MODLE="3RLB01081MH"
-		VERSION_ID="100000"
-		VERSION="v1.0.0"
+		VERSION_ID="${R3VERSION_ID}"
+		VERSION="${R3VERSION}"
 		HOME_URL="https://3reality.com/"
 		SUPPORT_URL="Support@3reality.com"
 		EOF

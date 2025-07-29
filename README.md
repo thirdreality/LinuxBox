@@ -29,7 +29,7 @@ Armbian source code for Third Reality Linux Box Dev Edition.
 ### Download
 
 ```bash
-git clone git@github.com:thirdreality/LinuxBox.git
+git clone git@github.com:thirdreality/LinuxBox.git -b hubv3
 ```
 
 ### Compile
