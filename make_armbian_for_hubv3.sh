@@ -4,7 +4,7 @@ current_dir=$(pwd)
 
 board="trhubv3"
 destination=""
-r3version="v1.0.2"
+r3version="v1.03.01.02"
 
 # 显示使用说明的函数
 usage() {
@@ -52,8 +52,8 @@ fi
 
 # 默认用 r3version
 ver_no_v=${r3version#v}
-IFS='.' read -r major minor patch <<< "$ver_no_v"
-r3_version_id=$((10#$major * 10000 + 10#$minor * 100 + 10#$patch))
+IFS='.' read -r major minor patch build <<< "$ver_no_v"
+r3_version_id=$((10#$major * 1000000 + 10#$minor * 10000 + 10#$patch * 100 + 10#$build))
 
 # 输出参数
 echo "** Board selected: [ $board ]"
