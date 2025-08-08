@@ -45,7 +45,7 @@ The compiled generated firmware is located:
 `output/images/Armbian_22.11.0-trunk_*_bookworm_current_5.10.x.v1.x.x.burn.img`
 
 Here is a pre-compiled image. If you don't have time to compile the image yourself and don't mind if it's slightly outdated, you can give it a try:
-[linuxbox-image-5.10.240-v1.0.0](https://assets.3reality.com/product/hubv3/Armbian_22.11.0-trunk_Trhubv3_bookworm_current_5.10.240.v1.0.0.img)
+[linuxbox-image-5.10.240-v1.03.01.02](https://assets.3reality.com/product/hubv3/Armbian_22.11.0-trunk_Trhubv3_bookworm_current_5.10.240.v1.03.01.02.img)
 
 
 More detail information please check [How-to-Compile-firmware](https://github.com/thirdreality/LinuxBox/wiki/How-to-Compile-firmware)
