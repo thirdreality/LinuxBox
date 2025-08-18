@@ -363,25 +363,29 @@ install_zigbee2mqtt_debs() {
             echo "No zigbee-mqtt deb file found in $WORK_DIR" >&2
         fi
     else
-        echo "thirdreality-zigbee-mqtt is already installed, upgrading."
-
-        echo "Installing: $zigbee_mqtt_deb_file"
-        if ! DEBIAN_FRONTEND=noninteractive dpkg -i "$zigbee_mqtt_deb_file"; then
-            echo "Warning: Failed to install $zigbee_mqtt_deb_file" >&2
-        else
-            apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
-        
-            if [ -e "/usr/local/bin/supervisor" ]; then
-                /usr/local/bin/supervisor setting updated  || true
-            fi         
-
-            # If installation is successful, install dependencies
-            if [ -e "/usr/lib/thirdreality/post-install-zigbee2mqtt.sh" ]; then
-                /usr/lib/thirdreality/post-install-zigbee2mqtt.sh > /dev/null || true
-                apt-get install -f > /dev/null || true
+        # Find zigbee-mqtt deb file for upgrade
+        zigbee_mqtt_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigbee-mqtt_*.deb" -type f | head -n 1)
+        if [ -n "$zigbee_mqtt_deb_file" ]; then
+            echo "Installing: $zigbee_mqtt_deb_file"
+            if ! DEBIAN_FRONTEND=noninteractive dpkg -i "$zigbee_mqtt_deb_file"; then
+                echo "Warning: Failed to install $zigbee_mqtt_deb_file" >&2
             else
-                execute_fix_dependency_if_needed "thirdreality-zigbee-mqtt"
-            fi            
+                apt-mark manual "thirdreality-zigbee-mqtt" || echo "Warning: Failed to mark thirdreality-zigbee-mqtt as manual" >&2
+            
+                if [ -e "/usr/local/bin/supervisor" ]; then
+                    /usr/local/bin/supervisor setting updated  || true
+                fi         
+
+                # If installation is successful, install dependencies
+                if [ -e "/usr/lib/thirdreality/post-install-zigbee2mqtt.sh" ]; then
+                    /usr/lib/thirdreality/post-install-zigbee2mqtt.sh > /dev/null || true
+                    apt-get install -f > /dev/null || true
+                else
+                    execute_fix_dependency_if_needed "thirdreality-zigbee-mqtt"
+                fi            
+            fi
+        else
+            echo "No zigbee-mqtt deb file found for upgrade in $WORK_DIR" >&2
         fi        
     fi
 }
