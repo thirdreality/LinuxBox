@@ -455,12 +455,28 @@ install_supervisor_deb() {
     return 0
 }
 
+validate_config() {
+    # Validate configuration and clean up invalid flags
+    if [ -d "/mnt/R3Backup" ] && [ -f "/mnt/R3Backup/.enable-backup" ]; then
+        # Check if thirdreality-python3 package is installed
+        if ! dpkg -l | grep -q "^ii\s*thirdreality-python3"; then
+            echo "Warning: .enable-backup flag found but thirdreality-python3 package not installed"
+            echo "Removing .enable-backup flag..."
+            rm -f "/mnt/R3Backup/.enable-backup"
+            echo ".enable-backup flag removed due to missing thirdreality-python3 package"
+        fi
+    fi
+}
+
 main_procedure()
-{
+{  
     if [ -e "/usr/local/bin/supervisor" ]; then
         /usr/local/bin/supervisor led sys_firmware_updating  || true
     fi
 
+    # Validate configuration first
+    validate_config
+    
     echo "System is start to install deb packages. " | wall
 
     if [ -d "$WORK_DIR" ]; then
@@ -518,11 +534,26 @@ main_procedure()
 
     # Auto restore functionality
     if [ -d "/mnt/R3Backup" ] && [ -e "/usr/local/bin/supervisor" ]; then
+        # Check if .enable-backup exists - force backup and exit
+        if [ -f "/mnt/R3Backup/.enable-backup" ]; then
+            /usr/local/bin/supervisor led sys_event_off || true
+            echo "Found .enable-backup flag, forcing backup..."
+            echo "System found .enable-backup flag, forcing backup..." | wall
+            /usr/local/bin/supervisor setting backup || true
+            rm -f "/mnt/R3Backup/.enable-backup"
+            echo "Backup completed, .enable-backup flag removed"
+            /usr/local/bin/supervisor led sys_event_off || true
+            return 0
+        fi
+        
+        # Check setting files and decide whether to restore
         setting_files=$(find "/mnt/R3Backup" -maxdepth 1 -name "setting_*.tar.gz" -type f 2>/dev/null || true)
         if [ -n "$setting_files" ]; then
+            /usr/local/bin/supervisor led sys_firmware_updating  || true
             echo "Found backup settings, attempting to restore..."
             echo "System found backup settings, attempting to restore..." | wall
             /usr/local/bin/supervisor setting restore || true
+            /usr/local/bin/supervisor led sys_event_off || true
         fi
     fi
 }
