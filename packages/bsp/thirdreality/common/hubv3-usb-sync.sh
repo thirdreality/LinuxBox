@@ -209,7 +209,7 @@ install_board_flash_debs() {
         
         # Get deb version number
         deb_version=$(dpkg-deb --info "${board_firmware_deb_file}" | grep Version | awk '{print $2}')
-        echo "Deb version: $deb_version"
+        echo "Board flash deb version: $deb_version"
         
         # Check if already installed
         if dpkg -l | grep -q "^ii\s*thirdreality-board-firmware"; then
@@ -504,14 +504,21 @@ main_procedure()
             return 0
         fi
         
-        # Check setting files and decide whether to restore
-        setting_files=$(find "/mnt/R3Backup" -maxdepth 1 -name "setting_*.tar.gz" -type f 2>/dev/null || true)
-        if [ -n "$setting_files" ]; then
-            /usr/local/bin/supervisor led sys_firmware_updating  || true
-            echo "Found backup settings, attempting to restore..."
-            echo "System found backup settings, attempting to restore..." | wall
-            /usr/local/bin/supervisor setting restore || true
-            /usr/local/bin/supervisor led sys_event_off || true
+        # Check if .enable-restore exists - force restore if flag is present
+        if [ -f "/mnt/R3Backup/.enable-restore" ]; then
+            setting_files=$(find "/mnt/R3Backup" -maxdepth 1 -name "setting_*.tar.gz" -type f 2>/dev/null || true)
+            if [ -n "$setting_files" ]; then
+                /usr/local/bin/supervisor led sys_firmware_updating  || true
+                echo "Found .enable-restore flag, attempting to restore..."
+                echo "System found .enable-restore flag, attempting to restore..." | wall
+                /usr/local/bin/supervisor setting restore || true
+                /usr/local/bin/supervisor led sys_event_off || true
+                echo "Restore completed, .enable-restore flag removed"
+                rm -f "/mnt/R3Backup/.enable-restore"
+            else
+                echo "Warning: .enable-restore flag found but no setting files available"
+                rm -f "/mnt/R3Backup/.enable-restore"
+            fi
         fi
     fi
 }
