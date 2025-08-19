@@ -225,8 +225,11 @@ install_board_flash_debs() {
                 echo "Installed version is up-to-date. No installation needed."
             fi
         else
-            # Not installed before, read version information from /etc/t3r-release
-            if [ -f "/etc/t3r-release" ]; then
+            # Not installed before, check for force flag first
+            if [ -f "$WORK_DIR/.force_board_flash" ]; then
+                echo "Force flag found, installing board firmware without version check"
+                dpkg_install "$board_firmware_deb_file" "thirdreality-board-firmware"
+            elif [ -f "/etc/t3r-release" ]; then
                 # Read version information from /etc/t3r-release
                 source "/etc/t3r-release"
                 echo "System version from /etc/t3r-release: $VERSION"
