@@ -4,7 +4,7 @@ current_dir=$(pwd)
 
 board="trhubv3"
 destination=""
-r3version="v1.06.01.06"
+r3version="v1.08.01.07"
 
 # 显示使用说明的函数
 usage() {
