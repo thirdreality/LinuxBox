@@ -101,10 +101,10 @@ create_board_package()
 	grep -q vm.swappiness /etc/sysctl.conf
 	case \$? in
 	0)
-	    sed -i 's/vm\.swappiness.*/vm.swappiness=100/' /etc/sysctl.conf
+	    sed -i 's/vm\.swappiness.*/vm.swappiness=15/' /etc/sysctl.conf
 	    ;;
 	*)
-	    echo vm.swappiness=100 >>/etc/sysctl.conf
+	    echo vm.swappiness=15 >>/etc/sysctl.conf
 	    ;;
 	esac
 	sysctl -p >/dev/null 2>&1
