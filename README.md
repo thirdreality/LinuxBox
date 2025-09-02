@@ -29,7 +29,7 @@ Armbian source code for Third Reality Linux Box Dev Edition.
 ### Download
 
 ```bash
-git clone git@github.com:thirdreality/LinuxBox.git
+git clone git@github.com:thirdreality/LinuxBox.git -b hubv3
 ```
 
 ### Compile
@@ -42,10 +42,10 @@ cd LinuxBox; ./make_armbian_for_hubv3.sh
 
 The compiled generated firmware is located:
 
-`output/images/Armbian_22.11.0-xxx.burn.img`
+`output/images/Armbian_22.11.0-trunk_*_bookworm_current_5.10.x.v1.x.x.burn.img`
 
 Here is a pre-compiled image. If you don't have time to compile the image yourself and don't mind if it's slightly outdated, you can give it a try:
-[linuxbox-image-5.10.237-beta7](https://assets.3reality.com/product/hubv3/Armbian_22.11.0-trunk_Trhubv3_bookworm_current_5.10.237-beta7.burn.img)
+[linuxbox-image-5.10.240-v1.04.01.05](https://assets.3reality.com/product/hubv3/Armbian_22.11.0-trunk_Trhubv3_bookworm_current_5.10.240.v1.04.01.05.img)
 
 
 More detail information please check [How-to-Compile-firmware](https://github.com/thirdreality/LinuxBox/wiki/How-to-Compile-firmware)
@@ -69,24 +69,17 @@ More detail information please check the wiki: [How-to-burn-the-image-to-LinuxBo
 
 
 ## Tricks for using LinuxBox
-sys
+
 ### HomeAssistant
 
-Thirdreality dev team supply a new way to install home assistant core in 3-4 minutes.
+Thirdreality dev team supply a new way to install home assistant core in 8-10 minutes.
 
-Check it in WIKI: [install-home-assistant-core-on-the-linuxbox](https://github.com/thirdreality/LinuxBox/wiki/Tricks#1how-to-fast-install-home-assistant-core-on-the-linuxbox)
+Check it in WIKI: [Tricks-for-Homeassistant](https://github.com/thirdreality/LinuxBox/wiki/Tricks-for-Homeassistant)
 
 
-### zigbee2mqtt
-
-To be continue ...
-
-### HomeKit bridge
+### OpenHab
 
 To be continue ...
-
-
-
 
 
 ## License

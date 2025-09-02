@@ -79,7 +79,7 @@ flash_firmware()
     if [ "$image_size" = "1m" ]; then
         image_size_dir="partition_1m_images"
     elif [ "$image_size" = "2m" ]; then
-        image_size_dir="partition_2m_images"
+        image_size_dir="partition_1m_images" # 2m is not supported yet
     else
         echo "Invalid image size: $image_size. Use '1m' or '2m'."
         exit 1    
@@ -87,15 +87,21 @@ flash_firmware()
 
     if [ "$mode" = "zigbee" ]; then
         port="/dev/ttyAML3"
-        firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigbee_whole_img.bin"
-
-        # define GPIOX_17	64
-        # gpioget 0 64
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/blz_whole_img.bin"
+        #firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigate_whole_img.bin"
+    elif [ "$mode" = "zigate" ]; then
+        port="/dev/ttyAML3"
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/zigate_whole_img.bin"
+        mode="zigbee"  # Set mode to zigbee for subsequent processing
+    elif [ "$mode" = "blz" ]; then
+        port="/dev/ttyAML3"
+        firmware="/usr/lib/firmware/bl706/${image_size_dir}/blz_whole_img.bin"
+        mode="zigbee"  # Set mode to zigbee for subsequent processing
     elif [ "$mode" = "thread" ]; then
         port="/dev/ttyAML6"
         firmware="/usr/lib/firmware/bl706/${image_size_dir}/thread_whole_img.bin"
     else
-        echo "Invalid mode: $mode. Use 'zigbee' or 'thread'."
+        echo "Invalid mode: $mode. Use 'zigbee', 'zigate', 'blz' or 'thread'."
         exit 1
     fi
 
@@ -107,14 +113,14 @@ flash_firmware()
     enter_isp_mode $mode
 
     echo "Burning Image, mode: $mode. port: $port . firmware: $firmware"
-    python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=460800 --addr=0x0 --firmware="$firmware" --single
+    python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=921600 --addr=0x0 --firmware="$firmware" --single
 
     if [ $? -eq 0 ]; then
         echo "Burn successfully"
     else
         echo "Burning failed, try again"
         bflb_pip_install_dependence
-        python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=460800 --addr=0x0 --firmware="$firmware" --single
+        python3 /usr/lib/firmware/bl706/bflb_iot/core/bflb_iot_tool.py --chipname=bl702 --port=$port --baudrate=921600 --addr=0x0 --firmware="$firmware" --single
     fi
 
     disable_isp $mode

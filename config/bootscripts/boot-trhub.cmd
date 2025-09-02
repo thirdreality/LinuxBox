@@ -39,9 +39,9 @@ setenv bootargs "root=${rootdev} rootwait rootflags=data=writeback rootfstype=${
 
 if test -n "${board_name}"; then setenv bootargs "${bootargs} board=${board}"; fi
 
-if test -n "${ethaddr}"; then setenv bootargs "${bootargs} mac=${ethaddr}";
-else if test -n "${mac}"; then setenv bootargs "${bootargs} mac=${mac}" ; fi
-fi
+#if test -n "${ethaddr}"; then setenv bootargs "${bootargs} mac=${ethaddr}";
+#else if test -n "${mac}"; then setenv bootargs "${bootargs} mac=${mac}" ; fi
+#fi
 
 if test -n "${serial}"; then setenv bootargs "${bootargs} serial=${serial}"; fi
 if test -n "${usid}"; then setenv bootargs "${bootargs} usid=${usid}"; fi
