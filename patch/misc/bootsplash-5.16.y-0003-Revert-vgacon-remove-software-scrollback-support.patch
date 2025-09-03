@@ -1,16 +1,15 @@
-From 440d5cecaf940b722f9f78a14db7f1e0bc0f61e8 Mon Sep 17 00:00:00 2001
-From: Igor Pecovnik <igor.pecovnik@gmail.com>
-Date: Mon, 21 Sep 2020 17:15:09 +0200
-Subject: [PATCH 1/3] Revert "vgacon: remove software scrollback support"
+From 04cde370aeae3ae276b8c7ff071928cafa624293 Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Tue, 2 Sep 2025 15:49:49 +0800
+Subject: [PATCH] Revert "vgacon: remove software scrollback support"
 
-This reverts commit 20782abbbdfe922496a28f9cc0c3c0030f7dfb8f.
 ---
- drivers/video/console/Kconfig         |  46 ++++++
- drivers/video/console/vgacon.c        | 221 +++++++++++++++++++++++++-
- 6 files changed, 270 insertions(+), 1 deletion(-)
+ drivers/video/console/Kconfig  |  46 +++++++
+ drivers/video/console/vgacon.c | 221 ++++++++++++++++++++++++++++++++-
+ 2 files changed, 266 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/video/console/Kconfig b/drivers/video/console/Kconfig
-index 39deb22a4180..5e850cc9f891 100644
+index c3be586d8648..22bb33354edd 100644
 --- a/drivers/video/console/Kconfig
 +++ b/drivers/video/console/Kconfig
 @@ -22,6 +22,52 @@ config VGA_CONSOLE
@@ -64,13 +63,13 @@ index 39deb22a4180..5e850cc9f891 100644
 +	  So if you use a RAM-constrained system, say N here.
 +
  config MDA_CONSOLE
- 	depends on !M68K && !PARISC && ISA
+ 	depends on VGA_CONSOLE && ISA
  	tristate "MDA text console (dual-headed)"
 diff --git a/drivers/video/console/vgacon.c b/drivers/video/console/vgacon.c
-index 6d0418e88ad7..e9254b3085a3 100644
+index 3ce7c7a559c6..ee17fc2e275d 100644
 --- a/drivers/video/console/vgacon.c
 +++ b/drivers/video/console/vgacon.c
-@@ -165,6 +165,214 @@ static inline void vga_set_mem_top(struct vc_data *c)
+@@ -164,6 +164,214 @@ static inline void vga_set_mem_top(struct vc_data *c)
  	write_vga(12, (c->vc_visible_origin - vga_vram_base) / 2);
  }
  
@@ -285,7 +284,7 @@ index 6d0418e88ad7..e9254b3085a3 100644
  static void vgacon_restore_screen(struct vc_data *c)
  {
  	if (c->vc_origin != c->vc_visible_origin)
-@@ -178,6 +386,11 @@ static void vgacon_scrolldelta(struct vc_data *c, int lines)
+@@ -177,6 +385,11 @@ static void vgacon_scrolldelta(struct vc_data *c, int lines)
  	vga_set_mem_top(c);
  }
  
@@ -297,7 +296,7 @@ index 6d0418e88ad7..e9254b3085a3 100644
  static const char *vgacon_startup(void)
  {
  	const char *display_desc = NULL;
-@@ -360,7 +573,10 @@ static const char *vgacon_startup(void)
+@@ -359,7 +572,10 @@ static const char *vgacon_startup(void)
  	vgacon_xres = screen_info.orig_video_cols * VGA_FONTWIDTH;
  	vgacon_yres = vga_scan_lines;
  
@@ -309,7 +308,7 @@ index 6d0418e88ad7..e9254b3085a3 100644
  
  	return display_desc;
  }
-@@ -651,6 +867,7 @@ static int vgacon_switch(struct vc_data *c)
+@@ -656,6 +872,7 @@ static int vgacon_switch(struct vc_data *c)
  			vgacon_doresize(c, c->vc_cols, c->vc_rows);
  	}
  
@@ -317,7 +316,7 @@ index 6d0418e88ad7..e9254b3085a3 100644
  	return 0;		/* Redrawing not needed */
  }
  
-@@ -1167,6 +1384,7 @@ static bool vgacon_scroll(struct vc_data *c, unsigned int t, unsigned int b,
+@@ -1162,6 +1379,7 @@ static bool vgacon_scroll(struct vc_data *c, unsigned int t, unsigned int b,
  	oldo = c->vc_origin;
  	delta = lines * c->vc_size_row;
  	if (dir == SM_UP) {
@@ -325,7 +324,7 @@ index 6d0418e88ad7..e9254b3085a3 100644
  		if (c->vc_scr_end + delta >= vga_vram_end) {
  			scr_memcpyw((u16 *) vga_vram_base,
  				    (u16 *) (oldo + delta),
-@@ -1230,6 +1448,7 @@ const struct consw vga_con = {
+@@ -1225,6 +1443,7 @@ const struct consw vga_con = {
  	.con_save_screen = vgacon_save_screen,
  	.con_build_attr = vgacon_build_attr,
  	.con_invert_region = vgacon_invert_region,
@@ -334,5 +333,5 @@ index 6d0418e88ad7..e9254b3085a3 100644
  EXPORT_SYMBOL(vga_con);
  
 -- 
-2.25.1
+2.39.5
 
