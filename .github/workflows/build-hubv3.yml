@@ -18,6 +18,8 @@ on:
 jobs:
   build-hubv3:
     runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
@@ -29,8 +31,8 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git ca-certificates sudo
+          apt-get update
+          apt-get install -y git ca-certificates
 
       - name: Make script executable
         run: chmod +x make_armbian_for_hubv3.sh
