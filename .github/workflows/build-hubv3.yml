@@ -26,13 +26,13 @@ jobs:
           apt-get update
           apt-get install -y git
 
+      - name: Set git safe.directory for CI
+        run: git config --global --add safe.directory /__w/LinuxBox/LinuxBox
+
       - name: Checkout source code
         uses: actions/checkout@v3
         with:
           fetch-depth: 1
-
-      - name: Set git safe.directory for CI
-        run: git config --global --add safe.directory /__w/LinuxBox/LinuxBox
 
       - name: Switch to hubv3 branch
         run: git checkout hubv3
