@@ -23,9 +23,12 @@ while getopts ":b:d:r:v:" opt; do
             fi
             ;;
         d)
-            if [[ "$OPTARG" == "cn" || "$OPTARG" == "us" || "$OPTARG" == "kr" ]]; then
+            if [[ "$OPTARG" == "cn" ]]; then
                 # TODO
                 destination="china"
+            elif [[ "$OPTARG" == "us" || "$OPTARG" == "kr" ]]; then
+                # TODO
+                destination=""                
             else
                 echo "Invalid destination: $OPTARG"
                 usage
