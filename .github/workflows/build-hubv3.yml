@@ -1,0 +1,33 @@
+name: Build hubv3 firmware
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-hubv3:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Switch to hubv3 branch
+        run: git checkout hubv3
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git ca-certificates sudo
+
+      - name: Make script executable
+        run: chmod +x make_armbian_for_hubv3.sh
+
+      - name: Build firmware
+        run: ./make_armbian_for_hubv3.sh
+
+      - name: Upload images as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: hubv3-images
+          path: output/images/*.img
