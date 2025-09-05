@@ -104,6 +104,7 @@ else
 fi
 
 rm -rf $current_dir/output/images
+mkdir -p $current_dir/output/images
 
 $(pwd)/compile.sh hubv3-images BOARD=${board} BRANCH=current RELEASE=bookworm R3VERSION=${r3version} R3VERSION_ID=${r3_version_id} \
         BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
