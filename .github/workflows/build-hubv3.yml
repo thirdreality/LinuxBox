@@ -21,10 +21,14 @@ jobs:
     container:
       image: debian:bookworm
     steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y uuid-runtime systemd acl sudo
       - name: Install git for checkout
         run: |
           apt-get update
-          apt-get install -y git
+          apt-get install -y git dialog psmisc acl uuid uuid-runtime curl gawk
 
       - name: Set git safe.directory for CI
         run: git config --global --add safe.directory /__w/LinuxBox/LinuxBox
