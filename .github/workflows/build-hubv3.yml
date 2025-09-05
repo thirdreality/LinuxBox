@@ -18,8 +18,6 @@ on:
 jobs:
   build-hubv3:
     runs-on: ubuntu-latest
-    container:
-      image: debian:bookworm
     steps:
       - name: Install dependencies
         run: |
