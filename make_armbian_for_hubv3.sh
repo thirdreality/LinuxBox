@@ -136,6 +136,7 @@ if [[ -n "$IMG_FILE" ]]; then
         # 重命名 .burn.img 为 .${r3version}.img
         new_imgburn="${IMGBURN/.burn.img/.${r3version}.img}"
         mv "$IMGBURN" "$new_imgburn"
+        rm -rf "${IMAGE}"
         echo "File build: $new_imgburn"
     else
         echo "Fail: No burn.img file exist."
