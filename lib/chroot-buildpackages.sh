@@ -32,10 +32,12 @@ create_chroot()
 	qemu_binary['arm64']='qemu-aarch64-static'
 	apt_mirror['buster']="$DEBIAN_MIRROR"
 	apt_mirror['bullseye']="$DEBIAN_MIRROR"
+	apt_mirror['bookworm']="$DEBIAN_MIRROR"
 	apt_mirror['focal']="$UBUNTU_MIRROR"
 	apt_mirror['jammy']="$UBUNTU_MIRROR"
 	components['buster']='main,contrib'
 	components['bullseye']='main,contrib'
+	components['bookworm']='main,contrib'
 	components['sid']='main,contrib'
 	components['focal']='main,universe,multiverse'
 	components['jammy']='main,universe,multiverse'
