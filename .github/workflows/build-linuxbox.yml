@@ -13,7 +13,8 @@ on:
         default: "us"
       revision:
         description: "Revision (optional)"
-        required: false
+        required: true
+        default: "v1.08.01.09"
 
 jobs:
   build-hubv3:
@@ -58,5 +59,5 @@ jobs:
       - name: Upload images as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hubv3-images
+          name: LinuxBox-images${{ github.event.inputs.revision && format('-{0}', github.event.inputs.revision) || '' }}
           path: output/images/*.img
