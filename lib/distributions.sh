@@ -287,6 +287,11 @@ install_common()
 	display_alert "Cleaning" "package lists[apt-get clean]"
 	chroot "${SDCARD}" /bin/bash -c "apt-get clean"
 
+	display_alert "Adding keys" "Importing missing Debian GPG keys"
+	chroot "${SDCARD}" /bin/bash -c "apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 6ED0E7B82643E131"
+	chroot "${SDCARD}" /bin/bash -c "apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 78DBA3BC47EF2265"
+	chroot "${SDCARD}" /bin/bash -c "apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F8D2585B8783D481"
+
 	display_alert "Updating" "package lists [apt-get update]"
 	chroot "${SDCARD}" /bin/bash -c "apt-get ${APT_EXTRA_DIST_PARAMS} update" >> "${DEST}"/${LOG_SUBPATH}/install.log 2>&1
 

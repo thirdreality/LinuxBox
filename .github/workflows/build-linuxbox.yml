@@ -1,0 +1,63 @@
+name: Build LinuxBox-Dev firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: "Board: trhubv3, trhubv3b, linuxbox"
+        required: true
+        default: "trhubv3"
+      dist:
+        description: "Distribution: cn, us, kr"
+        required: true
+        default: "us"
+      revision:
+        description: "Revision (optional)"
+        required: true
+        default: "v1.08.01.09"
+
+jobs:
+  build-linuxbox:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y uuid-runtime systemd acl sudo
+      - name: Install git for checkout
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git dialog psmisc acl uuid uuid-runtime curl gawk
+
+      - name: Set git safe.directory for CI
+        run: git config --global --add safe.directory /__w/LinuxBox/LinuxBox
+
+      - name: Checkout source code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Switch to hubv3 branch
+        run: git checkout hubv3
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git ca-certificates gcc build-essential python3 python3-dev python3-venv python3-pip
+
+      - name: Make script executable
+        run: chmod +x make_armbian_for_hubv3.sh
+
+      - name: Build firmware
+        run: |
+          if [ -n "${{ github.event.inputs.revision }}" ]; then
+            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
+          else
+            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }}
+          fi
+
+      - name: Upload images as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinuxBox-images${{ github.event.inputs.revision && format('-{0}', github.event.inputs.revision) || '' }}
+          path: output/images/*.img

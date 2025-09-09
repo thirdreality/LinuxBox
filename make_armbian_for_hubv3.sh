@@ -4,7 +4,7 @@ current_dir=$(pwd)
 
 board="trhubv3"
 destination=""
-r3version="v1.08.01.08"
+r3version="v1.08.01.09"
 
 # 显示使用说明的函数
 usage() {
@@ -23,9 +23,12 @@ while getopts ":b:d:r:v:" opt; do
             fi
             ;;
         d)
-            if [[ "$OPTARG" == "cn" || "$OPTARG" == "us" || "$OPTARG" == "kr" ]]; then
+            if [[ "$OPTARG" == "cn" ]]; then
                 # TODO
                 destination="china"
+            elif [[ "$OPTARG" == "us" || "$OPTARG" == "kr" ]]; then
+                # TODO
+                destination=""                
             else
                 echo "Invalid destination: $OPTARG"
                 usage
@@ -101,6 +104,7 @@ else
 fi
 
 rm -rf $current_dir/output/images
+mkdir -p $current_dir/output/images
 
 $(pwd)/compile.sh hubv3-images BOARD=${board} BRANCH=edge RELEASE=bookworm R3VERSION=${r3version} R3VERSION_ID=${r3_version_id} \
         BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
@@ -132,6 +136,7 @@ if [[ -n "$IMG_FILE" ]]; then
         # 重命名 .burn.img 为 .${r3version}.img
         new_imgburn="${IMGBURN/.burn.img/.${r3version}.img}"
         mv "$IMGBURN" "$new_imgburn"
+        rm -rf "${IMAGE}"
         echo "File build: $new_imgburn"
     else
         echo "Fail: No burn.img file exist."
