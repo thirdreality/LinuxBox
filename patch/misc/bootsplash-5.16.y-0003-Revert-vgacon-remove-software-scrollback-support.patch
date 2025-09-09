@@ -1,6 +1,6 @@
-From 04cde370aeae3ae276b8c7ff071928cafa624293 Mon Sep 17 00:00:00 2001
+From 3d385eb847e0ffdef62b5c632d47f9c802da5c55 Mon Sep 17 00:00:00 2001
 From: "guoping.liu" <guoping.liu@3reality.com>
-Date: Tue, 2 Sep 2025 15:49:49 +0800
+Date: Tue, 9 Sep 2025 15:00:53 +0800
 Subject: [PATCH] Revert "vgacon: remove software scrollback support"
 
 ---
@@ -9,7 +9,7 @@ Subject: [PATCH] Revert "vgacon: remove software scrollback support"
  2 files changed, 266 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/video/console/Kconfig b/drivers/video/console/Kconfig
-index c3be586d8648..22bb33354edd 100644
+index c3be586d8..22bb33354 100644
 --- a/drivers/video/console/Kconfig
 +++ b/drivers/video/console/Kconfig
 @@ -22,6 +22,52 @@ config VGA_CONSOLE
@@ -66,11 +66,11 @@ index c3be586d8648..22bb33354edd 100644
  	depends on VGA_CONSOLE && ISA
  	tristate "MDA text console (dual-headed)"
 diff --git a/drivers/video/console/vgacon.c b/drivers/video/console/vgacon.c
-index 3ce7c7a559c6..ee17fc2e275d 100644
+index 4a1cc6f67..6f811ce8f 100644
 --- a/drivers/video/console/vgacon.c
 +++ b/drivers/video/console/vgacon.c
-@@ -164,6 +164,214 @@ static inline void vga_set_mem_top(struct vc_data *c)
- 	write_vga(12, (c->vc_visible_origin - vga_vram_base) / 2);
+@@ -163,12 +163,225 @@ static void vgacon_scrolldelta(struct vc_data *c, int lines)
+ 	vga_set_mem_top(c);
  }
  
 +#ifdef CONFIG_VGACON_SOFT_SCROLLBACK
@@ -284,8 +284,7 @@ index 3ce7c7a559c6..ee17fc2e275d 100644
  static void vgacon_restore_screen(struct vc_data *c)
  {
  	if (c->vc_origin != c->vc_visible_origin)
-@@ -177,6 +385,11 @@ static void vgacon_scrolldelta(struct vc_data *c, int lines)
- 	vga_set_mem_top(c);
+ 		vgacon_scrolldelta(c, 0);
  }
  
 +static void vgacon_flush_scrollback(struct vc_data *c)
@@ -296,7 +295,7 @@ index 3ce7c7a559c6..ee17fc2e275d 100644
  static const char *vgacon_startup(void)
  {
  	const char *display_desc = NULL;
-@@ -359,7 +572,10 @@ static const char *vgacon_startup(void)
+@@ -351,7 +564,10 @@ static const char *vgacon_startup(void)
  	vgacon_xres = screen_info.orig_video_cols * VGA_FONTWIDTH;
  	vgacon_yres = vga_scan_lines;
  
@@ -308,15 +307,15 @@ index 3ce7c7a559c6..ee17fc2e275d 100644
  
  	return display_desc;
  }
-@@ -656,6 +872,7 @@ static int vgacon_switch(struct vc_data *c)
+@@ -648,6 +864,7 @@ static bool vgacon_switch(struct vc_data *c)
  			vgacon_doresize(c, c->vc_cols, c->vc_rows);
  	}
  
 +	vgacon_scrollback_switch(c->vc_num);
- 	return 0;		/* Redrawing not needed */
+ 	return false;		/* Redrawing not needed */
  }
  
-@@ -1162,6 +1379,7 @@ static bool vgacon_scroll(struct vc_data *c, unsigned int t, unsigned int b,
+@@ -1154,6 +1371,7 @@ static bool vgacon_scroll(struct vc_data *c, unsigned int t, unsigned int b,
  	oldo = c->vc_origin;
  	delta = lines * c->vc_size_row;
  	if (dir == SM_UP) {
@@ -324,7 +323,7 @@ index 3ce7c7a559c6..ee17fc2e275d 100644
  		if (c->vc_scr_end + delta >= vga_vram_end) {
  			scr_memcpyw((u16 *) vga_vram_base,
  				    (u16 *) (oldo + delta),
-@@ -1225,6 +1443,7 @@ const struct consw vga_con = {
+@@ -1217,6 +1435,7 @@ const struct consw vga_con = {
  	.con_save_screen = vgacon_save_screen,
  	.con_build_attr = vgacon_build_attr,
  	.con_invert_region = vgacon_invert_region,

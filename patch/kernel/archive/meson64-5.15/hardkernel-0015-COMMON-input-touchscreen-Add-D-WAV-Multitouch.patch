@@ -1,26 +1,25 @@
-From 7466fab49314ed98f8b1512acf3e6ecb97c95315 Mon Sep 17 00:00:00 2001
-From: Hyeonki Hong <hhk7734@gmail.com>
-Date: Thu, 5 Mar 2020 19:01:43 +0900
-Subject: [PATCH 15/74] ODROID-COMMON: input/touchscreen: Add D-WAV Multitouch
+From 245a0eedbc7b0f11fb565404b9763f6bbd244f27 Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Tue, 9 Sep 2025 18:03:54 +0800
+Subject: [PATCH] ODROID-COMMON: input/touchscreen: Add D-WAV Multitouch
  driver.
 
-Change-Id: Ia1c8c29d3f69c6ba5d630279c4cc98119b68ab71
 ---
  drivers/hid/hid-ids.h                   |   6 +
- drivers/hid/hid-quirks.c                |   3 +
+ drivers/hid/hid-quirks.c                |   4 +
  drivers/input/touchscreen/Kconfig       |  10 +
  drivers/input/touchscreen/Makefile      |   1 +
  drivers/input/touchscreen/dwav-usb-mt.c | 554 ++++++++++++++++++++++++
- 5 files changed, 574 insertions(+)
+ 5 files changed, 575 insertions(+)
  create mode 100644 drivers/input/touchscreen/dwav-usb-mt.c
 
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index 6f370e020feb..5775322fb5d4 100644
+index bdad42f1e..ae0121318 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
-@@ -1294,4 +1294,10 @@
- #define USB_VENDOR_ID_SIGNOTEC			0x2133
- #define USB_DEVICE_ID_SIGNOTEC_VIEWSONIC_PD1011	0x0018
+@@ -1406,4 +1406,10 @@
+ #define USB_VENDOR_ID_SMARTLINKTECHNOLOGY              0x4c4a
+ #define USB_DEVICE_ID_SMARTLINKTECHNOLOGY_4155         0x4155
  
 +#define USB_DEVICE_ID_DWAV_MULTITOUCH	0x0005
 +
@@ -30,26 +29,27 @@ index 6f370e020feb..5775322fb5d4 100644
 +
  #endif
 diff --git a/drivers/hid/hid-quirks.c b/drivers/hid/hid-quirks.c
-index 934fc0a798d4..9cf96f48238e 100644
+index 72b7aebcc..7be39757d 100644
 --- a/drivers/hid/hid-quirks.c
 +++ b/drivers/hid/hid-quirks.c
-@@ -845,6 +845,9 @@ static const struct hid_device_id hid_ignore_list[] = {
+@@ -875,6 +875,10 @@ static const struct hid_device_id hid_ignore_list[] = {
  	{ HID_USB_DEVICE(USB_VENDOR_ID_SYNAPTICS, USB_DEVICE_ID_SYNAPTICS_DPAD) },
  #endif
  	{ HID_USB_DEVICE(USB_VENDOR_ID_YEALINK, USB_DEVICE_ID_YEALINK_P1K_P4K_B2K) },
-+
++	
 +	{ HID_USB_DEVICE(USB_VENDOR_ID_ODROID, USB_DEVICE_ID_VU5) },
 +	{ HID_USB_DEVICE(USB_VENDOR_ID_ODROID, USB_DEVICE_ID_VU7PLUS) },
++
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_QUANTA, USB_DEVICE_ID_QUANTA_HP_5MP_CAMERA_5473) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_SMARTLINKTECHNOLOGY, USB_DEVICE_ID_SMARTLINKTECHNOLOGY_4155) },
  	{ }
- };
- 
 diff --git a/drivers/input/touchscreen/Kconfig b/drivers/input/touchscreen/Kconfig
-index 35c867b2d9a7..01d680a5736b 100644
+index d4e74738c..f96428569 100644
 --- a/drivers/input/touchscreen/Kconfig
 +++ b/drivers/input/touchscreen/Kconfig
-@@ -1322,4 +1322,14 @@ config TOUCHSCREEN_IQS5XX
+@@ -1366,4 +1366,14 @@ config TOUCHSCREEN_ZINITIX
  	  To compile this driver as a module, choose M here: the
- 	  module will be called iqs5xx.
+ 	  module will be called zinitix.
  
 +config TOUCHSCREEN_DWAV_USB_MT
 +	tristate "D-WAV Scientific USB MultiTouch"
@@ -63,17 +63,17 @@ index 35c867b2d9a7..01d680a5736b 100644
 +
  endif
 diff --git a/drivers/input/touchscreen/Makefile b/drivers/input/touchscreen/Makefile
-index 30d1e1b42492..4585f02ad833 100644
+index 7d34100f7..5a47f4e8c 100644
 --- a/drivers/input/touchscreen/Makefile
 +++ b/drivers/input/touchscreen/Makefile
-@@ -111,3 +111,4 @@ obj-$(CONFIG_TOUCHSCREEN_COLIBRI_VF50)	+= colibri-vf50-ts.o
+@@ -114,3 +114,4 @@ obj-$(CONFIG_TOUCHSCREEN_ROHM_BU21023)	+= rohm_bu21023.o
  obj-$(CONFIG_TOUCHSCREEN_RASPBERRYPI_FW)	+= raspberrypi-ts.o
  obj-$(CONFIG_TOUCHSCREEN_IQS5XX)	+= iqs5xx.o
  obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix.o
 +obj-$(CONFIG_TOUCHSCREEN_DWAV_USB_MT)	+= dwav-usb-mt.o
 diff --git a/drivers/input/touchscreen/dwav-usb-mt.c b/drivers/input/touchscreen/dwav-usb-mt.c
 new file mode 100644
-index 000000000000..7ec8b6dd15fd
+index 000000000..7ec8b6dd1
 --- /dev/null
 +++ b/drivers/input/touchscreen/dwav-usb-mt.c
 @@ -0,0 +1,554 @@
@@ -633,5 +633,5 @@ index 000000000000..7ec8b6dd15fd
 +MODULE_ALIAS("dwav_usb_mt");
 \ No newline at end of file
 -- 
-2.25.1
+2.39.5
 
