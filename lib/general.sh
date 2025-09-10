@@ -402,7 +402,7 @@ waiter_local_git ()
 	mkdir -p $work_dir
 	cd $work_dir || exit_with_error
 
-	display_alert "Checking git sources" "$dir $url$name/$branch" "info"
+	display_alert "Checking git sources[W]" "$dir $url$name/$branch" "info"
 
 	if [ "$(git rev-parse --git-dir 2>/dev/null)" != ".git" ]; then
 		git init -q .
@@ -528,7 +528,7 @@ fetch_from_repo()
 		local ref_name=${ref##*:}
 	fi
 
-	display_alert "Checking git sources" "$dir $ref_name" "info"
+	display_alert "Checking git sources[F]" "$dir $ref_name" "info"
 
 	# get default remote branch name without cloning
 	# local ref_name=$(git ls-remote --symref $url HEAD | grep -o 'refs/heads/\S*' | sed 's%refs/heads/%%')
@@ -640,14 +640,22 @@ fetch_from_repo()
 		fi
 	elif [[ -n $(git status -uno --porcelain --ignore-submodules=all) ]]; then
 		# working directory is not clean
-		display_alert " Cleaning .... " "$(git status -s | wc -l) files"
+		# 检查是否是内核目录，如果是则跳过清理以保护用户修改
+		local patch_flag_file="${SRC}/cache/sources/${workdir}/.armbian_patches_applied"
+		
+		if [[ "$dir" == "linux-mainline" && -f "$patch_flag_file" ]]; then
+			display_alert "Kernel directory with patches applied" "skipping cleaning to protect user modifications" "info"
+			display_alert "Flag file exists" "$patch_flag_file" "info"
+		else
+			display_alert " Cleaning .... " "$(git status -s | wc -l) files"
 
-		# Return the files that are tracked by git to the initial state.
-		git checkout -f -q HEAD
+			# Return the files that are tracked by git to the initial state.
+			git checkout -f -q HEAD
 
-		# Files that are not tracked by git and were added
-		# when the patch was applied must be removed.
-		git clean -qdf
+			# Files that are not tracked by git and were added
+			# when the patch was applied must be removed.
+			git clean -qdf
+		fi
 	else
 		# working directory is clean, nothing to do
 		display_alert "Up to date"

@@ -458,10 +458,14 @@ if [[ $IGNORE_UPDATES != yes ]]; then
 		fi
 	fi
 
+	display_alert "Fetch sources tools" "" "info"
+
 	call_extension_method "fetch_sources_tools"  <<- 'FETCH_SOURCES_TOOLS'
 	*fetch host-side sources needed for tools and build*
 	Run early to fetch_from_repo or otherwise obtain sources for needed tools.
 	FETCH_SOURCES_TOOLS
+
+	display_alert "Build host tools" "" "info"
 
 	call_extension_method "build_host_tools"  <<- 'BUILD_HOST_TOOLS'
 	*build needed tools for the build, host-side*

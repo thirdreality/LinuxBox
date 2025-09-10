@@ -390,19 +390,41 @@ compile_kernel()
 	# read kernel git hash
 	hash=$(improved_git --git-dir="$kerneldir"/.git rev-parse HEAD)
 
-	# Apply a series of patches if a series file exists
-	if test -f "${SRC}"/patch/kernel/${KERNELPATCHDIR}/series.conf; then
-		display_alert "series.conf file visible. Apply"
-		series_conf="${SRC}"/patch/kernel/${KERNELPATCHDIR}/series.conf
+	# 创建标志文件路径
+	local patch_flag_file="${kerneldir}/.armbian_patches_applied"
+	
+	# 检查是否已经应用过补丁
+	if [[ ! -f "$patch_flag_file" ]]; then
+		display_alert "Applying patches for the first time" "kernel patching" "info"
+		
+		# Apply a series of patches if a series file exists
+		if test -f "${SRC}"/patch/kernel/${KERNELPATCHDIR}/series.conf; then
+			display_alert "series.conf file visible. Apply"
+			series_conf="${SRC}"/patch/kernel/${KERNELPATCHDIR}/series.conf
 
-		# apply_patch_series <target dir> <full path to series file>
-		apply_patch_series "${kerneldir}" "$series_conf"
+			# apply_patch_series <target dir> <full path to series file>
+			apply_patch_series "${kerneldir}" "$series_conf"
+		fi
+
+		# build 3rd party drivers
+		compilation_prepare
+
+		advanced_patch "kernel" "$KERNELPATCHDIR" "$BOARD" "" "$BRANCH" "$LINUXFAMILY-$BRANCH"
+
+		# 创建标志文件，记录补丁已应用
+		echo "Patches applied on $(date)" > "$patch_flag_file"
+		echo "Kernel version: $version" >> "$patch_flag_file"
+		echo "Git hash: $hash" >> "$patch_flag_file"
+		echo "Kernel patch dir: $KERNELPATCHDIR" >> "$patch_flag_file"
+		echo "Board: $BOARD" >> "$patch_flag_file"
+		echo "Branch: $BRANCH" >> "$patch_flag_file"
+		echo "Linux family: $LINUXFAMILY" >> "$patch_flag_file"
+		
+		display_alert "Patches applied successfully" "kernel patching completed" "info"
+	else
+		display_alert "Patches already applied" "skipping patch application" "info"
+		display_alert "Flag file exists" "$patch_flag_file" "info"
 	fi
-
-	# build 3rd party drivers
-	compilation_prepare
-
-	advanced_patch "kernel" "$KERNELPATCHDIR" "$BOARD" "" "$BRANCH" "$LINUXFAMILY-$BRANCH"
 
 	# create patch for manual source changes in debug mode
 	[[ $CREATE_PATCHES == yes ]] && userpatch_create "kernel"
