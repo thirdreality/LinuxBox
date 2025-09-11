@@ -12,7 +12,12 @@ TIMEOUT=1200
 export LC_ALL DEBIAN_FRONTEND APT_LISTCHANGES_FRONTEND MACHINE
 
 WORK_DIR="/mnt/R3Install"
-EXTRA_WORK_DIR="/mnt/R3Install"
+DEBUG_DIR="/mnt/R3Debug"
+
+DEBUG_ZHA_DIR="/mnt/R3Debug/zhaquirks"
+DEBUG_OTA_DIR="/mnt/R3Debug/ota"
+DEBUG_FIRMWARE_DIR="/mnt/R3Debug/firmware"
+
 CONFIG_DIR="/var/lib/homeassistant"
 
 set -e
@@ -88,19 +93,150 @@ exclude_patterns=(
     "openhab_"
 )
 
+update_zhaquirks_for_debug()
+{
+    # If $DEBUG_ZHA_DIR exists, copy all files under it to
+    # /srv/homeassistant/lib/python3.13/site-packages/zhaquirks/thirdreality.
+    # Proceed only if the target directory exists.
+    if [ ! -d "$DEBUG_ZHA_DIR" ]; then
+        return 0
+    fi
+
+    # Prefer the known path; otherwise glob-search to support different Python minor versions
+    local zha_target_dir="/srv/homeassistant/lib/python3.13/site-packages/zhaquirks/thirdreality"
+    if [ ! -d "$zha_target_dir" ]; then
+        zha_target_dir=$(ls -d /srv/homeassistant/lib/python*/site-packages/zhaquirks/thirdreality 2>/dev/null | head -n 1 || true)
+    fi
+
+    if [ -z "$zha_target_dir" ] || [ ! -d "$zha_target_dir" ]; then
+        echo "[DEBUG-ZHA] zhaquirks target directory not found, skip: $zha_target_dir"
+        return 0
+    fi
+
+    echo "[DEBUG-ZHA] Sync zhaquirks to: $zha_target_dir"
+    # Preserve attributes and overwrite files with the same name
+    cp -a "$DEBUG_ZHA_DIR"/. "$zha_target_dir"/
+    rm -rf "$DEBUG_ZHA_DIR"/. || true
+    rm -rf "$zha_target_dir"/__pycache__ || true
+
+    local ha_running="no"
+    systemctl is-active --quiet home-assistant.service && ha_running="yes" || true
+    if [ "$ha_running" = "yes" ]; then systemctl restart home-assistant.service || true; fi
+
+    echo "[DEBUG-ZHA] zhaquirks sync completed"
+}
+
+update_ota_for_debug()
+{
+    if [ ! -d "$DEBUG_FIRMWARE_DIR" ]; then
+        return 0
+    fi
+
+    if [ ! -f "$DEBUG_FIRMWARE_DIR/local_index.json" ]; then
+        return 0
+    fi
+
+    local ota_dir="/var/lib/homeassistant/homeassistant/zigpy_local_ota"
+    mkdir -p "$ota_dir"
+    find "$ota_dir" -mindepth 1 -maxdepth 1 -type f -print0 2>/dev/null | xargs -0r rm -f
+    install -m 0644 "$DEBUG_FIRMWARE_DIR/local_index.json" "$ota_dir/local_index.json" && rm -f "$DEBUG_FIRMWARE_DIR/local_index.json"
+    shopt -s nullglob
+
+    for f in "$DEBUG_FIRMWARE_DIR"/*.ota; do
+        install -m 0644 "$f" "$ota_dir/" && rm -f "$f"
+    done
+    shopt -u nullglob
+
+    local ha_cfg="/var/lib/homeassistant/homeassistant/configuration.yaml"
+    if [ ! -f "$ha_cfg" ]; then
+        return 0
+    fi
+
+    if grep -qE "extra_providers|zigpy_local|z2m_local" "$ha_cfg"; then
+        return 0
+    fi
+
+    echo "[DEBUG-OTA] Append local OTA providers for ZHA to $ha_cfg"
+    {
+        echo ""
+        echo "zha:"
+        echo "  zigpy_config:"
+        echo "    ota:"
+        echo "      extra_providers:"
+        echo "        - type: z2m_local"
+        echo "          index_file: $ota_dir/local_index.json"
+        echo "        - type: zigpy_local"
+        echo "          index_file: $ota_dir/local_index.json"
+    } >> "$ha_cfg"
+}
+
+update_firmware_for_debug()
+{
+    if [ ! -d "$DEBUG_FIRMWARE_DIR" ]; then
+        return 0
+    fi
+
+    local fw_dir="/usr/lib/firmware/bl706/partition_1m_images"
+    local flasher="/usr/lib/firmware/bl706"
+
+    # Handle Zigbee firmware
+    if [ -f "$DEBUG_FIRMWARE_DIR/blz_whole_img.bin" ]; then
+        echo "[DEBUG-FW] Update Zigbee firmware image"
+        install -m 0644 "$DEBUG_FIRMWARE_DIR/blz_whole_img.bin" "$fw_dir/blz_whole_img.bin" && rm -f "$DEBUG_FIRMWARE_DIR/blz_whole_img.bin"
+
+        local ha_running="no"
+        local z2m_running="no"
+        systemctl is-active --quiet home-assistant.service && ha_running="yes" || true
+        systemctl is-active --quiet zigbee2mqtt.service && z2m_running="yes" || true
+
+        if [ "$ha_running" = "yes" ]; then systemctl stop home-assistant.service || true; fi
+        if [ "$z2m_running" = "yes" ]; then systemctl stop zigbee2mqtt.service || true; fi
+
+        "$flasher" flash blz
+
+        if [ -x "/usr/local/bin/supervisor" ]; then
+            /usr/local/bin/supervisor zigbee info || true
+        fi
+
+        if [ "$ha_running" = "yes" ]; then systemctl start home-assistant.service || true; fi
+        if [ "$z2m_running" = "yes" ]; then systemctl start zigbee2mqtt.service || true; fi
+    fi
+
+    # Handle Thread firmware
+    if [ -f "$DEBUG_FIRMWARE_DIR/thread_whole_img.bin" ]; then
+        echo "[DEBUG-FW] Update Thread firmware image"
+        install -m 0644 "$DEBUG_FIRMWARE_DIR/thread_whole_img.bin" "$fw_dir/thread_whole_img.bin" && rm -f "$DEBUG_FIRMWARE_DIR/thread_whole_img.bin"
+
+        local otbr_running="no"
+        systemctl is-active --quiet otbr-agent.service && otbr_running="yes" || true
+
+        if [ "$otbr_running" = "yes" ]; then systemctl stop otbr-agent.service || true; fi
+
+        "$flasher" flash thread
+
+        if [ -x "/usr/local/bin/supervisor" ]; then
+            /usr/local/bin/supervisor thread info || true
+        fi
+
+        if [ "$otbr_running" = "yes" ]; then systemctl start otbr-agent.service || true; fi
+    fi
+}
+
+
+
 install_extra_debs() {
     echo "[EXTRA]Finding and installing extra deb packages..."
 
     # Skip if directory doesn't exist
-    if [ ! -d "$EXTRA_WORK_DIR" ]; then
-        echo "[EXTRA]Directory $EXTRA_WORK_DIR does not exist, skipping extra debs installation"
+    if [ ! -d "$WORK_DIR" ]; then
+        echo "[EXTRA]Directory $WORK_DIR does not exist, skipping extra debs installation"
         return 0
     fi
 
-    deb_files=$(find "$EXTRA_WORK_DIR" -maxdepth 1 -name "*.deb" -type f 2>/dev/null || true)
+    deb_files=$(find "$WORK_DIR" -maxdepth 1 -name "*.deb" -type f 2>/dev/null || true)
 
     if [ -z "$deb_files" ]; then
-        echo "[EXTRA]No deb files found in $EXTRA_WORK_DIR"
+        echo "[EXTRA]No deb files found in $WORK_DIR"
         return 0
     fi
 
@@ -137,11 +273,11 @@ execute_fix_dependency_if_needed() {
     local postinst_file="/var/lib/dpkg/info/${package_name}.postinst"
     
     if [ -f "$postinst_file" ]; then
-        echo "Executing fix-dependency for $package_name: fix-dependency"
+        echo "Executing post-installation script for $package_name"
         if [ -x "$postinst_file" ]; then
             "$postinst_file" fix-dependency || echo "Warning: postinst execution failed for $package_name"
         else
-            echo "Warning: fix-dependency file $postinst_file is not executable"
+            echo "Warning: post-installation script file $postinst_file is not executable"
         fi
     fi
 }
@@ -196,6 +332,9 @@ dpkg_install() {
 
 install_board_flash_debs() {
     if [ ! -d "$WORK_DIR" ]; then
+        return 0
+    else
+        update_firmware_for_debug
         return 0
     fi
 
@@ -267,6 +406,7 @@ install_board_flash_debs() {
         fi
     else
         echo "No board firmware deb file found in $WORK_DIR"
+        update_firmware_for_debug
     fi
         
     return 0
@@ -437,13 +577,13 @@ main_procedure()
     
     echo "System is start to install deb packages. " | wall
 
+    # install supervisor
+    install_supervisor_deb
+
+    # install board firmware
+    install_board_flash_debs
+
     if [ -d "$WORK_DIR" ]; then
-
-        # install supervisor
-        install_supervisor_deb
-
-        # install board firmware
-        install_board_flash_debs
         
         # install home-assistant-core
         is_home_assistant_running=$(systemctl is-active --quiet home-assistant.service && echo "yes" || echo "no")
@@ -521,6 +661,10 @@ main_procedure()
             fi
         fi
     fi
+
+    update_ota_for_debug
+
+    update_zhaquirks_for_debug    
 }
 
 
