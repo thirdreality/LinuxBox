@@ -15,7 +15,7 @@ WORK_DIR="/mnt/R3Install"
 DEBUG_DIR="/mnt/R3Debug"
 
 DEBUG_ZHA_DIR="/mnt/R3Debug/zhaquirks"
-DEBUG_OTA_DIR="/mnt/R3Debug/ota"
+DEBUG_OTA_DIR="/mnt/R3Debug/zigpy_local_ota"
 DEBUG_FIRMWARE_DIR="/mnt/R3Debug/firmware"
 
 CONFIG_DIR="/var/lib/homeassistant"
@@ -119,30 +119,32 @@ update_zhaquirks_for_debug()
     rm -rf "$DEBUG_ZHA_DIR"/. || true
     rm -rf "$zha_target_dir"/__pycache__ || true
 
-    local ha_running="no"
-    systemctl is-active --quiet home-assistant.service && ha_running="yes" || true
-    if [ "$ha_running" = "yes" ]; then systemctl restart home-assistant.service || true; fi
+    if systemctl is-active --quiet home-assistant.service; then
+        echo "Home Assistant service is running, restarting it..."
+        systemctl restart home-assistant.service || true
+        echo "Home Assistant service restarted"
+    fi
 
     echo "[DEBUG-ZHA] zhaquirks sync completed"
 }
 
 update_ota_for_debug()
 {
-    if [ ! -d "$DEBUG_FIRMWARE_DIR" ]; then
+    if [ ! -d "$DEBUG_OTA_DIR" ]; then
         return 0
     fi
 
-    if [ ! -f "$DEBUG_FIRMWARE_DIR/local_index.json" ]; then
+    if [ ! -f "$DEBUG_OTA_DIR/local_index.json" ]; then
         return 0
     fi
 
     local ota_dir="/var/lib/homeassistant/homeassistant/zigpy_local_ota"
     mkdir -p "$ota_dir"
     find "$ota_dir" -mindepth 1 -maxdepth 1 -type f -print0 2>/dev/null | xargs -0r rm -f
-    install -m 0644 "$DEBUG_FIRMWARE_DIR/local_index.json" "$ota_dir/local_index.json" && rm -f "$DEBUG_FIRMWARE_DIR/local_index.json"
+    install -m 0644 "$DEBUG_OTA_DIR/local_index.json" "$ota_dir/local_index.json" && rm -f "$DEBUG_OTA_DIR/local_index.json"
     shopt -s nullglob
 
-    for f in "$DEBUG_FIRMWARE_DIR"/*.ota; do
+    for f in "$DEBUG_OTA_DIR"/*.ota; do
         install -m 0644 "$f" "$ota_dir/" && rm -f "$f"
     done
     shopt -u nullglob
