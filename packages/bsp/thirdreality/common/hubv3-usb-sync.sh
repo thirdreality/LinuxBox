@@ -383,7 +383,6 @@ install_deb_if_needed() {
     local current_version
     local deb_version
 
-    echo "+ ${deb_file}. " | wall
     if [ -e "/usr/local/bin/supervisor" ]; then
         /usr/local/bin/supervisor led sys_firmware_updating  || true
     fi    
@@ -395,6 +394,7 @@ install_deb_if_needed() {
         echo "${package_name} is installed (version: ${current_version}), deb version: ${deb_version}"
         
         if dpkg --compare-versions "$deb_version" gt "$current_version"; then
+            echo "+ ${deb_file}. " | wall
             echo "A newer version is available. Installing: ${deb_file}"
             dpkg_install "$deb_file" "$package_name"
 
@@ -406,6 +406,7 @@ install_deb_if_needed() {
         fi
     else
         echo "${package_name} is not installed or version not available. Installing: ${deb_file}"
+        echo "+ ${deb_file}. " | wall
         dpkg_install "$deb_file" "$package_name"
 
         if [ -e "/usr/local/bin/supervisor" ]; then
