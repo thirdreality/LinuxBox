@@ -12,7 +12,13 @@ TIMEOUT=1200
 export LC_ALL DEBIAN_FRONTEND APT_LISTCHANGES_FRONTEND MACHINE
 
 WORK_DIR="/mnt/R3Install"
-EXTRA_WORK_DIR="/mnt/R3Install"
+DEBUG_DIR="/mnt/R3Debug"
+
+DEBUG_ZHA_DIR="/mnt/R3Debug/zha_quirks"
+DEBUG_Z2M_DIR="/mnt/R3Debug/z2m_converters"
+DEBUG_OTA_DIR="/mnt/R3Debug/zigpy_local_ota"
+DEBUG_FIRMWARE_DIR="/mnt/R3Debug/firmware"
+
 CONFIG_DIR="/var/lib/homeassistant"
 
 set -e
@@ -24,7 +30,7 @@ on_exit() {
     local exit_code=$?
     
     # Remove the lock file
-    rm -f "${LOCKFILE}"
+    #rm -f "${LOCKFILE}"
     
     # Custom actions before the script exits
     echo "Running cleanup tasks..."
@@ -88,19 +94,244 @@ exclude_patterns=(
     "openhab_"
 )
 
+
+update_z2m_quirks_for_debug()
+{
+    if [ ! -d "$DEBUG_Z2M_DIR" ]; then
+        echo 0 >&2
+        echo 0
+        return 0
+    fi
+
+    # 检查 js 文件数量
+    local js_files_count=$(find "$DEBUG_Z2M_DIR" -maxdepth 1 -name "*.js" -type f | wc -l)
+
+    # 如果 js 文件数量不超过 1 个，则什么都不用干
+    if [ "$js_files_count" -le 1 ]; then
+        echo 0 >&2
+        echo 0
+        return 0
+    fi
+
+    local target_dir="/opt/zigbee2mqtt/data/external_converters"
+    
+    echo "[DEBUG-Z2M] Found $js_files_count *.js files in $DEBUG_Z2M_DIR" >&2
+    echo "[DEBUG-Z2M] Moving *.js files to: $target_dir" >&2
+    
+    # 创建目标目录（如果不存在）
+    mkdir -p "$target_dir"
+    
+    # 移动所有 js 文件到目标目录
+    find "$DEBUG_Z2M_DIR" -maxdepth 1 -name "*.js" -type f -exec mv {} "$target_dir"/ \;
+
+    echo "[DEBUG-Z2M] z2m converters sync completed, total js files: $js_files_count" >&2
+    
+    # 返回 js 文件总数
+    echo "$js_files_count"
+    return 0
+}
+
+update_zha_quirks_for_debug()
+{
+    # If $DEBUG_ZHA_DIR exists, copy all *.py files under it to
+    # /srv/homeassistant/lib/python3.13/site-packages/zhaquirks/thirdreality.
+    # Proceed only if the target directory exists.
+    if [ ! -d "$DEBUG_ZHA_DIR" ]; then
+        echo 0 >&2
+        echo 0
+        return 0
+    fi
+
+    # 检查 $DEBUG_ZHA_DIR 目录下有多少 *.py 文件
+    local py_files_count=$(find "$DEBUG_ZHA_DIR" -maxdepth 1 -name "*.py" -type f | wc -l)
+    
+    if [ "$py_files_count" -eq 0 ]; then
+        #echo "[DEBUG-ZHA] No *.py files found in $DEBUG_ZHA_DIR, skipping"
+        echo 0 >&2
+        echo 0
+        return 0
+    fi
+
+    echo "[DEBUG-ZHA] Found $py_files_count *.py files in $DEBUG_ZHA_DIR" >&2
+
+    # Prefer the known path; otherwise glob-search to support different Python minor versions
+    local zha_target_dir="/srv/homeassistant/lib/python3.13/site-packages/zhaquirks/thirdreality"
+    if [ ! -d "$zha_target_dir" ]; then
+        zha_target_dir=$(ls -d /srv/homeassistant/lib/python*/site-packages/zhaquirks/thirdreality 2>/dev/null | head -n 1 || true)
+    fi
+
+    if [ -z "$zha_target_dir" ] || [ ! -d "$zha_target_dir" ]; then
+        echo "[DEBUG-ZHA] zhaquirks target directory not found, skip." >&2
+        echo 0 >&2
+        echo 0
+        return 0
+    fi
+
+    echo "[DEBUG-ZHA] Copying *.py files to: $zha_target_dir" >&2
+    # 拷贝所有 *.py 文件到目标目录
+    find "$DEBUG_ZHA_DIR" -maxdepth 1 -name "*.py" -type f -exec cp {} "$zha_target_dir"/ \;
+    
+    # 删除 $DEBUG_ZHA_DIR 下的所有 *.py 文件
+    find "$DEBUG_ZHA_DIR" -maxdepth 1 -name "*.py" -type f -delete
+    
+    rm -rf "$zha_target_dir"/__pycache__ || true
+
+    echo "[DEBUG-ZHA] zhaquirks sync completed" >&2
+    
+    # 输出 *.py 文件总数，并返回 0
+    echo "$py_files_count"
+    return 0
+}
+
+update_ota_for_debug()
+{
+    local updated=0
+    if [ ! -d "$DEBUG_OTA_DIR" ]; then
+        echo 0 >&2
+        echo 0
+        return 0
+    fi
+
+    if [ ! -f "$DEBUG_OTA_DIR/local_index.json" ]; then
+        echo 0 >&2
+        echo 0
+        return 0
+    fi
+
+    echo "[DEBUG-OTA] Found local_index.json in $DEBUG_OTA_DIR" >&2
+
+    local ota_dir="/var/lib/homeassistant/homeassistant/zigpy_local_ota"
+    mkdir -p "$ota_dir"
+    find "$ota_dir" -mindepth 1 -maxdepth 1 -type f -print0 2>/dev/null | xargs -0r rm -f
+    if install -m 0644 "$DEBUG_OTA_DIR/local_index.json" "$ota_dir/local_index.json"; then
+        rm -f "$DEBUG_OTA_DIR/local_index.json"
+        updated=1
+        echo "[DEBUG-OTA] Successfully installed local_index.json to $ota_dir" >&2
+    else
+        echo "[DEBUG-OTA] Failed to install local_index.json" >&2
+    fi
+    shopt -s nullglob
+
+    local ota_files_count=0
+    for f in "$DEBUG_OTA_DIR"/*.ota; do
+        install -m 0644 "$f" "$ota_dir/" && rm -f "$f"
+        ota_files_count=$((ota_files_count + 1))
+    done
+    shopt -u nullglob
+
+    if [ "$ota_files_count" -gt 0 ]; then
+        echo "[DEBUG-OTA] Installed $ota_files_count *.ota files to $ota_dir" >&2
+    fi
+
+    local ha_cfg="/var/lib/homeassistant/homeassistant/configuration.yaml"
+    if [ ! -f "$ha_cfg" ]; then
+        echo "[DEBUG-OTA] Home Assistant configuration file not found: $ha_cfg" >&2
+        echo "$updated" >&2
+        echo "$updated"
+        return 0
+    fi
+
+    if grep -qE "extra_providers|zigpy_local|z2m_local" "$ha_cfg"; then
+        echo "[DEBUG-OTA] OTA providers already configured in $ha_cfg" >&2
+        echo "$updated" >&2
+        echo "$updated"
+        return 0
+    fi
+
+    echo "[DEBUG-OTA] Append local OTA providers for ZHA to $ha_cfg" >&2
+    {
+        echo ""
+        echo "zha:"
+        echo "  zigpy_config:"
+        echo "    ota:"
+        echo "      extra_providers:"
+        echo "        - type: z2m_local"
+        echo "          index_file: $ota_dir/local_index.json"
+        echo "        - type: zigpy_local"
+        echo "          index_file: $ota_dir/local_index.json"
+    } >> "$ha_cfg"
+
+    echo "[DEBUG-OTA] OTA configuration updated successfully" >&2
+    echo "$updated" >&2
+    echo "$updated"
+    return 0
+}
+
+update_firmware_for_debug()
+{
+    if [ ! -d "$DEBUG_FIRMWARE_DIR" ]; then
+        return 0
+    fi
+
+    local fw_dir="/usr/lib/firmware/bl706/partition_1m_images"
+    local flasher_bin="/usr/lib/firmware/bl706/bl706_func.sh"
+
+    # Handle Zigbee firmware
+    if [ -f "$DEBUG_FIRMWARE_DIR/blz_whole_img.bin" ]; then
+        echo "[DEBUG-FW] Update Zigbee firmware image"
+        install -m 0644 "$DEBUG_FIRMWARE_DIR/blz_whole_img.bin" "$fw_dir/blz_whole_img.bin" && rm -f "$DEBUG_FIRMWARE_DIR/blz_whole_img.bin"
+
+        local ha_running="no"
+        local z2m_running="no"
+        systemctl is-active --quiet home-assistant.service && ha_running="yes" || true
+        systemctl is-active --quiet zigbee2mqtt.service && z2m_running="yes" || true
+
+        if [ "$ha_running" = "yes" ]; then systemctl stop home-assistant.service || true; fi
+        if [ "$z2m_running" = "yes" ]; then systemctl stop zigbee2mqtt.service || true; fi
+
+        if [ -x "$flasher_bin" ]; then
+            "$flasher_bin" flash blz || true
+        else
+            echo "[DEBUG-FW][WARN] Flasher binary not found or not executable: $flasher_bin" >&2
+        fi
+
+        if [ -x "/usr/local/bin/supervisor" ]; then
+            /usr/local/bin/supervisor zigbee info || true
+        fi
+
+        if [ "$ha_running" = "yes" ]; then systemctl start home-assistant.service || true; fi
+        if [ "$z2m_running" = "yes" ]; then systemctl start zigbee2mqtt.service || true; fi
+    fi
+
+    # Handle Thread firmware
+    if [ -f "$DEBUG_FIRMWARE_DIR/thread_whole_img.bin" ]; then
+        echo "[DEBUG-FW] Update Thread firmware image"
+        install -m 0644 "$DEBUG_FIRMWARE_DIR/thread_whole_img.bin" "$fw_dir/thread_whole_img.bin" && rm -f "$DEBUG_FIRMWARE_DIR/thread_whole_img.bin"
+
+        local otbr_running="no"
+        systemctl is-active --quiet otbr-agent.service && otbr_running="yes" || true
+
+        if [ "$otbr_running" = "yes" ]; then systemctl stop otbr-agent.service || true; fi
+
+        if [ -x "$flasher_bin" ]; then
+            "$flasher_bin" flash thread || true
+        else
+            echo "[DEBUG-FW][WARN] Flasher binary not found or not executable: $flasher_bin" >&2
+        fi
+
+        if [ -x "/usr/local/bin/supervisor" ]; then
+            /usr/local/bin/supervisor thread info || true
+        fi
+
+        if [ "$otbr_running" = "yes" ]; then systemctl start otbr-agent.service || true; fi
+    fi
+}
+
+
+
 install_extra_debs() {
     echo "[EXTRA]Finding and installing extra deb packages..."
 
     # Skip if directory doesn't exist
-    if [ ! -d "$EXTRA_WORK_DIR" ]; then
-        echo "[EXTRA]Directory $EXTRA_WORK_DIR does not exist, skipping extra debs installation"
+    if [ ! -d "$WORK_DIR" ]; then
+        echo "[EXTRA]Directory $WORK_DIR does not exist, skipping extra debs installation"
         return 0
     fi
 
-    deb_files=$(find "$EXTRA_WORK_DIR" -maxdepth 1 -name "*.deb" -type f 2>/dev/null || true)
+    deb_files=$(find "$WORK_DIR" -maxdepth 1 -name "*.deb" -type f 2>/dev/null || true)
 
     if [ -z "$deb_files" ]; then
-        echo "[EXTRA]No deb files found in $EXTRA_WORK_DIR"
+        echo "[EXTRA]No deb files found in $WORK_DIR"
         return 0
     fi
 
@@ -137,11 +368,11 @@ execute_fix_dependency_if_needed() {
     local postinst_file="/var/lib/dpkg/info/${package_name}.postinst"
     
     if [ -f "$postinst_file" ]; then
-        echo "Executing fix-dependency for $package_name: fix-dependency"
+        echo "Executing post-installation script for $package_name"
         if [ -x "$postinst_file" ]; then
             "$postinst_file" fix-dependency || echo "Warning: postinst execution failed for $package_name"
         else
-            echo "Warning: fix-dependency file $postinst_file is not executable"
+            echo "Warning: post-installation script file $postinst_file is not executable"
         fi
     fi
 }
@@ -152,7 +383,6 @@ install_deb_if_needed() {
     local current_version
     local deb_version
 
-    echo "+ ${deb_file}. " | wall
     if [ -e "/usr/local/bin/supervisor" ]; then
         /usr/local/bin/supervisor led sys_firmware_updating  || true
     fi    
@@ -164,6 +394,7 @@ install_deb_if_needed() {
         echo "${package_name} is installed (version: ${current_version}), deb version: ${deb_version}"
         
         if dpkg --compare-versions "$deb_version" gt "$current_version"; then
+            echo "+ ${deb_file}. " | wall
             echo "A newer version is available. Installing: ${deb_file}"
             dpkg_install "$deb_file" "$package_name"
 
@@ -175,6 +406,7 @@ install_deb_if_needed() {
         fi
     else
         echo "${package_name} is not installed or version not available. Installing: ${deb_file}"
+        echo "+ ${deb_file}. " | wall
         dpkg_install "$deb_file" "$package_name"
 
         if [ -e "/usr/local/bin/supervisor" ]; then
@@ -196,6 +428,7 @@ dpkg_install() {
 
 install_board_flash_debs() {
     if [ ! -d "$WORK_DIR" ]; then
+        update_firmware_for_debug
         return 0
     fi
 
@@ -267,6 +500,7 @@ install_board_flash_debs() {
         fi
     else
         echo "No board firmware deb file found in $WORK_DIR"
+        update_firmware_for_debug
     fi
         
     return 0
@@ -437,13 +671,13 @@ main_procedure()
     
     echo "System is start to install deb packages. " | wall
 
+    # install supervisor
+    install_supervisor_deb
+
+    # install board firmware
+    install_board_flash_debs
+
     if [ -d "$WORK_DIR" ]; then
-
-        # install supervisor
-        install_supervisor_deb
-
-        # install board firmware
-        install_board_flash_debs
         
         # install home-assistant-core
         is_home_assistant_running=$(systemctl is-active --quiet home-assistant.service && echo "yes" || echo "no")
@@ -520,6 +754,31 @@ main_procedure()
                 rm -f "/mnt/R3Backup/.enable-restore"
             fi
         fi
+    fi
+
+    local ota_updated
+    ota_updated=$(update_ota_for_debug)
+
+    # 更新 zhaquirks 并获取处理的 *.py 文件数量
+    local zha_py_files_count
+    zha_py_files_count=$(update_zha_quirks_for_debug)
+
+    # 更新 z2mquirks 并获取处理的 *.js 文件数量
+    local z2m_js_files_count
+    z2m_js_files_count=$(update_z2m_quirks_for_debug)
+    
+    # 如果处理了 ZHA 文件或 OTA 索引更新，且 home-assistant.service 正在运行，则重启 Home Assistant
+    if { [ "$zha_py_files_count" -gt 0 ] || [ "$ota_updated" -gt 0 ]; } && systemctl is-active --quiet home-assistant.service; then
+        echo "Processed ZHA=$zha_py_files_count, OTA=$ota_updated; restarting Home Assistant service..."
+        systemctl restart home-assistant.service || true
+        echo "Home Assistant service restarted"
+    fi
+    
+    # 如果处理了 Z2M 文件，且 zigbee2mqtt.service 正在运行，则重启 Zigbee2MQTT
+    if [ "$z2m_js_files_count" -gt 0 ] && systemctl is-active --quiet zigbee2mqtt.service; then
+        echo "Processed Z2M=$z2m_js_files_count; restarting Zigbee2MQTT service..."
+        systemctl restart zigbee2mqtt.service || true
+        echo "Zigbee2MQTT service restarted"
     fi
 }
 

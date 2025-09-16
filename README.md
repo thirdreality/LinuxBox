@@ -1,11 +1,14 @@
 <p align="center">
   <a href="#build-framework">
-  <img src=".github/armbian-logo.png" alt="Armbian logo" width="144">
+  <img src="https://3reality.com/wp-content/uploads/2025/07/1-1.png" alt="LinuxBox" width="360">
   </a><br>
-  <strong>Armbian Linux Build Framework</strong><br>
+  <strong>Armbian Linux Build Framework For ThirdReality LinuxBox Dev Edition</strong><br>
 <br>
 
 Armbian source code for Third Reality Linux Box Dev Edition.
+
+[ Buy it on Third Reality Shop](https://3reality.com/product/linux-box-dev-edition/)
+
 </p>
 
 
