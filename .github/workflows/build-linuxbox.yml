@@ -14,7 +14,7 @@ on:
       revision:
         description: "Revision (optional)"
         required: true
-        default: "v1.08.01.09"
+        default: "v1.12.01.09"
 
 jobs:
   build-linuxbox:
