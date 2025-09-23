@@ -1,0 +1,146 @@
+From 164721a34961ed1f6abd35bdb2333b1f04194cee Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Fri, 19 Sep 2025 17:52:12 +0800
+Subject: [PATCH] update meson axg
+
+---
+ arch/arm64/boot/dts/amlogic/meson-axg.dtsi | 57 ++++++++++------------
+ 1 file changed, 25 insertions(+), 32 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
+index a9ceeb81ac79..e231e7a97ff7 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
+@@ -12,7 +12,6 @@
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
+ #include <dt-bindings/reset/amlogic,meson-axg-audio-arb.h>
+ #include <dt-bindings/reset/amlogic,meson-axg-reset.h>
+-#include <dt-bindings/power/meson-axg-power.h>
+ 
+ / {
+ 	compatible = "amlogic,meson-axg";
+@@ -152,7 +151,7 @@ scpi {
+ 		scpi_clocks: clocks {
+ 			compatible = "arm,scpi-clocks";
+ 
+-			scpi_dvfs: clocks-0 {
++			scpi_dvfs: clock-controller {
+ 				compatible = "arm,scpi-dvfs-clocks";
+ 				#clock-cells = <1>;
+ 				clock-indices = <0>;
+@@ -161,7 +160,7 @@ scpi_dvfs: clocks-0 {
+ 		};
+ 
+ 		scpi_sensors: sensors {
+-			compatible = "amlogic,meson-gxbb-scpi-sensors", "arm,scpi-sensors";
++			compatible = "amlogic,meson-gxbb-scpi-sensors";
+ 			#thermal-sensor-cells = <1>;
+ 		};
+ 	};
+@@ -280,7 +279,6 @@ ethmac: ethernet@ff3f0000 {
+ 				      "timing-adjustment";
+ 			rx-fifo-depth = <4096>;
+ 			tx-fifo-depth = <2048>;
+-			power-domains = <&pwrc PWRC_AXG_ETHERNET_MEM_ID>;
+ 			status = "disabled";
+ 		};
+ 
+@@ -1151,7 +1149,7 @@ mux {
+ 						groups = "uart_tx_b_x",
+ 							 "uart_rx_b_x";
+ 						function = "uart_b";
+-						bias-disable;
++                        bias-pull-up;
+ 					};
+ 				};
+ 
+@@ -1669,13 +1667,6 @@ sec_AO: ao-secure@140 {
+ 				amlogic,has-chip-id;
+ 			};
+ 
+-			pwm_AO_cd: pwm@2000 {
+-				compatible = "amlogic,meson-axg-ao-pwm";
+-				reg = <0x0 0x02000  0x0 0x20>;
+-				#pwm-cells = <3>;
+-				status = "disabled";
+-			};
+-
+ 			uart_AO: serial@3000 {
+ 				compatible = "amlogic,meson-gx-uart", "amlogic,meson-ao-uart";
+ 				reg = <0x0 0x3000 0x0 0x18>;
+@@ -1711,6 +1702,15 @@ pwm_AO_ab: pwm@7000 {
+ 				status = "disabled";
+ 			};
+ 
++			pwm_AO_cd: pwm@2000 {
++				compatible = "amlogic,meson-axg-ao-pwm";
++				reg = <0x0 0x02000  0x0 0x20>;
++				#pwm-cells = <3>;
++				clocks = <&xtal>,<&xtal>,<&xtal>,<&xtal>;
++				clock-names = "clkin0","clkin1","clkin2","clkin3";
++				status = "okay";
++			};
++
+ 			ir: ir@8000 {
+ 				compatible = "amlogic,meson-gxbb-ir";
+ 				reg = <0x0 0x8000 0x0 0x20>;
+@@ -1733,14 +1733,6 @@ saradc: adc@9000 {
+ 			};
+ 		};
+ 
+-		ge2d: ge2d@ff940000 {
+-			compatible = "amlogic,axg-ge2d";
+-			reg = <0x0 0xff940000 0x0 0x10000>;
+-			interrupts = <GIC_SPI 150 IRQ_TYPE_EDGE_RISING>;
+-			clocks = <&clkc CLKID_VAPB>;
+-			resets = <&reset RESET_GE2D>;
+-		};
+-
+ 		gic: interrupt-controller@ffc01000 {
+ 			compatible = "arm,gic-400";
+ 			reg = <0x0 0xffc01000 0 0x1000>,
+@@ -1890,28 +1882,29 @@ apb: bus@ffe00000 {
+ 			#size-cells = <2>;
+ 			ranges = <0x0 0x0 0x0 0xffe00000 0x0 0x200000>;
+ 
+-			sd_emmc_b: sd@5000 {
++			sd_emmc_c: mmc@7000 {
+ 				compatible = "amlogic,meson-axg-mmc";
+-				reg = <0x0 0x5000 0x0 0x800>;
+-				interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
++				reg = <0x0 0x7000 0x0 0x800>;
++				interrupts = <GIC_SPI 218 IRQ_TYPE_EDGE_RISING>;
+ 				status = "disabled";
+-				clocks = <&clkc CLKID_SD_EMMC_B>,
+-					<&clkc CLKID_SD_EMMC_B_CLK0>,
++				clocks = <&clkc CLKID_SD_EMMC_C>,
++					<&clkc CLKID_SD_EMMC_C_CLK0>,
+ 					<&clkc CLKID_FCLK_DIV2>;
+ 				clock-names = "core", "clkin0", "clkin1";
+-				resets = <&reset RESET_SD_EMMC_B>;
++				resets = <&reset RESET_SD_EMMC_C>;
+ 			};
+ 
+-			sd_emmc_c: mmc@7000 {
++			sd_emmc_b: sdio@5000 {
+ 				compatible = "amlogic,meson-axg-mmc";
+-				reg = <0x0 0x7000 0x0 0x800>;
+-				interrupts = <GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH>;
++				reg = <0x0 0x5000 0x0 0x800>;
++				interrupts = <GIC_SPI 217 IRQ_TYPE_EDGE_RISING>;
+ 				status = "disabled";
+-				clocks = <&clkc CLKID_SD_EMMC_C>,
+-					<&clkc CLKID_SD_EMMC_C_CLK0>,
++
++				clocks = <&clkc CLKID_SD_EMMC_B>,
++					<&xtal>,
+ 					<&clkc CLKID_FCLK_DIV2>;
+ 				clock-names = "core", "clkin0", "clkin1";
+-				resets = <&reset RESET_SD_EMMC_C>;
++				//resets = <&reset RESET_SD_EMMC_B>;
+ 			};
+ 
+ 			usb2_phy1: phy@9020 {
+-- 
+2.39.5
+
