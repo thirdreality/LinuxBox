@@ -68,7 +68,7 @@ URL_APPARMOR_PROFILE="https://version.home-assistant.io/apparmor.txt"
 
 if [ ! -d "$current_dir/userpatches" ]; then
     mkdir -p $current_dir/userpatches/overlay/
-    mkdir -p $current_dir/userpatches/overlay/docker-deb/
+    #mkdir -p $current_dir/userpatches/overlay/docker-deb/
 
     if [ -d "$current_dir/custom/" ]; then
         cp $current_dir/custom/config-hubv3-images.conf $current_dir/userpatches
@@ -78,29 +78,11 @@ if [ ! -d "$current_dir/userpatches" ]; then
         cp $current_dir/custom/bl706_cache $current_dir/userpatches/overlay/ -R
     fi
 else
-    if [ -e "$current_dir/userpatches/overlay/hassio-supervisor~" ]; then
-        mv "$current_dir/userpatches/overlay/hassio-supervisor~" "$current_dir/userpatches/overlay/hassio-supervisor"
-    fi
-
-    if [ -e "$current_dir/userpatches/overlay/homeassistant-config.tar.gz~" ]; then
-        mv "$current_dir/userpatches/overlay/homeassistant-config.tar.gz~" "$current_dir/userpatches/overlay/homeassistant-config.tar.gz"
-    fi
-
-    if [ -e "$current_dir/userpatches/overlay/docker-deb~" ]; then
-        mv "$current_dir/userpatches/overlay/docker-deb~" "$current_dir/userpatches/overlay/docker-deb"
-    fi
-
-    if [ -e "$current_dir/userpatches/overlay/hassio-supervisor" ]; then
-        mv "$current_dir/userpatches/overlay/hassio-supervisor" "$current_dir/userpatches/overlay/hassio-supervisor~"
-    fi
-
-    if [ -e "$current_dir/userpatches/overlay/homeassistant-config.tar.gz" ]; then
-        mv "$current_dir/userpatches/overlay/homeassistant-config.tar.gz" "$current_dir/userpatches/overlay/homeassistant-config.tar.gz~"
-    fi
-
-    if [ -e "$current_dir/userpatches/overlay/docker-deb" ]; then
-        mv "$current_dir/userpatches/overlay/docker-deb" "$current_dir/userpatches/overlay/docker-deb~"
-    fi
+    cp $current_dir/custom/config-hubv3-images.conf $current_dir/userpatches
+    cp $current_dir/custom/config-jethubj100-images.conf $current_dir/userpatches
+	cp $current_dir/custom/customize-image.sh $current_dir/userpatches
+    #cp $current_dir/custom/*.deb $current_dir/userpatches/overlay/
+    cp $current_dir/custom/bl706_cache $current_dir/userpatches/overlay/ -R
 fi
 
 rm -rf $current_dir/output/images

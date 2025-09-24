@@ -82,7 +82,9 @@ install_docker_debs() {
 InstallForHubV3() {
 
 	echo "InstallForHubV3 ..."
-
+	apt-get autoremove -y
+	apt-get clean
+	
 	#kernel modules to load at boot time
 	echo "aml_sdio" | sudo tee -a /etc/modules
 	echo "vlsicomm" | sudo tee -a /etc/modules
@@ -103,46 +105,20 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/system.conf
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/user.conf
 	
+	echo "Enable bluetooth experimental mode ..."
 	BLUETOOTH_SERVICE="/usr/lib/systemd/system/bluetooth.service"
 	sed -i 's|ExecStart=/usr/libexec/bluetooth/bluetoothd|ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental|' "$BLUETOOTH_SERVICE" || true
-
-	# if [ -f "/tmp/overlay/python3.deb" ]; then
-	# 	dpkg -i "/tmp/overlay/python3.deb" || sudo apt-get install -f
-	# fi
-
-	# if [ -f "/tmp/overlay/hacore.deb" ]; then
-	# 	dpkg -i "/tmp/overlay/hacore.deb" || sudo apt-get install -f
-	# fi
-
-	# if [ -f "/tmp/overlay/hub_service.deb" ]; then
-	# 	dpkg -i "/tmp/overlay/hub_service.deb" || sudo apt-get install -f
-	# fi
-
-	# if [ -e "/tmp/overlay/docker-deb" ]; then
-	# 	install_docker_debs
-	# 	apt autoremove -y
-	# fi
-
-	# if [ -f "/tmp/overlay/homeassistant-config.tar.gz" ]; then
-	# 	# HomeAssistant 默认配置，和初始设备
-	# 	echo "install homeassistant-config.tar.gz ... "
-	# 	mkdir -p "/var/lib/homeassistant"
-	# 	tar -zxvf /tmp/overlay/homeassistant-config.tar.gz -C /var/lib/homeassistant/ > /dev/null 
-	# fi
-
-	# if [ -f "/tmp/overlay/hassio-supervisor" ]; then
-	# 	mkdir -p "/var/lib/homeassistant/apparmor"
-	# 	cp /tmp/overlay/hassio-supervisor /var/lib/homeassistant/apparmor/hassio-supervisor
-
-	# 	mkdir -p /usr/share/hassio/apparmor
-	# 	cp /tmp/overlay/hassio-supervisor /usr/share/hassio/apparmor/hassio-supervisor
-	# fi
-
+	
 	if [  -d "/tmp/overlay/bl706_cache" ]; then
 		echo "Install pip3 packages for bl706/702 flash tools ..."
 		pip install --no-index --find-links=/tmp/overlay/bl706_cache pylink-square==0.5.0  pyserial==3.5 ecdsa==0.15  portalocker==2.0.0 pycryptodome==3.9.8 bflb-crypto-plus==1.0 pycklink==0.1.1 --break-system-packages
 	fi
 
+	if [ -f "/tmp/overlay/bl706_cache/ifaddr-0.2.0-py3-none-any.whl" ]; then
+		echo "Install pip3 packages for zeroconf ..."
+		pip install --no-index --find-links=/tmp/overlay/bl706_cache ifaddr==0.2.0 zeroconf==0.147.0 --break-system-packages
+	fi
+	
 	mkdir -p /usr/local/thirdreality/bin
 	mkdir -p /usr/local/thirdreality/config
 	mkdir -p /usr/local/thirdreality/data
@@ -157,7 +133,7 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 	rm -rf /var/lib/apt/lists/*
 	rm -rf /usr/lib/firmware/qcom
 	rm -rf /usr/lib/firmware/{aic8800,ap6210,ap6212,ap6275p,ath10k,ath11k,ath12k,mediatek,novatek,rtw88,rtw89}
-	rm -rf /usr/lib/linux-image-5.10.237-meson64/rockchip
+	rm -rf /usr/lib/linux-image-$(uname -r)/rockchip
 }
 
 InstallOpenMediaVault() {
