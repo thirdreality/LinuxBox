@@ -117,6 +117,9 @@ IMG_FILE=$(find "$current_dir/output/images" -maxdepth 1 -type f -name "*.img")
 if [[ -n "$IMG_FILE" ]]; then
     echo "Enter convert directory Armbian_Convert ..."
 
+    rm -rf ${current_dir}/output/usr
+    rm -rf ${current_dir}/output/debs
+
     UBOOT=`find ${current_dir}/cache/sources/u-boot/ -name u-boot.bin -type f -print -quit`
     IMAGE=`find ${current_dir}/output/images -name '*.img' -type f -print -quit`
 
@@ -144,6 +147,8 @@ if [[ -n "$IMG_FILE" ]]; then
         rm -rf ${current_dir}/cache/sources/u-boot
         rm -rf ${current_dir}/cache/sources/linux-*
         rm -rf ${current_dir}/.tmp
+
+        rm -rf ${current_dir}/tools/Armbian_Convert/output/*.zip
         echo "Disk usage after final cleanup:"
         df -h ${current_dir}
     else

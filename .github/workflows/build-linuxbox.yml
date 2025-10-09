@@ -32,19 +32,18 @@ jobs:
         run: |
           echo "Cleaning up workspace before build..."
           # 清理输出目录和用户补丁目录
-          rm -rf /__w/LinuxBox/LinuxBox/output/
-          rm -rf /__w/LinuxBox/LinuxBox/userpatches/
+          rm -rf "${{ github.workspace }}/output/"
+          rm -rf "${{ github.workspace }}/userpatches/"
           # 清理缓存目录
-          rm -rf /__w/LinuxBox/LinuxBox/.tmp
-          rm -rf /__w/LinuxBox/LinuxBox/cache/sources/u-boot
-          rm -rf /__w/LinuxBox/LinuxBox/cache/sources/linux-*
-          # 清理系统临时文件
-          sudo apt-get clean
-          sudo apt-get autoremove -y
-          sudo rm -rf /var/lib/apt/lists/*
-          sudo rm -rf /tmp/*
-          sudo rm -rf /var/tmp/*
-          echo "Disk usage after cleanup:"
+          rm -rf "${{ github.workspace }}/.tmp"
+          rm -rf "${{ github.workspace }}/cache/sources/u-boot"
+          rm -rf "${{ github.workspace }}/cache/sources/linux-"*
+
+      - name: List files in the repository
+        run: |
+          echo "List files in the repository..."
+          ls ${{ github.workspace }}
+          echo "Disk usage before Install dependencies ..."
           df -h
 
       - name: Install dependencies
@@ -57,7 +56,7 @@ jobs:
           sudo apt-get install -y git dialog psmisc acl uuid uuid-runtime curl gawk
 
       - name: Set git safe.directory for CI
-        run: git config --global --add safe.directory /__w/LinuxBox/LinuxBox
+        run: git config --global --add safe.directory ${{ github.workspace }}
 
       - name: Install build dependencies
         run: |
@@ -69,6 +68,14 @@ jobs:
           sudo apt-get clean
           sudo apt-get autoremove -y
           echo "Disk usage after dependency installation:"
+          # 清理系统临时文件
+          sudo apt-get clean
+          sudo apt-get autoremove -y
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo rm -rf /var/cache/apt/archives/*
+          sudo rm -rf /tmp/*
+          sudo rm -rf /var/tmp/*
+          echo "Disk usage after cleanup:"
           df -h
 
       - name: Make script executable
@@ -86,12 +93,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LinuxBox-images${{ github.event.inputs.revision && format('-{0}', github.event.inputs.revision) || '' }}
-          path: output/images/*.img
+          path: |
+            output/images/*.img
+            .tmp/image-*/**/*.img
+          if-no-files-found: warn
 
       - name: Clean up after upload
         run: |
           echo "Cleaning up workspace after successful upload..."
           # 删除整个工作区以释放磁盘空间
-          rm -rf /__w/LinuxBox/LinuxBox/*
+          rm -rf "${{ github.workspace }}/"*
           echo "Final disk usage:"
           df -h
