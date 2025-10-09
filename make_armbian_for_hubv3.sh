@@ -1,10 +1,28 @@
 #!/bin/bash
 
-current_dir=$(pwd)
+# 在 GitHub Actions 中使用标准工作目录
+if [ -d "/__w/LinuxBox/LinuxBox" ]; then
+    current_dir="/__w/LinuxBox/LinuxBox"
+else
+    current_dir=$(pwd)
+fi
+
+echo "Working directory: $current_dir"
+
+# 在开始构建前清理旧的缓存文件（安全）
+echo "Cleaning up old cache files before build..."
+#rm -rf ${current_dir}/cache/sources/u-boot
+#rm -rf ${current_dir}/cache/sources/linux-*
+rm -rf ${current_dir}/.tmp
+rm -rf ${current_dir}/output
+
+# 显示清理后的磁盘使用情况
+echo "Disk usage after initial cleanup:"
+df -h ${current_dir}
 
 board="trhubv3"
 destination=""
-r3version="v1.13.01.10"
+r3version="v1.13.01.11"
 
 # 显示使用说明的函数
 usage() {
@@ -120,6 +138,14 @@ if [[ -n "$IMG_FILE" ]]; then
         mv "$IMGBURN" "$new_imgburn"
         rm -rf "${IMAGE}"
         echo "File build: $new_imgburn"
+
+        # 转换完成后，清理不需要的文件
+        echo "Cleaning up after successful conversion..."
+        rm -rf ${current_dir}/cache/sources/u-boot
+        rm -rf ${current_dir}/cache/sources/linux-*
+        rm -rf ${current_dir}/.tmp
+        echo "Disk usage after final cleanup:"
+        df -h ${current_dir}
     else
         echo "Fail: No burn.img file exist."
     fi 
