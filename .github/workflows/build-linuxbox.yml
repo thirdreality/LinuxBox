@@ -54,19 +54,20 @@ jobs:
         working-directory: /
 
       - name: Make script executable
-        run: chmod +x make_armbian_for_hubv3.sh
+        run: chmod +x /mnt/linuxbox/make_armbian_for_hubv3.sh
 
       - name: Build firmware
         run: |
           if [ -n "${{ github.event.inputs.revision }}" ]; then
-            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
+            cd /mnt/linuxbox; ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
           else
-            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }}
+            cd /mnt/linuxbox; ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }}
           fi
 
       - name: List output files for debugging
         run: |
           echo "Checking output directory structure..."
+          cd /mnt/linuxbox
           ls -lah output/ || echo "output/ not found"
           ls -lah output/images/ || echo "output/images/ not found"
           find output -name "*.img" -type f 2>/dev/null || echo "No .img files found in output/"
