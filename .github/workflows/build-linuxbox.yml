@@ -19,65 +19,39 @@ on:
 jobs:
   build-linuxbox:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /mnt/linuxbox
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
-
-      - name: Switch to hubv3 branch
-        run: git checkout hubv3
-
-      - name: Clean up workspace before build
+      - name: Clean up before build
         run: |
-          echo "Cleaning up workspace before build..."
-          # 清理输出目录和用户补丁目录
-          sudo rm -rf "${{ github.workspace }}/output/"
-          sudo rm -rf "${{ github.workspace }}/userpatches/"
-          # 清理缓存目录
-          sudo rm -rf "${{ github.workspace }}/cache/sources/u-boot"
-          sudo rm -rf "${{ github.workspace }}/cache/sources/linux-"*
+          echo "Cleaning up /mnt/linuxbox before build..."
           sudo rm -rf /mnt/linuxbox
-
-      - name: List files in the repository
-        run: |
-          echo "List files in the repository..."
-          ls ${{ github.workspace }}
-          echo "Disk usage before Install dependencies ..."
+          echo "Disk usage before build:"
           df -h
+        working-directory: /
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y uuid-runtime systemd acl sudo
-      - name: Install git for checkout
+          sudo apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils binfmt-support qemu-user-static
+        working-directory: /
+
+      - name: Clone repository to /mnt/linuxbox
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git dialog psmisc acl uuid uuid-runtime curl gawk
+          echo "Cloning repository to /mnt/linuxbox..."
+          sudo mkdir -p /mnt/linuxbox
+          sudo chown -R $USER:$USER /mnt/linuxbox
+          git clone --depth 1 --branch hubv3 ${{ github.server_url }}/${{ github.repository }} /mnt/linuxbox
+          echo "Repository cloned successfully"
+          ls -lah /mnt/linuxbox
+          echo "Disk usage after clone:"
+          df -h
+        working-directory: /
 
       - name: Set git safe.directory for CI
-        run: git config --global --add safe.directory ${{ github.workspace }}
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git ca-certificates gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils binfmt-support qemu-user-static
-
-      - name: Clean up after dependencies
-        run: |
-          echo "Disk usage after cleanup:"
-          df -h
-
-      - name: Remap heavy outputs to /mnt
-        run: |
-          echo "Re-map output directory to /mnt..."
-          sudo mkdir -p /mnt/linuxbox/output
-          sudo chmod 777 /mnt/linuxbox/output
-          # 移除并改为符号链接
-          rm -rf "${{ github.workspace }}/output" || true
-          ln -s /mnt/linuxbox/output "${{ github.workspace }}/output"
-          echo "After remap:"
-          df -h
+        run: git config --global --add safe.directory /mnt/linuxbox
+        working-directory: /
 
       - name: Make script executable
         run: chmod +x make_armbian_for_hubv3.sh
@@ -96,10 +70,8 @@ jobs:
           ls -lah output/ || echo "output/ not found"
           ls -lah output/images/ || echo "output/images/ not found"
           find output -name "*.img" -type f 2>/dev/null || echo "No .img files found in output/"
-          echo "Checking /mnt/linuxbox/output..."
-          ls -lah /mnt/linuxbox/output/ || echo "/mnt/linuxbox/output/ not found"
-          ls -lah /mnt/linuxbox/output/images/ || echo "/mnt/linuxbox/output/images/ not found"
-          find /mnt/linuxbox/output -name "*.img" -type f 2>/dev/null || echo "No .img files found in /mnt/linuxbox/output/"
+          echo "Disk usage after build:"
+          df -h
 
       - name: Upload images as artifact
         uses: actions/upload-artifact@v4
@@ -112,10 +84,8 @@ jobs:
 
       - name: Clean up after upload
         run: |
-          echo "Cleaning up workspace after successful upload..."
-          # 删除整个工作区以释放磁盘空间 (使用 sudo 避免权限问题)
-          sudo rm -rf "${{ github.workspace }}"/*
-          # 删除在 /mnt 创建的临时与输出目录
+          echo "Cleaning up after successful upload..."
           sudo rm -rf /mnt/linuxbox
           echo "Final disk usage:"
           df -h
+        working-directory: /
