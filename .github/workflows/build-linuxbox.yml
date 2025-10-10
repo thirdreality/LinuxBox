@@ -35,7 +35,6 @@ jobs:
           sudo rm -rf "${{ github.workspace }}/output/"
           sudo rm -rf "${{ github.workspace }}/userpatches/"
           # 清理缓存目录
-          sudo rm -rf "${{ github.workspace }}/.tmp"
           sudo rm -rf "${{ github.workspace }}/cache/sources/u-boot"
           sudo rm -rf "${{ github.workspace }}/cache/sources/linux-"*
           sudo rm -rf /mnt/linuxbox
@@ -78,12 +77,11 @@ jobs:
 
       - name: Remap heavy outputs to /mnt
         run: |
-          echo "Re-map heavy dirs to /mnt..."
-          sudo mkdir -p /mnt/linuxbox/.tmp /mnt/linuxbox/output
+          echo "Re-map output directory to /mnt..."
+          sudo mkdir -p /mnt/linuxbox/output
+          sudo chmod 777 /mnt/linuxbox/output
           # 移除并改为符号链接
-          rm -rf "${{ github.workspace }}/.tmp" || true
           rm -rf "${{ github.workspace }}/output" || true
-          ln -s /mnt/linuxbox/.tmp   "${{ github.workspace }}/.tmp"
           ln -s /mnt/linuxbox/output "${{ github.workspace }}/output"
           echo "After remap:"
           df -h
@@ -93,7 +91,6 @@ jobs:
 
       - name: Build firmware
         run: |
-          export TMPDIR=/mnt/linuxbox/.tmp
           if [ -n "${{ github.event.inputs.revision }}" ]; then
             ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
           else
