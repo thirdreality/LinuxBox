@@ -144,8 +144,8 @@ if [[ -n "$IMG_FILE" ]]; then
 
         # 转换完成后，清理不需要的文件
         echo "Cleaning up after successful conversion..."
-        rm -rf ${current_dir}/cache/sources/u-boot
-        rm -rf ${current_dir}/cache/sources/linux-*
+        #rm -rf ${current_dir}/cache/sources/u-boot
+        #rm -rf ${current_dir}/cache/sources/linux-*
         rm -rf ${current_dir}/.tmp
 
         rm -rf ${current_dir}/tools/Armbian_Convert/output/*.zip
