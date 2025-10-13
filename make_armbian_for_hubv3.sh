@@ -14,7 +14,7 @@ echo "Cleaning up old cache files before build..."
 #rm -rf ${current_dir}/cache/sources/u-boot
 #rm -rf ${current_dir}/cache/sources/linux-*
 rm -rf ${current_dir}/.tmp
-rm -rf ${current_dir}/output
+#rm -rf ${current_dir}/output
 
 # 显示清理后的磁盘使用情况
 echo "Disk usage after initial cleanup:"
@@ -22,7 +22,7 @@ df -h ${current_dir}
 
 board="trhubv3"
 destination=""
-r3version="v1.13.01.11"
+r3version="v1.13.01.12"
 
 # 显示使用说明的函数
 usage() {

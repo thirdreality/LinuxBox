@@ -317,6 +317,37 @@ update_firmware_for_debug()
     fi
 }
 
+update_etc_for_install()
+{
+    local debug_etc_dir="${WORK_DIR}/etc"
+    
+    # 检查目录是否存在
+    if [ ! -d "$debug_etc_dir" ]; then
+        return 0
+    fi
+    
+    # 检查目录下是否有文件（不包括子目录）
+    local files_count=$(find "$debug_etc_dir" -maxdepth 1 -type f | wc -l)
+    
+    if [ "$files_count" -eq 0 ]; then
+        echo "[DEBUG-ETC] No files found in $debug_etc_dir, skipping" >&2
+        return 0
+    fi
+    
+    echo "[DEBUG-ETC] Found $files_count file(s) in $debug_etc_dir" >&2
+    echo "[DEBUG-ETC] Copying files to /etc..." >&2
+    
+    # 复制所有文件到 /etc 目录
+    if cp -f "$debug_etc_dir"/* /etc/ 2>/dev/null; then
+        echo "[DEBUG-ETC] Successfully copied all files to /etc" >&2
+    else
+        echo "[DEBUG-ETC] Failed to copy files to /etc" >&2
+        return 1
+    fi
+    
+    return 0
+}
+
 
 
 install_extra_debs() {
@@ -758,6 +789,9 @@ main_procedure()
 
     local ota_updated
     ota_updated=$(update_ota_for_debug)
+
+    # 更新 /etc 配置文件（DEBUG功能）
+    update_etc_for_install
 
     # 更新 zhaquirks 并获取处理的 *.py 文件数量
     local zha_py_files_count
