@@ -72,7 +72,7 @@ jobs:
             bc bison flex libssl-dev libncurses5-dev libncursesw5-dev \
             device-tree-compiler u-boot-tools swig libpython3-dev \
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            ccache ntpdate
+            ccache ntpdate imagemagick
           sudo apt-get autoremove -y || true
           sudo apt-get clean || true          
           # Clean apt cache
@@ -116,9 +116,9 @@ jobs:
       - name: Build firmware
         run: |
           if [ -n "${{ github.event.inputs.revision }}" ]; then
-            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
+            NO_APT_CACHER=yes ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
           else
-            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }}
+            NO_APT_CACHER=yes ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }}
           fi
           
       - name: List output files for debugging
