@@ -65,7 +65,13 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils binfmt-support qemu-user-static
+          # Install essential build tools for U-boot and kernel compilation
+          sudo apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates \
+            gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils \
+            binfmt-support qemu-user-static \
+            bc bison flex libssl-dev libncurses5-dev libncursesw5-dev \
+            device-tree-compiler u-boot-tools swig libpython3-dev \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
           sudo apt-get autoremove -y || true
           sudo apt-get clean || true          
           # Clean apt cache
@@ -92,6 +98,19 @@ jobs:
 
       - name: Make script executable
         run: chmod +x make_armbian_for_hubv3.sh
+
+      - name: Clean build cache
+        run: |
+          echo "Cleaning potentially corrupted build cache..."
+          # Remove any existing U-boot build artifacts that might cause issues
+          sudo rm -rf cache/sources/u-boot/*/build 2>/dev/null || true
+          sudo rm -rf cache/sources/u-boot/*/.config 2>/dev/null || true
+          sudo rm -rf cache/sources/u-boot/*/include/config 2>/dev/null || true
+          sudo rm -rf cache/sources/u-boot/*/include/generated 2>/dev/null || true
+          sudo rm -rf cache/sources/linux-*/build 2>/dev/null || true
+          # Ensure proper ownership of cache directory
+          sudo chown -R $USER:$USER cache/ 2>/dev/null || true
+          echo "Build cache cleaned"
 
       - name: Build firmware
         run: |
