@@ -72,7 +72,7 @@ jobs:
             bc bison flex libssl-dev libncurses5-dev libncursesw5-dev \
             device-tree-compiler u-boot-tools swig libpython3-dev \
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            ccache ntpdate imagemagick
+            ccache ntpdate imagemagick pixz
           sudo apt-get autoremove -y || true
           sudo apt-get clean || true          
           # Clean apt cache
