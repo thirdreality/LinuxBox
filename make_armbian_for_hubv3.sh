@@ -16,9 +16,11 @@ echo "Cleaning up old cache files before build..."
 rm -rf ${current_dir}/.tmp
 #rm -rf ${current_dir}/output
 
+
 # 显示清理后的磁盘使用情况
 echo "Disk usage after initial cleanup:"
 df -h ${current_dir}
+df -h /
 
 board="trhubv3"
 destination=""
@@ -117,8 +119,10 @@ IMG_FILE=$(find "$current_dir/output/images" -maxdepth 1 -type f -name "*.img")
 if [[ -n "$IMG_FILE" ]]; then
     echo "Enter convert directory Armbian_Convert ..."
 
-    rm -rf ${current_dir}/output/usr
-    rm -rf ${current_dir}/output/debs
+    sudo rm -rf ${current_dir}/output/usr
+    sudo rm -rf ${current_dir}/output/debs
+    sudo rm -rf ${current_dir}/cache/sources/*/build/*
+    sudo rm -rf ${current_dir}/cache/rootfs/*
 
     UBOOT=`find ${current_dir}/cache/sources/u-boot/ -name u-boot.bin -type f -print -quit`
     IMAGE=`find ${current_dir}/output/images -name '*.img' -type f -print -quit`
@@ -146,11 +150,12 @@ if [[ -n "$IMG_FILE" ]]; then
         echo "Cleaning up after successful conversion..."
         #rm -rf ${current_dir}/cache/sources/u-boot
         #rm -rf ${current_dir}/cache/sources/linux-*
-        rm -rf ${current_dir}/.tmp
+        sudo rm -rf ${current_dir}/.tmp
 
-        rm -rf ${current_dir}/tools/Armbian_Convert/output/*.zip
+        sudo rm -rf ${current_dir}/tools/Armbian_Convert/output/*.zip
         echo "Disk usage after final cleanup:"
         df -h ${current_dir}
+        df -h /
     else
         echo "Fail: No burn.img file exist."
     fi 

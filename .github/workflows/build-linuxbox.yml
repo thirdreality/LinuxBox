@@ -25,18 +25,53 @@ jobs:
         with:
           ref: hubv3
 
-      - name: Clean up before build
+      - name: Free up disk space
         run: |
-          echo "Cleaning up previous build artifacts..."
+          echo "=== Initial disk usage ==="
+          df -h
+          echo ""
+          echo "=== Removing unnecessary software ==="
+          # Remove Android SDK
+          sudo rm -rf /usr/local/lib/android || true
+          # Remove .NET
+          sudo rm -rf /usr/share/dotnet || true
+          # Remove Haskell
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          # Remove CodeQL
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          # Remove large tool caches
+          sudo rm -rf /opt/hostedtoolcache/* || true
+          # Remove large packages
+          sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' '^llvm-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri || true
+
+
+          # Remove Docker images and containers
+          docker rmi $(docker image ls -aq) >/dev/null 2>&1 || true
+          docker system prune -a -f || true
+          # Remove swap
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
+          sudo rm -f /swapfile || true
+          echo ""
+          echo "=== Disk usage after cleanup ==="
+          df -h
+          echo ""
+          echo "=== Cleaning up previous build artifacts ==="
           sudo rm -rf /mnt/linuxbox /mnt/output
-          echo "Disk usage before build:"
+          echo "=== Final disk usage ==="
           df -h
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils binfmt-support qemu-user-static
-
+          sudo apt-get autoremove -y || true
+          sudo apt-get clean || true          
+          # Clean apt cache
+          sudo rm -rf /var/lib/apt/lists/* || true
+          sudo rm -rf /var/cache/apt/archives/* || true
+          
       - name: Setup QEMU for ARM emulation
         run: |
           echo "Setting up QEMU for ARM emulation..."
@@ -65,7 +100,7 @@ jobs:
           else
             ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }}
           fi
-
+          
       - name: List output files for debugging
         run: |
           echo "Checking output directory structure..."

@@ -103,10 +103,10 @@ update_z2m_quirks_for_debug()
         return 0
     fi
 
-    # 检查 js 文件数量
+    # Check js file count
     local js_files_count=$(find "$DEBUG_Z2M_DIR" -maxdepth 1 -name "*.js" -type f | wc -l)
 
-    # 如果 js 文件数量不超过 1 个，则什么都不用干
+    # If js file count is 1 or less, do nothing
     if [ "$js_files_count" -le 1 ]; then
         echo 0 >&2
         echo 0
@@ -118,15 +118,15 @@ update_z2m_quirks_for_debug()
     echo "[DEBUG-Z2M] Found $js_files_count *.js files in $DEBUG_Z2M_DIR" >&2
     echo "[DEBUG-Z2M] Moving *.js files to: $target_dir" >&2
     
-    # 创建目标目录（如果不存在）
+    # Create target directory if it doesn't exist
     mkdir -p "$target_dir"
     
-    # 移动所有 js 文件到目标目录
+    # Move all js files to target directory
     find "$DEBUG_Z2M_DIR" -maxdepth 1 -name "*.js" -type f -exec mv {} "$target_dir"/ \;
 
     echo "[DEBUG-Z2M] z2m converters sync completed, total js files: $js_files_count" >&2
     
-    # 返回 js 文件总数
+    # Return total js file count
     echo "$js_files_count"
     return 0
 }
@@ -142,7 +142,7 @@ update_zha_quirks_for_debug()
         return 0
     fi
 
-    # 检查 $DEBUG_ZHA_DIR 目录下有多少 *.py 文件
+    # Check how many *.py files are in $DEBUG_ZHA_DIR directory
     local py_files_count=$(find "$DEBUG_ZHA_DIR" -maxdepth 1 -name "*.py" -type f | wc -l)
     
     if [ "$py_files_count" -eq 0 ]; then
@@ -168,17 +168,17 @@ update_zha_quirks_for_debug()
     fi
 
     echo "[DEBUG-ZHA] Copying *.py files to: $zha_target_dir" >&2
-    # 拷贝所有 *.py 文件到目标目录
-    find "$DEBUG_ZHA_DIR" -maxdepth 1 -name "*.py" -type f -exec cp {} "$zha_target_dir"/ \;
+    # Copy all *.py files to target directory
+    find "$DEBUG_ZHA_DIR" -maxdepth 1 -name "*.py" -type f -exec cp {} "$zha_target_dir"/  \;
     
-    # 删除 $DEBUG_ZHA_DIR 下的所有 *.py 文件
+    # Delete all *.py files from $DEBUG_ZHA_DIR
     find "$DEBUG_ZHA_DIR" -maxdepth 1 -name "*.py" -type f -delete
     
     rm -rf "$zha_target_dir"/__pycache__ || true
 
     echo "[DEBUG-ZHA] zhaquirks sync completed" >&2
     
-    # 输出 *.py 文件总数，并返回 0
+    # Output total *.py file count and return 0
     echo "$py_files_count"
     return 0
 }
@@ -321,12 +321,12 @@ update_etc_for_install()
 {
     local debug_etc_dir="${WORK_DIR}/etc"
     
-    # 检查目录是否存在
+    # Check if directory exists
     if [ ! -d "$debug_etc_dir" ]; then
         return 0
     fi
     
-    # 检查目录下是否有文件（不包括子目录）
+    # Check if there are files in the directory (excluding subdirectories)
     local files_count=$(find "$debug_etc_dir" -maxdepth 1 -type f | wc -l)
     
     if [ "$files_count" -eq 0 ]; then
@@ -337,7 +337,7 @@ update_etc_for_install()
     echo "[DEBUG-ETC] Found $files_count file(s) in $debug_etc_dir" >&2
     echo "[DEBUG-ETC] Copying files to /etc..." >&2
     
-    # 复制所有文件到 /etc 目录
+    # Copy all files to /etc directory
     if cp -f "$debug_etc_dir"/* /etc/ 2>/dev/null; then
         echo "[DEBUG-ETC] Successfully copied all files to /etc" >&2
     else
@@ -598,7 +598,7 @@ install_zigbee2mqtt_debs() {
     zigbee_mqtt_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "zigbee-mqtt_*.deb" -type f | head -n 1)
     if [ -n "$zigbee_mqtt_deb_file" ]; then
         install_deb_if_needed "$zigbee_mqtt_deb_file" "thirdreality-zigbee-mqtt"
-        # 老版本兼容：If installation is successful, install dependencies
+        # Legacy compatibility: If installation is successful, install dependencies
         # New: /usr/lib/thirdreality/post-fix-zigbee2mqtt.sh
         if [ -e "/usr/lib/thirdreality/post-install-zigbee2mqtt.sh" ]; then
             /usr/lib/thirdreality/post-install-zigbee2mqtt.sh > /dev/null || true
@@ -790,25 +790,34 @@ main_procedure()
     local ota_updated
     ota_updated=$(update_ota_for_debug)
 
-    # 更新 /etc 配置文件（DEBUG功能）
+    # Update /etc configuration files (DEBUG feature)
     update_etc_for_install
+    
+    # Force filesystem sync
+    /usr/bin/sync
 
-    # 更新 zhaquirks 并获取处理的 *.py 文件数量
+    # Update zhaquirks and get the count of processed *.py files
     local zha_py_files_count
     zha_py_files_count=$(update_zha_quirks_for_debug)
 
-    # 更新 z2mquirks 并获取处理的 *.js 文件数量
+    # Force filesystem sync
+    /usr/bin/sync
+
+    # Update z2mquirks and get the count of processed *.js files
     local z2m_js_files_count
     z2m_js_files_count=$(update_z2m_quirks_for_debug)
+
+    # Force filesystem sync
+    /usr/bin/sync
     
-    # 如果处理了 ZHA 文件或 OTA 索引更新，且 home-assistant.service 正在运行，则重启 Home Assistant
+    # If ZHA files or OTA index were updated and home-assistant.service is running, restart Home Assistant
     if { [ "$zha_py_files_count" -gt 0 ] || [ "$ota_updated" -gt 0 ]; } && systemctl is-active --quiet home-assistant.service; then
         echo "Processed ZHA=$zha_py_files_count, OTA=$ota_updated; restarting Home Assistant service..."
         systemctl restart home-assistant.service || true
         echo "Home Assistant service restarted"
     fi
     
-    # 如果处理了 Z2M 文件，且 zigbee2mqtt.service 正在运行，则重启 Zigbee2MQTT
+    # If Z2M files were processed and zigbee2mqtt.service is running, restart Zigbee2MQTT
     if [ "$z2m_js_files_count" -gt 0 ] && systemctl is-active --quiet zigbee2mqtt.service; then
         echo "Processed Z2M=$z2m_js_files_count; restarting Zigbee2MQTT service..."
         systemctl restart zigbee2mqtt.service || true
