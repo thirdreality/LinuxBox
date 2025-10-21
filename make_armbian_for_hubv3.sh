@@ -121,10 +121,10 @@ IMG_FILE=$(find "$current_dir/output/images" -maxdepth 1 -type f -name "*.img")
 if [[ -n "$IMG_FILE" ]]; then
     echo "Enter convert directory Armbian_Convert ..."
 
-    sudo rm -rf ${current_dir}/output/usr
-    sudo rm -rf ${current_dir}/output/debs
-    sudo rm -rf ${current_dir}/cache/sources/*/build/*
-    sudo rm -rf ${current_dir}/cache/rootfs/*
+    #sudo rm -rf ${current_dir}/output/usr
+    #sudo rm -rf ${current_dir}/output/debs
+    #sudo rm -rf ${current_dir}/cache/sources/*/build/*
+    #sudo rm -rf ${current_dir}/cache/rootfs/*
 
     UBOOT=`find ${current_dir}/cache/sources/u-boot/ -name u-boot.bin -type f -print -quit`
     IMAGE=`find ${current_dir}/output/images -name '*.img' -type f -print -quit`

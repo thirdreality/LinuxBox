@@ -177,10 +177,10 @@ update_zha_quirks_for_debug()
         return 0
     fi
 
-    # Check if ZHA configuration already exists with the correct path
-    if grep -qE "zha:" "$ha_cfg" && grep -qE "custom_quirks_path:" "$ha_cfg"; then
+    # Check if custom_quirks_path configuration already exists with the correct path
+    if grep -qE "custom_quirks_path:" "$ha_cfg"; then
         # Check if the path is correct
-        if grep -qE "/var/lib/homeassistant/homeassistant/zha_quirks" "$ha_cfg"; then
+        if grep -qE "custom_quirks_path:.*zha_quirks" "$ha_cfg"; then
             echo "[DEBUG-ZHA] ZHA configuration already exists with correct custom_quirks_path in $ha_cfg" >&2
         else
             # Path exists but is different, update it
@@ -192,14 +192,29 @@ update_zha_quirks_for_debug()
             echo "[DEBUG-ZHA] Updated custom_quirks_path to correct value" >&2
         fi
     else
-        echo "[DEBUG-ZHA] Adding ZHA configuration to $ha_cfg" >&2
-        {
-            echo ""
-            echo "zha:"
-            echo "  enable_quirks: true"
-            echo "  custom_quirks_path: /var/lib/homeassistant/homeassistant/zha_quirks"
-        } >> "$ha_cfg"
-        echo "[DEBUG-ZHA] ZHA configuration updated successfully" >&2
+        # Need to add custom_quirks_path configuration
+        echo "[DEBUG-ZHA] Adding ZHA quirks configuration to $ha_cfg" >&2
+        
+        # Check if zha: section already exists
+        if grep -qE "^zha:" "$ha_cfg"; then
+            # zha: section exists, append quirks config under it
+            # Create a backup
+            cp "$ha_cfg" "$ha_cfg.backup.$(date +%Y%m%d_%H%M%S)" || true
+            
+            # Find the line number of zha: and insert quirks config after it
+            # Use awk to add the configuration with proper indentation
+            awk '/^zha:/ && !done { print; print "  enable_quirks: true"; print "  custom_quirks_path: /var/lib/homeassistant/homeassistant/zha_quirks"; done=1; next } 1' "$ha_cfg" > "$ha_cfg.tmp" && mv "$ha_cfg.tmp" "$ha_cfg"
+            echo "[DEBUG-ZHA] Added quirks configuration to existing zha: section" >&2
+        else
+            # zha: section doesn't exist, create new one
+            {
+                echo ""
+                echo "zha:"
+                echo "  enable_quirks: true"
+                echo "  custom_quirks_path: /var/lib/homeassistant/homeassistant/zha_quirks"
+            } >> "$ha_cfg"
+            echo "[DEBUG-ZHA] Created new zha: section with quirks configuration" >&2
+        fi
     fi
 
     echo "[DEBUG-ZHA] zhaquirks sync completed" >&2
@@ -257,6 +272,7 @@ update_ota_for_debug()
         return 0
     fi
 
+    # Check if OTA providers are already configured
     if grep -qE "extra_providers|zigpy_local|z2m_local" "$ha_cfg"; then
         echo "[DEBUG-OTA] OTA providers already configured in $ha_cfg" >&2
         echo "$updated" >&2
@@ -264,18 +280,47 @@ update_ota_for_debug()
         return 0
     fi
 
-    echo "[DEBUG-OTA] Append local OTA providers for ZHA to $ha_cfg" >&2
-    {
-        echo ""
-        echo "zha:"
-        echo "  zigpy_config:"
-        echo "    ota:"
-        echo "      extra_providers:"
-        echo "        - type: z2m_local"
-        echo "          index_file: $ota_dir/local_index.json"
-        echo "        - type: zigpy_local"
-        echo "          index_file: $ota_dir/local_index.json"
-    } >> "$ha_cfg"
+    echo "[DEBUG-OTA] Adding local OTA providers for ZHA to $ha_cfg" >&2
+    
+    # Check if zha: section already exists
+    if grep -qE "^zha:" "$ha_cfg"; then
+        # zha: section exists, append OTA config under it
+        # Create a backup
+        cp "$ha_cfg" "$ha_cfg.backup.$(date +%Y%m%d_%H%M%S)" || true
+        
+        # Use awk to add the OTA configuration with proper indentation under zha:
+        awk '
+        /^zha:/ && !done {
+            print
+            print "  zigpy_config:"
+            print "    ota:"
+            print "      extra_providers:"
+            print "        - type: z2m_local"
+            print "          index_file: '"$ota_dir"'/local_index.json"
+            print "        - type: zigpy_local"
+            print "          index_file: '"$ota_dir"'/local_index.json"
+            done=1
+            next
+        }
+        { print }
+        ' "$ha_cfg" > "$ha_cfg.tmp" && mv "$ha_cfg.tmp" "$ha_cfg"
+        
+        echo "[DEBUG-OTA] Added OTA configuration to existing zha: section" >&2
+    else
+        # zha: section doesn't exist, create new one
+        {
+            echo ""
+            echo "zha:"
+            echo "  zigpy_config:"
+            echo "    ota:"
+            echo "      extra_providers:"
+            echo "        - type: z2m_local"
+            echo "          index_file: $ota_dir/local_index.json"
+            echo "        - type: zigpy_local"
+            echo "          index_file: $ota_dir/local_index.json"
+        } >> "$ha_cfg"
+        echo "[DEBUG-OTA] Created new zha: section with OTA configuration" >&2
+    fi
 
     echo "[DEBUG-OTA] OTA configuration updated successfully" >&2
     echo "$updated" >&2
@@ -302,8 +347,14 @@ update_firmware_for_debug()
         systemctl is-active --quiet home-assistant.service && ha_running="yes" || true
         systemctl is-active --quiet zigbee2mqtt.service && z2m_running="yes" || true
 
-        if [ "$ha_running" = "yes" ]; then systemctl stop home-assistant.service || true; fi
-        if [ "$z2m_running" = "yes" ]; then systemctl stop zigbee2mqtt.service || true; fi
+        if [ "$ha_running" = "yes" ]; then
+            echo "[DEBUG-FW] Stopping Home Assistant service for Zigbee firmware update..." >&2
+            systemctl stop home-assistant.service || true
+        fi
+        if [ "$z2m_running" = "yes" ]; then
+            echo "[DEBUG-FW] Stopping Zigbee2MQTT service for Zigbee firmware update..." >&2
+            systemctl stop zigbee2mqtt.service || true
+        fi
 
         if [ -x "$flasher_bin" ]; then
             "$flasher_bin" flash blz || true
@@ -315,8 +366,14 @@ update_firmware_for_debug()
             /usr/local/bin/supervisor zigbee info || true
         fi
 
-        if [ "$ha_running" = "yes" ]; then systemctl start home-assistant.service || true; fi
-        if [ "$z2m_running" = "yes" ]; then systemctl start zigbee2mqtt.service || true; fi
+        if [ "$ha_running" = "yes" ]; then
+            echo "[DEBUG-FW] Starting Home Assistant service after Zigbee firmware update..." >&2
+            systemctl start home-assistant.service || true
+        fi
+        if [ "$z2m_running" = "yes" ]; then
+            echo "[DEBUG-FW] Starting Zigbee2MQTT service after Zigbee firmware update..." >&2
+            systemctl start zigbee2mqtt.service || true
+        fi
     fi
 
     # Handle Thread firmware
@@ -327,7 +384,10 @@ update_firmware_for_debug()
         local otbr_running="no"
         systemctl is-active --quiet otbr-agent.service && otbr_running="yes" || true
 
-        if [ "$otbr_running" = "yes" ]; then systemctl stop otbr-agent.service || true; fi
+        if [ "$otbr_running" = "yes" ]; then
+            echo "[DEBUG-FW] Stopping OTBR agent service for Thread firmware update..." >&2
+            systemctl stop otbr-agent.service || true
+        fi
 
         if [ -x "$flasher_bin" ]; then
             "$flasher_bin" flash thread || true
@@ -339,7 +399,10 @@ update_firmware_for_debug()
             /usr/local/bin/supervisor thread info || true
         fi
 
-        if [ "$otbr_running" = "yes" ]; then systemctl start otbr-agent.service || true; fi
+        if [ "$otbr_running" = "yes" ]; then
+            echo "[DEBUG-FW] Starting OTBR agent service after Thread firmware update..." >&2
+            systemctl start otbr-agent.service || true
+        fi
     fi
 }
 
@@ -916,16 +979,18 @@ main_procedure()
     
     # If ZHA files or OTA index were updated and home-assistant.service is running, restart Home Assistant
     if { [ "$zha_py_files_count" -gt 0 ] || [ "$ota_updated" -gt 0 ]; } && systemctl is-active --quiet home-assistant.service; then
-        echo "Processed ZHA=$zha_py_files_count, OTA=$ota_updated; restarting Home Assistant service..."
+        echo "[MAIN] Processed ZHA quirks=$zha_py_files_count, OTA updates=$ota_updated" >&2
+        echo "[MAIN] Restarting Home Assistant service to apply changes..." >&2
         systemctl restart home-assistant.service || true
-        echo "Home Assistant service restarted"
+        echo "[MAIN] Home Assistant service restarted successfully" >&2
     fi
     
     # If Z2M files were processed and zigbee2mqtt.service is running, restart Zigbee2MQTT
     if [ "$z2m_js_files_count" -gt 0 ] && systemctl is-active --quiet zigbee2mqtt.service; then
-        echo "Processed Z2M=$z2m_js_files_count; restarting Zigbee2MQTT service..."
+        echo "[MAIN] Processed Z2M converters=$z2m_js_files_count" >&2
+        echo "[MAIN] Restarting Zigbee2MQTT service to apply changes..." >&2
         systemctl restart zigbee2mqtt.service || true
-        echo "Zigbee2MQTT service restarted"
+        echo "[MAIN] Zigbee2MQTT service restarted successfully" >&2
     fi
 }
 
