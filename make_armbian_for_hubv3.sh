@@ -108,12 +108,12 @@ fi
 rm -rf $current_dir/output/images
 mkdir -p $current_dir/output/images
 
-export NO_APT_CACHER=yes
+#export NO_APT_CACHER=yes
 
 $(pwd)/compile.sh hubv3-images BOARD=${board} BRANCH=current RELEASE=bookworm R3VERSION=${r3version} R3VERSION_ID=${r3_version_id} \
         BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
         COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no \
-        UBOOT_MIRROR=github NO_APT_CACHER=yes \
+        UBOOT_MIRROR=github \
         DOWNLOAD_MIRROR=${destination}
 
 IMG_FILE=$(find "$current_dir/output/images" -maxdepth 1 -type f -name "*.img")

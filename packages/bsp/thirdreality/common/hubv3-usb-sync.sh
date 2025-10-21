@@ -134,7 +134,7 @@ update_z2m_quirks_for_debug()
 update_zha_quirks_for_debug()
 {
     # If $DEBUG_ZHA_DIR exists, copy all *.py files under it to
-    # /srv/homeassistant/lib/python3.13/site-packages/zhaquirks/thirdreality.
+    # /var/lib/homeassistant/homeassistant/zha_quirks.
     # Proceed only if the target directory exists.
     if [ ! -d "$DEBUG_ZHA_DIR" ]; then
         echo 0 >&2
@@ -154,18 +154,11 @@ update_zha_quirks_for_debug()
 
     echo "[DEBUG-ZHA] Found $py_files_count *.py files in $DEBUG_ZHA_DIR" >&2
 
-    # Prefer the known path; otherwise glob-search to support different Python minor versions
-    local zha_target_dir="/srv/homeassistant/lib/python3.13/site-packages/zhaquirks/thirdreality"
-    if [ ! -d "$zha_target_dir" ]; then
-        zha_target_dir=$(ls -d /srv/homeassistant/lib/python*/site-packages/zhaquirks/thirdreality 2>/dev/null | head -n 1 || true)
-    fi
-
-    if [ -z "$zha_target_dir" ] || [ ! -d "$zha_target_dir" ]; then
-        echo "[DEBUG-ZHA] zhaquirks target directory not found, skip." >&2
-        echo 0 >&2
-        echo 0
-        return 0
-    fi
+    # Set the target directory to the new path
+    local zha_target_dir="/var/lib/homeassistant/homeassistant/zha_quirks"
+    
+    # Create target directory if it doesn't exist
+    mkdir -p "$zha_target_dir"
 
     echo "[DEBUG-ZHA] Copying *.py files to: $zha_target_dir" >&2
     # Copy all *.py files to target directory
@@ -175,6 +168,39 @@ update_zha_quirks_for_debug()
     find "$DEBUG_ZHA_DIR" -maxdepth 1 -name "*.py" -type f -delete
     
     rm -rf "$zha_target_dir"/__pycache__ || true
+
+    # Update Home Assistant configuration
+    local ha_cfg="/var/lib/homeassistant/homeassistant/configuration.yaml"
+    if [ ! -f "$ha_cfg" ]; then
+        echo "[DEBUG-ZHA] Home Assistant configuration file not found: $ha_cfg" >&2
+        echo "$py_files_count"
+        return 0
+    fi
+
+    # Check if ZHA configuration already exists with the correct path
+    if grep -qE "zha:" "$ha_cfg" && grep -qE "custom_quirks_path:" "$ha_cfg"; then
+        # Check if the path is correct
+        if grep -qE "/var/lib/homeassistant/homeassistant/zha_quirks" "$ha_cfg"; then
+            echo "[DEBUG-ZHA] ZHA configuration already exists with correct custom_quirks_path in $ha_cfg" >&2
+        else
+            # Path exists but is different, update it
+            echo "[DEBUG-ZHA] ZHA configuration exists but with different custom_quirks_path, updating..." >&2
+            # Create a backup
+            cp "$ha_cfg" "$ha_cfg.backup.$(date +%Y%m%d_%H%M%S)" || true
+            # Update the path using sed
+            sed -i 's|custom_quirks_path:.*|custom_quirks_path: /var/lib/homeassistant/homeassistant/zha_quirks|g' "$ha_cfg"
+            echo "[DEBUG-ZHA] Updated custom_quirks_path to correct value" >&2
+        fi
+    else
+        echo "[DEBUG-ZHA] Adding ZHA configuration to $ha_cfg" >&2
+        {
+            echo ""
+            echo "zha:"
+            echo "  enable_quirks: true"
+            echo "  custom_quirks_path: /var/lib/homeassistant/homeassistant/zha_quirks"
+        } >> "$ha_cfg"
+        echo "[DEBUG-ZHA] ZHA configuration updated successfully" >&2
+    fi
 
     echo "[DEBUG-ZHA] zhaquirks sync completed" >&2
     
@@ -345,6 +371,81 @@ update_etc_for_install()
         return 1
     fi
     
+    return 0
+}
+
+
+update_blueprints_for_debug()
+{
+    local bp_root="${DEBUG_DIR}/blueprints"
+    local ha_bp_root="/var/lib/homeassistant/homeassistant/blueprints"
+
+    if [ ! -d "$bp_root" ]; then
+        return 0
+    fi
+
+    mkdir -p "$ha_bp_root"
+
+    # Helper: move a category (automation/script)
+    move_bp_category() {
+        local category="$1"
+        local src_dir="$bp_root/$category"
+        local dst_dir="$ha_bp_root/$category"
+
+        if [ ! -d "$src_dir" ]; then
+            return 0
+        fi
+
+        # Count total files under src_dir; skip if empty
+        local total_files
+        total_files=$(find "$src_dir" -type f | wc -l)
+        if [ "$total_files" -eq 0 ]; then
+            return 0
+        fi
+
+        mkdir -p "$dst_dir"
+
+        echo "[DEBUG-BP] Syncing blueprints category '$category' from $src_dir -> $dst_dir (files=$total_files)" >&2
+
+        # 1) Move files directly under category
+        find "$src_dir" -mindepth 1 -maxdepth 1 -type f -name "*.y*ml" -print0 2>/dev/null | xargs -0r -I{} mv "{}" "$dst_dir/" || true
+
+        # 2) Move non-empty immediate subdirectories under category
+        local subdir
+        while IFS= read -r subdir; do
+            [ -z "$subdir" ] && continue
+            local sc
+            sc=$(find "$subdir" -type f | wc -l)
+            if [ "$sc" -gt 0 ]; then
+                echo "[DEBUG-BP] Moving blueprint dir: $subdir -> $dst_dir" >&2
+                mv "$subdir" "$dst_dir/" || true
+            fi
+        done < <(find "$src_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null || true)
+    }
+
+    # Prefer structured categories if present
+    move_bp_category automation
+    move_bp_category script
+
+    # If there are legacy subdirectories directly under blueprints/, move them to root
+    # to maintain backward compatibility
+    local legacy_dirs
+    legacy_dirs=$(find "$bp_root" -mindepth 1 -maxdepth 1 -type d \( -name automation -o -name script \) -prune -o -type d -print 2>/dev/null | tr '\n' '\n')
+    if [ -n "$legacy_dirs" ]; then
+        local d
+        while IFS= read -r d; do
+            [ -z "$d" ] && continue
+            local lc
+            lc=$(find "$d" -type f | wc -l)
+            if [ "$lc" -gt 0 ]; then
+                echo "[DEBUG-BP] Moving legacy blueprint dir: $d -> $ha_bp_root" >&2
+                mv "$d" "$ha_bp_root/" || true
+            fi
+        done <<EOF
+$legacy_dirs
+EOF
+    fi
+
     return 0
 }
 
@@ -792,6 +893,9 @@ main_procedure()
 
     # Update /etc configuration files (DEBUG feature)
     update_etc_for_install
+    
+    # Update Home Assistant blueprints from debug directory (DEBUG feature)
+    update_blueprints_for_debug
     
     # Force filesystem sync
     /usr/bin/sync
