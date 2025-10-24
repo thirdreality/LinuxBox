@@ -97,28 +97,100 @@ jobs:
           echo "Symlink created: ${{ github.workspace }}/output -> /mnt/output"
           ls -lah ${{ github.workspace }}/
 
-      - name: Make script executable
-        run: chmod +x make_armbian_for_hubv3.sh
-
       - name: Clean build cache
         run: |
-          echo "Cleaning potentially corrupted build cache..."
-          # Remove any existing U-boot build artifacts that might cause issues
-          sudo rm -rf cache/sources/u-boot/*/build 2>/dev/null || true
-          sudo rm -rf cache/sources/u-boot/*/.config 2>/dev/null || true
-          sudo rm -rf cache/sources/u-boot/*/include/config 2>/dev/null || true
-          sudo rm -rf cache/sources/u-boot/*/include/generated 2>/dev/null || true
-          sudo rm -rf cache/sources/linux-*/build 2>/dev/null || true
-          # Ensure proper ownership of cache directory
-          sudo chown -R $USER:$USER cache/ 2>/dev/null || true
+          echo "Cleaning build cache..."
+          sudo rm -rf cache/
           echo "Build cache cleaned"
 
-      - name: Build firmware
+      - name: Build userpatches
         run: |
-          if [ -n "${{ github.event.inputs.revision }}" ]; then
-            NO_APT_CACHER=yes ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
+          echo "Setting up userpatches..."
+          mkdir -p userpatches/overlay/
+          
+          cp custom/config-hubv3-images.conf userpatches/
+          cp custom/config-jethubj100-images.conf userpatches/
+          cp custom/customize-image.sh userpatches/
+          #cp custom/*.deb userpatches/overlay/
+          cp custom/bl706_cache userpatches/overlay/ -R
+          
+          echo "Cleaning output directory..."
+          rm -rf output/images
+          mkdir -p output/images
+
+      - name: Build firmware
+        env:
+          NO_APT_CACHER: yes
+        run: |
+          # Calculate version ID from revision
+          r3version="${{ github.event.inputs.revision }}"
+          ver_no_v=${r3version#v}
+          IFS='.' read -r major minor patch build <<< "$ver_no_v"
+          r3_version_id=$((10#$major * 1000000 + 10#$minor * 10000 + 10#$patch * 100 + 10#$build))
+          
+          echo "Building firmware with parameters:"
+          echo "Board: ${{ github.event.inputs.board }}"
+          echo "Dist: ${{ github.event.inputs.dist }}"
+          echo "Revision: $r3version"
+          echo "Version ID: $r3_version_id"
+          
+          # Set destination based on dist input
+          if [[ "${{ github.event.inputs.dist }}" == "cn" ]]; then
+            destination="china"
           else
-            NO_APT_CACHER=yes ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }}
+            destination=""
+          fi
+          
+          # Execute compile.sh
+          ./compile.sh hubv3-images BOARD=${{ github.event.inputs.board }} BRANCH=current RELEASE=bookworm R3VERSION=$r3version R3VERSION_ID=$r3_version_id \
+            BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
+            COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no \
+            UBOOT_MIRROR=github \
+            DOWNLOAD_MIRROR=$destination
+
+      - name: Convert image
+        run: |
+          echo "Checking for generated images..."
+          IMG_FILE=$(find "output/images" -maxdepth 1 -type f -name "*.img")
+          
+          if [[ -n "$IMG_FILE" ]]; then
+            echo "Enter convert directory Armbian_Convert ..."
+            
+            UBOOT=$(find cache/sources/u-boot/ -name u-boot.bin -type f -print -quit)
+            IMAGE=$(find output/images -name '*.img' -type f -print -quit)
+            
+            echo "UBOOT: ${UBOOT}"
+            echo "Image: ${IMAGE}"
+            
+            mkdir -p tools/Armbian_Convert/output
+            
+            ./tools/Armbian_Convert/convert.sh ${IMAGE} ${{ github.event.inputs.board }} armbian no ${UBOOT}
+            
+            IMGBURN=$(find tools -maxdepth 8 -type f -name "*.burn.img")
+            
+            if [[ -n "$IMGBURN" && -f "$IMGBURN" ]]; then
+              mkdir -p output/images/
+              mv "$IMGBURN" output/images/
+              IMGBURN=$(find output -maxdepth 4 -type f -name "*.burn.img")
+              # 重命名 .burn.img 为 .${r3version}.img
+              r3version="${{ github.event.inputs.revision }}"
+              new_imgburn="${IMGBURN/.burn.img/.${r3version}.img}"
+              mv "$IMGBURN" "$new_imgburn"
+              rm -rf "${IMAGE}"
+              echo "File build: $new_imgburn"
+              
+              # 转换完成后，清理不需要的文件
+              echo "Cleaning up after successful conversion..."
+              sudo rm -rf .tmp
+              sudo rm -rf tools/Armbian_Convert/output/*.zip
+              echo "Disk usage after final cleanup:"
+              df -h .
+              df -h /
+            else
+              echo "Fail: No burn.img file exist."
+            fi 
+          else
+            echo "No .img files found in output/images/"
           fi
           
       - name: List output files for debugging
