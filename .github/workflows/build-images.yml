@@ -1,6 +1,6 @@
-name: Build Images
+name: Build LinuxBox-Dev Images
 #
-# Generates beta, stable or RC images. You can select build runners. By default it generates all images, but you can build images only for one target
+# Generates beta, stable or RC images for LinuxBox devices. You can select build runners. By default it generates all images, but you can build images only for one target
 # Images are placed at www.arnmbian.com and nighly beta also at https://github.com/armbian/build/releases/tag/latest
 #
 
@@ -41,6 +41,21 @@ on:
         options:
         - "yes"
         - "no"
+
+      board:
+        description: "Board: trhubv3, trhubv3b, linuxbox"
+        required: false
+        default: "trhubv3"
+
+      dist:
+        description: "Distribution: cn, us, kr"
+        required: false
+        default: "us"
+
+      revision:
+        description: "Revision (optional)"
+        required: false
+        default: "v1.13.01.12"
 
       advanced:
         description: 'Single board (grep -w tinkerboard |)'
@@ -338,10 +353,142 @@ jobs:
       SSH_KEY_TORRENTS: ${{ secrets.KEY_TORRENTS }}
       KNOWN_HOSTS_UPLOAD: ${{ secrets.KNOWN_HOSTS_UPLOAD }}
 
+  linuxbox-build:
+
+    name: Build LinuxBox firmware
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: hubv3
+
+      - name: Free up disk space
+        run: |
+          echo "=== Initial disk usage ==="
+          df -h
+          echo ""
+          echo "=== Removing unnecessary software ==="
+          # Remove Android SDK
+          sudo rm -rf /usr/local/lib/android || true
+          # Remove .NET
+          sudo rm -rf /usr/share/dotnet || true
+          # Remove Haskell
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/.ghcup || true
+          # Remove CodeQL
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          # Remove large tool caches
+          sudo rm -rf /opt/hostedtoolcache/* || true
+          # Remove large packages
+          sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' '^llvm-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri || true
+
+          # Remove Docker images and containers
+          docker rmi $(docker image ls -aq) >/dev/null 2>&1 || true
+          docker system prune -a -f || true
+          # Remove swap
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
+          sudo rm -f /swapfile || true
+          echo ""
+          echo "=== Disk usage after cleanup ==="
+          df -h
+          echo ""
+          echo "=== Cleaning up previous build artifacts ==="
+          sudo rm -rf /mnt/linuxbox /mnt/output
+          echo "=== Final disk usage ==="
+          df -h
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          # Install essential build tools for U-boot and kernel compilation
+          sudo apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates \
+            gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils \
+            binfmt-support qemu-user-static \
+            bc bison flex libssl-dev libncurses5-dev libncursesw5-dev \
+            device-tree-compiler u-boot-tools swig libpython3-dev \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            ccache ntpdate imagemagick pixz
+          sudo apt-get autoremove -y || true
+          sudo apt-get clean || true          
+          # Clean apt cache
+          sudo rm -rf /var/lib/apt/lists/* || true
+          sudo rm -rf /var/cache/apt/archives/* || true
+          
+      - name: Setup QEMU for ARM emulation
+        run: |
+          echo "Setting up QEMU for ARM emulation..."
+          sudo systemctl restart systemd-binfmt.service || true
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes || true
+          echo "Verifying QEMU registration..."
+          ls -la /proc/sys/fs/binfmt_misc/ || true
+          cat /proc/sys/fs/binfmt_misc/qemu-aarch64 || echo "qemu-aarch64 not registered"
+
+      - name: Setup output directory symlink
+        run: |
+          echo "Setting up output directory symlink..."
+          sudo mkdir -p /mnt/output
+          sudo chown -R $USER:$USER /mnt/output
+          ln -s /mnt/output ${{ github.workspace }}/output
+          echo "Symlink created: ${{ github.workspace }}/output -> /mnt/output"
+          ls -lah ${{ github.workspace }}/
+
+      - name: Make script executable
+        run: chmod +x make_armbian_for_hubv3.sh
+
+      - name: Clean build cache
+        run: |
+          echo "Cleaning potentially corrupted build cache..."
+          # Remove any existing U-boot build artifacts that might cause issues
+          sudo rm -rf cache/sources/u-boot/*/build 2>/dev/null || true
+          sudo rm -rf cache/sources/u-boot/*/.config 2>/dev/null || true
+          sudo rm -rf cache/sources/u-boot/*/include/config 2>/dev/null || true
+          sudo rm -rf cache/sources/u-boot/*/include/generated 2>/dev/null || true
+          sudo rm -rf cache/sources/linux-*/build 2>/dev/null || true
+          # Ensure proper ownership of cache directory
+          sudo chown -R $USER:$USER cache/ 2>/dev/null || true
+          echo "Build cache cleaned"
+
+      - name: Build firmware
+        env:
+          NO_APT_CACHER: yes
+        run: |
+          if [ -n "${{ github.event.inputs.revision }}" ]; then
+            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
+          else
+            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }}
+          fi
+          
+      - name: List output files for debugging
+        run: |
+          echo "Checking output directory structure..."
+          ls -lah output/ || echo "output/ not found"
+          ls -lah output/images/ || echo "output/images/ not found"
+          find output -name "*.img" -type f 2>/dev/null || echo "No .img files found in output/"
+          echo "Disk usage after build:"
+          df -h
+
+      - name: Upload images as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinuxBox-images${{ github.event.inputs.revision && format('-{0}', github.event.inputs.revision) || '' }}
+          path: |
+            output/images/*.img
+            output/images/*.xz
+          if-no-files-found: warn
+
+      - name: Clean up after upload
+        run: |
+          echo "Cleaning up after successful upload..."
+          sudo rm -rf /mnt/output /mnt/linuxbox
+          echo "Final disk usage:"
+          df -h
+
   jobsend:
 
     name: finish
-    needs: [x86,x86-desktop,cli1,desktop1,cli2,desktop2]
+    needs: [x86,x86-desktop,cli1,desktop1,cli2,desktop2,linuxbox-build]
     runs-on: [ubuntu-latest]
     if: ${{ github.repository_owner == 'Armbian' && github.event.inputs.choice != 'stable'  && github.event.inputs.choice != 'rc' }}
     steps:
