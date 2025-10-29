@@ -89,8 +89,7 @@ exclude_patterns=(
     "linuxbox-supervisor_"
 
     "zigbee-mqtt_"
-    "zigpy_handler_"
-
+    
     "openhab_"
 )
 
@@ -456,6 +455,11 @@ update_firmware_for_debug()
     # Handle Zigbee firmware
     if [ -f "$DEBUG_FIRMWARE_DIR/blz_whole_img.bin" ]; then
         echo "[DEBUG-FW] Update Zigbee firmware image"
+
+        if [ -e "/usr/local/bin/supervisor" ]; then
+            /usr/local/bin/supervisor led sys_firmware_updating  || true
+        fi
+
         install -m 0644 "$DEBUG_FIRMWARE_DIR/blz_whole_img.bin" "$fw_dir/blz_whole_img.bin"
 
         local ha_running="no"
@@ -495,6 +499,11 @@ update_firmware_for_debug()
     # Handle Thread firmware
     if [ -f "$DEBUG_FIRMWARE_DIR/thread_whole_img.bin" ]; then
         echo "[DEBUG-FW] Update Thread firmware image"
+        
+        if [ -e "/usr/local/bin/supervisor" ]; then
+            /usr/local/bin/supervisor led sys_firmware_updating  || true
+        fi
+
         install -m 0644 "$DEBUG_FIRMWARE_DIR/thread_whole_img.bin" "$fw_dir/thread_whole_img.bin"
 
         local otbr_running="no"
@@ -744,6 +753,10 @@ install_board_flash_debs() {
     fi
 
     echo "Attempting to install board firmware debs..."
+
+    if [ -e "/usr/local/bin/supervisor" ]; then
+        /usr/local/bin/supervisor led sys_firmware_updating  || true
+    fi
 
     # Find board_firmware deb file
     board_firmware_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "board_firmware_*.deb" -type f | head -n 1)
