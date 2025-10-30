@@ -954,12 +954,12 @@ install_supervisor_deb() {
 
 validate_config() {
     # Validate configuration and clean up invalid flags
-    if [ -d "/mnt/R3Backup" ] && [ -f "/mnt/R3Backup/.enable-backup" ]; then
+    if [ -d "/mnt/R3Backup" ] && { [ -f "/mnt/R3Backup/.enable-backup" ] || [ -f "/mnt/R3Backup/.enable_backup" ]; }; then
         # Check if thirdreality-python3 package is installed
         if ! dpkg -l | grep -q "^ii\s*thirdreality-python3"; then
             echo "Warning: .enable-backup flag found but thirdreality-python3 package not installed"
             echo "Removing .enable-backup flag..."
-            rm -f "/mnt/R3Backup/.enable-backup"
+            rm -f "/mnt/R3Backup/.enable-backup" "/mnt/R3Backup/.enable_backup"
             echo ".enable-backup flag removed due to missing thirdreality-python3 package"
         fi
     fi
@@ -1032,19 +1032,19 @@ main_procedure()
     # Auto restore functionality
     if [ -d "/mnt/R3Backup" ] && [ -e "/usr/local/bin/supervisor" ]; then
         # Check if .enable-backup exists - force backup and exit
-        if [ -f "/mnt/R3Backup/.enable-backup" ]; then
+        if [ -f "/mnt/R3Backup/.enable-backup" ] || [ -f "/mnt/R3Backup/.enable_backup" ]; then
             /usr/local/bin/supervisor led sys_event_off || true
             echo "Found .enable-backup flag, forcing backup..."
             echo "System found .enable-backup flag, forcing backup..." | wall
             /usr/local/bin/supervisor setting backup || true
-            rm -f "/mnt/R3Backup/.enable-backup"
+            rm -f "/mnt/R3Backup/.enable-backup" "/mnt/R3Backup/.enable_backup"
             echo "Backup completed, .enable-backup flag removed"
             /usr/local/bin/supervisor led sys_event_off || true
             return 0
         fi
         
         # Check if .enable-restore exists - force restore if flag is present
-        if [ -f "/mnt/R3Backup/.enable-restore" ]; then
+        if [ -f "/mnt/R3Backup/.enable-restore" ] || [ -f "/mnt/R3Backup/.enable_restore" ]; then
             setting_files=$(find "/mnt/R3Backup" -maxdepth 1 -name "setting_*.tar.gz" -type f 2>/dev/null || true)
             if [ -n "$setting_files" ]; then
                 /usr/local/bin/supervisor led sys_firmware_updating  || true
@@ -1053,10 +1053,10 @@ main_procedure()
                 /usr/local/bin/supervisor setting restore || true
                 /usr/local/bin/supervisor led sys_event_off || true
                 echo "Restore completed, .enable-restore flag removed"
-                rm -f "/mnt/R3Backup/.enable-restore"
+                rm -f "/mnt/R3Backup/.enable-restore" "/mnt/R3Backup/.enable_restore"
             else
                 echo "Warning: .enable-restore flag found but no setting files available"
-                rm -f "/mnt/R3Backup/.enable-restore"
+                rm -f "/mnt/R3Backup/.enable-restore" "/mnt/R3Backup/.enable_restore"
             fi
         fi
     fi
