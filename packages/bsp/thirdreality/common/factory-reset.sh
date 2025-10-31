@@ -111,6 +111,8 @@ remove_zigbee2mqtt()
     userdel mosquitto > /dev/null 2>&1 || true
 
     rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
+
+    rm -rf /etc/mosquitto > /dev/null 2>&1 || true
 }
 
 remove_openhab()
