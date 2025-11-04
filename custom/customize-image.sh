@@ -105,6 +105,19 @@ unmanaged-devices=interface-name:*,except:interface-name:wlan0
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/system.conf
 	echo "DefaultTimeoutStopSec=15s" >> /etc/systemd/user.conf
 	
+	# Configure NTP servers in timesyncd.conf
+	timesyncd_conf="/etc/systemd/timesyncd.conf"
+	if [[ -f "$timesyncd_conf" ]]; then
+		echo "Configuring NTP servers in $timesyncd_conf ..."
+		cat > "$timesyncd_conf" <<-'EOF'
+		[Time]
+		NTP=0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org
+		FallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
+		EOF
+	else
+		echo "Warning: $timesyncd_conf does not exist."
+	fi
+	
 	echo "Enable bluetooth experimental mode ..."
 	BLUETOOTH_SERVICE="/usr/lib/systemd/system/bluetooth.service"
 	sed -i 's|ExecStart=/usr/libexec/bluetooth/bluetoothd|ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental|' "$BLUETOOTH_SERVICE" || true

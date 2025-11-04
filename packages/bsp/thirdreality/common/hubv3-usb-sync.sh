@@ -91,6 +91,8 @@ exclude_patterns=(
     "zigbee-mqtt_"
     
     "openhab_"
+    
+    "linux-image-current-meson64_"
 )
 
 
@@ -907,6 +909,80 @@ install_openhab_debs()
     echo "Attempting to install OpenHAB debs..."
 }
 
+install_linux_image_deb() {
+    if [ ! -d "$WORK_DIR" ]; then
+        return 0
+    fi
+
+    echo "Attempting to install linux-image kernel deb..."
+
+    # Find linux-image deb file
+    linux_image_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "linux-image-current-meson64_*.deb" -type f | head -n 1)
+    
+    if [ -n "$linux_image_deb_file" ]; then
+        echo "Found linux-image deb: $linux_image_deb_file"
+        
+        # Get deb version number
+        deb_version=$(dpkg-deb --info "${linux_image_deb_file}" | grep Version | awk '{print $2}')
+        echo "Linux-image deb version: $deb_version"
+        
+        local need_reboot=false
+        
+        # Check if already installed
+        if dpkg -l | grep -q "^ii\s*linux-image-current-meson64"; then
+            # Get installed version number
+            installed_version=$(dpkg-query -W -f='${Version}\n' "linux-image-current-meson64" 2>/dev/null || true)
+            echo "Installed version: $installed_version"
+            
+            # Compare version numbers, install if deb version is greater than installed version
+            if dpkg --compare-versions "$deb_version" gt "$installed_version"; then
+                echo "Newer kernel version available. Installing: $linux_image_deb_file"
+                if DEBIAN_FRONTEND=noninteractive dpkg -i "$linux_image_deb_file"; then
+                    echo "Kernel installation completed."
+                    apt-mark manual "linux-image-current-meson64" || echo "Warning: Failed to mark kernel as manual" >&2
+                    need_reboot=true
+                else
+                    echo "Warning: Failed to install $linux_image_deb_file" >&2
+                fi
+            else
+                echo "Installed kernel version is up-to-date. No installation needed."
+            fi
+        else
+            # Not installed before, install directly
+            echo "linux-image-current-meson64 is not installed. Installing: $linux_image_deb_file"
+            if DEBIAN_FRONTEND=noninteractive dpkg -i "$linux_image_deb_file"; then
+                echo "Kernel installation completed."
+                apt-mark manual "linux-image-current-meson64" || echo "Warning: Failed to mark kernel as manual" >&2
+                need_reboot=true
+            else
+                echo "Warning: Failed to install $linux_image_deb_file" >&2
+            fi
+        fi
+        
+        # If kernel was installed, sync multiple times and reboot
+        if [ "$need_reboot" = true ]; then
+            echo "Kernel updated, preparing to reboot system..."
+            echo "Syncing filesystem multiple times to ensure NAND cache is flushed..."
+            
+            # Multiple sync calls to handle NAND cache issues
+            for i in {1..5}; do
+                echo "Sync $i/5..."
+                /usr/bin/sync
+                sleep 1
+            done
+            
+            echo "Filesystem sync completed. Rebooting system in 3 seconds..."
+            sleep 3
+            /sbin/reboot
+            exit 0
+        fi
+    else
+        echo "No linux-image deb file found in $WORK_DIR"
+    fi
+    
+    return 0
+}
+
 
 install_supervisor_deb() {
     if [ ! -d "$WORK_DIR" ]; then
@@ -1118,6 +1194,9 @@ main_procedure()
 
         /usr/bin/sync
     fi
+
+    # install linux kernel image (must be before other packages, will reboot if updated)
+    install_linux_image_deb    
 }
 
 
