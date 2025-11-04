@@ -49,14 +49,28 @@ sleep 2
 nmcli radio wifi on
 sleep 3
 
-# Attempt to bring the saved connection up; if that fails, try explicit connect
-if ! nmcli -w 10 connection up "$last_name" 2>/dev/null; then
-	echo "Profile up failed, trying explicit connect to SSID..."
-	if [ -n "$PSK" ]; then
-		nmcli -w 20 device wifi connect "$SSID" password "$PSK"
-	else
-		nmcli -w 20 device wifi connect "$SSID"
-	fi
-fi
+WIFI_IF="wlan0"
+
+# Retry up to 3 times: rescan -> list -> connect
+for attempt in $(seq 1 3); do
+    echo "Attempt $attempt: rescanning WiFi..."
+    nmcli device wifi rescan ifname "$WIFI_IF" 2>/dev/null || true
+    sleep 5
+    
+    echo "Checking if SSID '$SSID' is visible..."
+    if nmcli -t -f SSID device wifi list 2>/dev/null | awk 'length>0' | grep -Fxq "$SSID"; then
+        echo "SSID found, attempting connection..."
+        if nmcli -w 20 connection up "$last_name" 2>/dev/null; then
+            echo "Connection successful"
+            break
+        else
+            echo "Connection failed, will retry..."
+        fi
+    else
+        echo "SSID not found in scan results, skipping connect..."
+    fi
+    
+    [ "$attempt" -lt 3 ] && sleep 2
+done
 
 echo "WiFi reset completed"
