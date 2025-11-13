@@ -7,6 +7,15 @@ SCRIPT="HubV3"
 FIREWALL_SERVICE="/etc/init.d/otbr-firewall"
 SYSCTL_ACCEPT_RA_FILE="/etc/sysctl.d/60-otbr-accept-ra.conf"
 SYSCTL_IP_FORWARD_FILE="/etc/sysctl.d/60-otbr-ip-forward.conf"
+RESTORE_APT_SERVICES="${RESTORE_APT_SERVICES:-0}"
+DPKG_LOCK_MAX_WAIT="${DPKG_LOCK_MAX_WAIT:-30}"
+DPKG_LOCK_FILES=(
+    "/var/lib/dpkg/lock-frontend"
+    "/var/lib/dpkg/lock"
+    "/var/cache/apt/archives/lock"
+    "/var/lib/apt/lists/lock"
+)
+DPKG_READY=0
 
 function print_info() { echo -e "\e[1;34m[${SCRIPT}] INFO:\e[0m $1"; }
 function print_error() { echo -e "\e[1;31m[${SCRIPT}] ERROR:\e[0m $1"; }
@@ -30,6 +39,118 @@ error_handler() {
 }
 
 trap 'error_handler $LINENO' ERR
+
+APT_AUTO_SERVICES=(
+    "apt-daily.service"
+    "apt-daily-upgrade.service"
+    "unattended-upgrades.service"
+)
+
+APT_AUTO_TIMERS=(
+    "apt-daily.timer"
+    "apt-daily-upgrade.timer"
+)
+
+function disable_apt_auto_services() {
+    print_info "Disabling apt automatic update services"
+    for unit in "${APT_AUTO_SERVICES[@]}" "${APT_AUTO_TIMERS[@]}"; do
+        systemctl stop "$unit" >/dev/null 2>&1 || true
+        systemctl disable "$unit" >/dev/null 2>&1 || true
+        systemctl mask "$unit" >/dev/null 2>&1 || true
+    done
+}
+
+function restore_apt_auto_services() {
+    print_info "Restoring apt automatic update services"
+    for unit in "${APT_AUTO_SERVICES[@]}" "${APT_AUTO_TIMERS[@]}"; do
+        systemctl unmask "$unit" >/dev/null 2>&1 || true
+        systemctl enable "$unit" >/dev/null 2>&1 || true
+        systemctl start "$unit" >/dev/null 2>&1 || true
+    done
+}
+
+function log_dpkg_lock_holders() {
+    local file holders
+    for file in "${DPKG_LOCK_FILES[@]}"; do
+        if [ -f "$file" ]; then
+            holders=$(fuser "$file" 2>/dev/null || true)
+            if [ -n "$holders" ]; then
+                print_info "Lock file $file held by PIDs: $holders"
+                for pid in $holders; do
+                    if [ -d "/proc/$pid" ]; then
+                        local proc_info
+                        proc_info=$(ps -p "$pid" -o pid=,ppid=,cmd= 2>/dev/null || true)
+                        if [ -n "$proc_info" ]; then
+                            print_info "    $proc_info"
+                        fi
+                    fi
+                done
+            else
+                print_info "Lock file $file exists but fuser reported no holders; possible stale lock"
+            fi
+        fi
+    done
+
+    local running
+    running=$(pgrep -a -f '(apt[-. ]|apt$|dpkg|unattended-upgrade)' 2>/dev/null || true)
+    if [ -n "$running" ]; then
+        print_info "Running package-management processes:\n$running"
+    fi
+}
+
+function terminate_package_processes() {
+    local killed_any=0
+    local pids cmdline exe_path
+
+    pids=$(pgrep -f 'apt|dpkg|unattended-upgrade' 2>/dev/null || true)
+    for pid in $pids; do
+        if [ -z "$pid" ] || ! kill -0 "$pid" >/dev/null 2>&1; then
+            continue
+        fi
+
+        exe_path=$(readlink -f "/proc/$pid/exe" 2>/dev/null || true)
+        cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
+
+        if [[ "$exe_path" =~ /(apt|dpkg|unattended-upgrade)/ ]] ||
+           [[ "$cmdline" == *"/usr/share/unattended-upgrades/"* ]] ||
+           [[ "$cmdline" == *"/usr/lib/apt/"* ]] ||
+           [[ "$cmdline" == *"systemd-apt-"* ]]; then
+            print_info "Killing PID $pid ($cmdline)"
+            kill -9 "$pid" >/dev/null 2>&1 || true
+            killed_any=1
+        fi
+    done
+
+    if [ "$killed_any" -eq 0 ]; then
+        print_info "No package-management processes required termination"
+    fi
+}
+
+function wait_for_dpkg_lock() {
+    if [ "$DPKG_READY" -eq 1 ]; then
+        return 0
+    fi
+
+    print_info "Ensuring dpkg is idle"
+    terminate_package_processes
+
+    local locks_found=0
+    for file in "${DPKG_LOCK_FILES[@]}"; do
+        if [ -f "$file" ]; then
+            print_info "Removing stale lock $file"
+            rm -f "$file" >/dev/null 2>&1 || true
+            locks_found=1
+        fi
+    done
+
+    if [ "$locks_found" -eq 1 ]; then
+        print_info "Repairing dpkg state"
+        dpkg --configure -a >/dev/null 2>&1 || true
+        DEBIAN_FRONTEND=noninteractive apt-get -f install -y >/dev/null 2>&1 || true
+    fi
+
+    DPKG_READY=1
+}
 
 function _remove_otbr_agent()
 {
@@ -85,7 +206,7 @@ remove_homeassistant_core()
     apt-get purge -y thirdreality-otbr-agent  > /dev/null || true    
     apt-get purge -y thirdreality-zigbee-mqtt  > /dev/null || true
 
-    apt-get autoremove -y > /dev/null || true
+    apt-get autoremove -y >/dev/null || true
     systemctl daemon-reload
 
     _remove_otbr_agent
@@ -106,7 +227,7 @@ remove_zigbee2mqtt()
     apt-get purge -y mosquitto mosquitto-clients > /dev/null || true
     apt-get purge -y libmosquitto1 libdlt2 > /dev/null || true
 
-    apt-get autoremove -y /dev/null || true
+    apt-get autoremove -y >/dev/null || true
     systemctl daemon-reload
     userdel mosquitto > /dev/null 2>&1 || true
 
@@ -127,7 +248,7 @@ remove_openhab()
     rm -rf /etc/apt/sources.list.d/openhab.list > /dev/null || true
     rm -rf /var/log/openhab > /dev/null || true
 
-    apt-get autoremove -y /dev/null || true
+    apt-get autoremove -y >/dev/null || true
     systemctl daemon-reload
 }
 
@@ -199,7 +320,11 @@ if [ -e "/usr/local/bin/supervisor" ]; then
     /usr/local/bin/supervisor led factory_reset
 fi
 
-# remove default target
+# Stop and disable automatic apt services to avoid lock contention
+disable_apt_auto_services
+
+wait_for_dpkg_lock
+
 remove_homeassistant_core
 
 # remove zigbee2mqtt
@@ -251,6 +376,8 @@ if [ -e "/usr/local/bin/supervisor" ]; then
 fi
 
 echo "Factory reset completed. Rebooting now..."  | wall
+
+restore_apt_auto_services
 
 /usr/bin/sync
 sleep 2
