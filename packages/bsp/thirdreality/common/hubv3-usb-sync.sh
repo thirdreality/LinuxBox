@@ -35,7 +35,7 @@ on_exit() {
     # Custom actions before the script exits
     echo "Running cleanup tasks..."
     if [ -e "/usr/local/bin/supervisor" ]; then
-        /usr/local/bin/supervisor led sys_event_off  || true
+        /usr/local/bin/supervisor led clear || true
     fi
 
     echo "System finished to install deb packages. " | wall
@@ -1028,17 +1028,61 @@ install_supervisor_deb() {
     return 0
 }
 
-validate_config() {
-    # Validate configuration and clean up invalid flags
-    if [ -d "/mnt/R3Backup" ] && { [ -f "/mnt/R3Backup/.enable-backup" ] || [ -f "/mnt/R3Backup/.enable_backup" ]; }; then
-        # Check if thirdreality-python3 package is installed
-        if ! dpkg -l | grep -q "^ii\s*thirdreality-python3"; then
-            echo "Warning: .enable-backup flag found but thirdreality-python3 package not installed"
-            echo "Removing .enable-backup flag..."
-            rm -f "/mnt/R3Backup/.enable-backup" "/mnt/R3Backup/.enable_backup"
-            echo ".enable-backup flag removed due to missing thirdreality-python3 package"
-        fi
+is_backup_capable() {
+    if dpkg -l | grep -q "^ii\s*thirdreality-hacore"; then
+        return 0
     fi
+    if dpkg -l | grep -q "^ii\s*thirdreality-zigbee-mqtt"; then
+        return 0
+    fi
+    return 1
+}
+
+perform_backup_if_ready() {
+    local backup_dir="/mnt/R3Backup"
+    local flag_primary="$backup_dir/.enable-backup"
+    local flag_alt="$backup_dir/.enable_backup"
+
+    if [ ! -d "$backup_dir" ] || [ ! -x "/usr/local/bin/supervisor" ]; then
+        return 0
+    fi
+
+    if [ ! -f "$flag_primary" ] && [ ! -f "$flag_alt" ]; then
+        return 0
+    fi
+
+    if is_backup_capable; then
+        /usr/local/bin/supervisor led clear || true
+        echo "Found .enable-backup flag, forcing backup..."
+        echo "System found .enable-backup flag, forcing backup..." | wall
+        /usr/local/bin/supervisor setting backup || true
+        rm -f "$flag_primary" "$flag_alt"
+        echo "Backup completed, .enable-backup flag removed"
+        /usr/local/bin/supervisor led clear || true
+    else
+        echo "Backup flag detected but required packages not installed; deferring backup."
+    fi
+}
+
+validate_config() {
+    local backup_dir="/mnt/R3Backup"
+    local flag_primary="$backup_dir/.enable-backup"
+    local flag_alt="$backup_dir/.enable_backup"
+
+    if [ ! -d "$backup_dir" ]; then
+        return 0
+    fi
+
+    if [ ! -f "$flag_primary" ] && [ ! -f "$flag_alt" ]; then
+        return 0
+    fi
+
+    if is_backup_capable; then
+        return 0
+    fi
+
+    echo "Warning: Backup flag present but required packages are missing. Removing flag..."
+    rm -f "$flag_primary" "$flag_alt"
 }
 
 main_procedure()
@@ -1054,6 +1098,7 @@ main_procedure()
 
     # install supervisor
     install_supervisor_deb
+    perform_backup_if_ready
 
     # install board firmware
     install_board_flash_debs
@@ -1102,22 +1147,12 @@ main_procedure()
 
     if [ -e "/usr/local/bin/supervisor" ]; then
         /usr/bin/sync
-        /usr/local/bin/supervisor led sys_event_off || true
+        /usr/local/bin/supervisor led clear || true
     fi
 
     # Auto restore functionality
     if [ -d "/mnt/R3Backup" ] && [ -e "/usr/local/bin/supervisor" ]; then
-        # Check if .enable-backup exists - force backup and exit
-        if [ -f "/mnt/R3Backup/.enable-backup" ] || [ -f "/mnt/R3Backup/.enable_backup" ]; then
-            /usr/local/bin/supervisor led sys_event_off || true
-            echo "Found .enable-backup flag, forcing backup..."
-            echo "System found .enable-backup flag, forcing backup..." | wall
-            /usr/local/bin/supervisor setting backup || true
-            rm -f "/mnt/R3Backup/.enable-backup" "/mnt/R3Backup/.enable_backup"
-            echo "Backup completed, .enable-backup flag removed"
-            /usr/local/bin/supervisor led sys_event_off || true
-            return 0
-        fi
+        perform_backup_if_ready
         
         # Check if .enable-restore exists - force restore if flag is present
         if [ -f "/mnt/R3Backup/.enable-restore" ] || [ -f "/mnt/R3Backup/.enable_restore" ]; then
@@ -1127,7 +1162,7 @@ main_procedure()
                 echo "Found .enable-restore flag, attempting to restore..."
                 echo "System found .enable-restore flag, attempting to restore..." | wall
                 /usr/local/bin/supervisor setting restore || true
-                /usr/local/bin/supervisor led sys_event_off || true
+                /usr/local/bin/supervisor led clear || true
                 echo "Restore completed, .enable-restore flag removed"
                 rm -f "/mnt/R3Backup/.enable-restore" "/mnt/R3Backup/.enable_restore"
             else
