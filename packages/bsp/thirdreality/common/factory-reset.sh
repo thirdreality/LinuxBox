@@ -204,7 +204,7 @@ remove_homeassistant_core()
     apt-get purge -y thirdreality-python3.13 > /dev/null || true
     apt-get purge -y thirdreality-python3 > /dev/null || true
     apt-get purge -y thirdreality-otbr-agent  > /dev/null || true    
-    apt-get purge -y thirdreality-zigbee-mqtt  > /dev/null || true
+    #apt-get purge -y thirdreality-zigbee-mqtt  > /dev/null || true
 
     apt-get autoremove -y >/dev/null || true
     systemctl daemon-reload
@@ -222,6 +222,18 @@ remove_zigbee2mqtt()
 
     dpkg --configure -a > /dev/null || true
 
+    local z2m_backup_dir="/opt/z2m_tmp_backup"
+    if [ -d /opt/zigbee2mqtt/data ]; then
+        print_info "Backing up /opt/zigbee2mqtt/data before package removal"
+        rm -rf /opt/zigbee2mqtt/data/log > /dev/null 2>&1 || true
+        rm -rf "${z2m_backup_dir}" > /dev/null 2>&1 || true
+        mkdir -p "${z2m_backup_dir}"
+        cp -a /opt/zigbee2mqtt/data/. "${z2m_backup_dir}"/ >/dev/null 2>&1 || true
+
+        /usr/bin/sync
+        /usr/bin/sync
+    fi
+
     apt-get purge -y thirdreality-zigbee-mqtt > /dev/null || true
     apt-get purge -y nodejs libsystemd-dev  > /dev/null || true
     apt-get purge -y mosquitto mosquitto-clients > /dev/null || true
@@ -231,7 +243,18 @@ remove_zigbee2mqtt()
     systemctl daemon-reload
     userdel mosquitto > /dev/null 2>&1 || true
 
-    rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
+    if [ -d "${z2m_backup_dir}" ]; then
+        print_info "Restoring Zigbee2MQTT data from temporary backup"
+        rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
+        mkdir -p /opt/zigbee2mqtt/data
+        cp -a "${z2m_backup_dir}"/. /opt/zigbee2mqtt/data/ >/dev/null 2>&1 || true
+        rm -rf "${z2m_backup_dir}" > /dev/null 2>&1 || true
+
+        /usr/bin/sync
+        /usr/bin/sync
+    else
+        rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
+    fi
 
     rm -rf /etc/mosquitto > /dev/null 2>&1 || true
 }
