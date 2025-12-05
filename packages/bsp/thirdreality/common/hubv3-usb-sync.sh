@@ -80,17 +80,19 @@ exclude_patterns=(
     # "homeassistant-supervised"
 
     "board_firmware_"
+    "linuxbox-supervisor_"
 
-    "hacore-config_"
     "python3_"
+    "hacore-config_"
     "hacore_"
     "otbr-agent_"
 
-    "linuxbox-supervisor_"
-
     "zigbee-mqtt_"
-    
+
     "openhab_"
+    "music-assistant_"
+    "enocean_"
+    "zwave_"
     
     "linux-image-current-meson64_"
 )
@@ -944,6 +946,28 @@ install_openhab_debs()
     echo "Attempting to install OpenHAB debs..."
 }
 
+install_music_assistant_debs()
+{
+    echo "Attempting to install Music Assistant debs..."
+
+    music_assistant_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "music-assistant_*.deb" -type f | head -n 1)
+    if [ -n "$music_assistant_deb_file" ]; then
+        install_deb_if_needed "$music_assistant_deb_file" "thirdreality-music-assistant"
+    else
+        echo "No music-assistant deb file found in $WORK_DIR" >&2
+    fi
+}
+
+install_enocean_debs()
+{
+    echo "Attempting to install EnOcean debs..."
+}
+
+install_zwave_debs()
+{
+    echo "Attempting to install Z-Wave debs..."
+}
+
 install_linux_image_deb() {
     if [ ! -d "$WORK_DIR" ]; then
         return 0
@@ -1289,6 +1313,9 @@ main_procedure()
 
         # install openhab
         install_openhab_debs
+        install_music_assistant_debs
+        install_enocean_debs
+        install_zwave_debs
 
         # install zigpy_handler
         #install_zigpy_handler_debs
