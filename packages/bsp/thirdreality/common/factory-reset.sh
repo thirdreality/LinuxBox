@@ -223,12 +223,14 @@ remove_zigbee2mqtt()
     dpkg --configure -a > /dev/null || true
 
     local z2m_backup_dir="/opt/z2m_tmp_backup"
+    local data_backed_up=0
     if [ -d /opt/zigbee2mqtt/data ]; then
         print_info "Backing up /opt/zigbee2mqtt/data before package removal"
         rm -rf /opt/zigbee2mqtt/data/log > /dev/null 2>&1 || true
         rm -rf "${z2m_backup_dir}" > /dev/null 2>&1 || true
         mkdir -p "${z2m_backup_dir}"
         cp -a /opt/zigbee2mqtt/data/. "${z2m_backup_dir}"/ >/dev/null 2>&1 || true
+        data_backed_up=1
 
         /usr/bin/sync
         /usr/bin/sync
@@ -243,17 +245,36 @@ remove_zigbee2mqtt()
     systemctl daemon-reload
     userdel mosquitto > /dev/null 2>&1 || true
 
-    if [ -d "${z2m_backup_dir}" ]; then
+    if [ "$data_backed_up" -eq 1 ] && [ -d "${z2m_backup_dir}" ]; then
         print_info "Restoring Zigbee2MQTT data from temporary backup"
-        rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
+        # Only remove /opt/zigbee2mqtt if it still exists and is not the data directory we want to preserve
+        if [ -d /opt/zigbee2mqtt ]; then
+            # Remove everything except data directory if it exists
+            if [ -d /opt/zigbee2mqtt/data ]; then
+                # Move data out temporarily, remove dir, then restore
+                mv /opt/zigbee2mqtt/data /opt/zigbee2mqtt_data_tmp >/dev/null 2>&1 || true
+            fi
+            rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
+        fi
         mkdir -p /opt/zigbee2mqtt/data
         cp -a "${z2m_backup_dir}"/. /opt/zigbee2mqtt/data/ >/dev/null 2>&1 || true
+        # Restore any existing data that was moved out
+        if [ -d /opt/zigbee2mqtt_data_tmp ]; then
+            cp -a /opt/zigbee2mqtt_data_tmp/. /opt/zigbee2mqtt/data/ >/dev/null 2>&1 || true
+            rm -rf /opt/zigbee2mqtt_data_tmp >/dev/null 2>&1 || true
+        fi
         rm -rf "${z2m_backup_dir}" > /dev/null 2>&1 || true
 
         /usr/bin/sync
         /usr/bin/sync
+        
+        # Update configuration if needed
+        update_zigbee2mqtt_config
     else
-        rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
+        # Only remove if data was not backed up
+        if [ "$data_backed_up" -eq 0 ]; then
+            rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
+        fi
     fi
 
     rm -rf /etc/mosquitto > /dev/null 2>&1 || true
@@ -337,6 +358,175 @@ remove_zigpy_tools()
     fi
 }
 
+restore_serial_tty()
+{
+    print_info "Restoring serial tty service"
+    systemctl unmask serial-getty@ttyAML0.service >/dev/null 2>&1 || true
+    systemctl enable serial-getty@ttyAML0.service >/dev/null 2>&1 || true
+    systemctl start serial-getty@ttyAML0.service >/dev/null 2>&1 || true
+    print_info "Serial tty service restored"
+}
+
+update_zigbee2mqtt_config()
+{
+    local config_file="/opt/zigbee2mqtt/data/configuration.yaml"
+    
+    if [ ! -f "$config_file" ]; then
+        return 0
+    fi
+    
+    print_info "Checking Zigbee2MQTT configuration file"
+    
+    # Check if mqtt.server contains localhost
+    local has_localhost=0
+    local in_mqtt_section=0
+    
+    while IFS= read -r line; do
+        # Check if we're entering mqtt section
+        if [[ "$line" =~ ^mqtt: ]]; then
+            in_mqtt_section=1
+            continue
+        fi
+        
+        # Check if we're leaving mqtt section (next top-level key without indentation)
+        if [[ $in_mqtt_section -eq 1 ]] && [[ "$line" =~ ^[a-zA-Z_][a-zA-Z0-9_]*: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
+            break
+        fi
+        
+        # Check for server field in mqtt section
+        if [[ $in_mqtt_section -eq 1 ]] && [[ "$line" =~ ^[[:space:]]+server:[[:space:]]* ]]; then
+            if [[ "$line" =~ localhost ]]; then
+                has_localhost=1
+                break
+            fi
+        fi
+    done < "$config_file"
+    
+    if [ "$has_localhost" -eq 1 ]; then
+        print_info "MQTT server already contains localhost, skipping update"
+        return 0
+    fi
+    
+    # Create backup with timestamp
+    local timestamp
+    timestamp=$(date +%Y%m%d%H%M%S)
+    local backup_file="/opt/zigbee2mqtt/data/configuration_${timestamp}.yaml"
+    
+    print_info "Creating backup: $backup_file"
+    cp "$config_file" "$backup_file" || {
+        print_error "Failed to create backup file"
+        return 1
+    }
+    
+    # Update configuration using awk
+    print_info "Updating MQTT configuration to use localhost"
+    
+    local temp_file
+    temp_file=$(mktemp) || {
+        print_error "Failed to create temporary file"
+        return 1
+    }
+    
+    awk '
+    BEGIN {
+        in_mqtt = 0
+        mqtt_found = 0
+        base_topic_updated = 0
+        server_updated = 0
+        user_updated = 0
+        password_updated = 0
+    }
+    {
+        # Check if entering mqtt section
+        if (/^mqtt:/) {
+            in_mqtt = 1
+            mqtt_found = 1
+            print
+            next
+        }
+        
+        # Check if leaving mqtt section (next top-level key)
+        if (in_mqtt && /^[a-zA-Z_][a-zA-Z0-9_]*:/ && !/^[[:space:]]/) {
+            # Add missing mqtt settings before leaving
+            if (!base_topic_updated) print "  base_topic: zigbee2mqtt"
+            if (!server_updated) print "  server: mqtt://localhost:1883"
+            if (!user_updated) print "  user: thirdreality"
+            if (!password_updated) print "  password: thirdreality"
+            in_mqtt = 0
+            print
+            next
+        }
+        
+        # Process lines in mqtt section
+        if (in_mqtt) {
+            if (/^[[:space:]]+base_topic:/) {
+                base_topic_updated = 1
+                print "  base_topic: zigbee2mqtt"
+                next
+            }
+            if (/^[[:space:]]+server:/) {
+                server_updated = 1
+                print "  server: mqtt://localhost:1883"
+                next
+            }
+            if (/^[[:space:]]+user:/) {
+                user_updated = 1
+                print "  user: thirdreality"
+                next
+            }
+            if (/^[[:space:]]+password:/) {
+                password_updated = 1
+                print "  password: thirdreality"
+                next
+            }
+            # Keep other lines in mqtt section (comments, other settings)
+            print
+            next
+        }
+        
+        # Not in mqtt section, just print
+        print
+    }
+    END {
+        # If mqtt section was at the end, add missing settings
+        if (in_mqtt) {
+            if (!base_topic_updated) print "  base_topic: zigbee2mqtt"
+            if (!server_updated) print "  server: mqtt://localhost:1883"
+            if (!user_updated) print "  user: thirdreality"
+            if (!password_updated) print "  password: thirdreality"
+        } else if (!mqtt_found) {
+            # No mqtt section found, add it at the end
+            print "mqtt:"
+            print "  base_topic: zigbee2mqtt"
+            print "  server: mqtt://localhost:1883"
+            print "  user: thirdreality"
+            print "  password: thirdreality"
+        }
+    }
+    ' "$config_file" > "$temp_file" || {
+        print_error "Failed to update configuration"
+        rm -f "$temp_file"
+        if [ -f "$backup_file" ]; then
+            print_info "Restoring from backup due to update failure"
+            cp "$backup_file" "$config_file" || true
+        fi
+        return 1
+    }
+    
+    # Replace original file with updated version
+    mv "$temp_file" "$config_file" || {
+        print_error "Failed to replace configuration file"
+        rm -f "$temp_file"
+        if [ -f "$backup_file" ]; then
+            print_info "Restoring from backup due to update failure"
+            cp "$backup_file" "$config_file" || true
+        fi
+        return 1
+    }
+    
+    print_info "Zigbee2MQTT configuration updated successfully"
+}
+
 echo "System is start to perform factory reset actions. " | wall
 
 if [ -e "/usr/local/bin/supervisor" ]; then
@@ -393,6 +583,9 @@ fi
 
 mkdir -p /var/lib/homeassistant/homeassistant
 mkdir -p /var/lib/homeassistant/matter_server
+
+# Restore serial tty service
+restore_serial_tty
 
 if [ -e "/usr/local/bin/supervisor" ]; then
     /usr/local/bin/supervisor led white
