@@ -51,6 +51,13 @@ APT_AUTO_TIMERS=(
     "apt-daily-upgrade.timer"
 )
 
+
+get_trhub_model() {
+  tr '\0' '\n' < /proc/device-tree/compatible \
+    | awk -F',' 'NF>=2 {print $2; exit}'
+}
+
+
 function disable_apt_auto_services() {
     print_info "Disabling apt automatic update services"
     for unit in "${APT_AUTO_SERVICES[@]}" "${APT_AUTO_TIMERS[@]}"; do
@@ -533,6 +540,11 @@ if [ -e "/usr/local/bin/supervisor" ]; then
     /usr/local/bin/supervisor led factory_reset
 fi
 
+trhub_model=$(get_trhub_model)
+echo "TRHub model: $trhub_model"
+
+trhub_model="trhub-v3c"
+
 # Stop and disable automatic apt services to avoid lock contention
 disable_apt_auto_services
 
@@ -541,7 +553,16 @@ wait_for_dpkg_lock
 remove_homeassistant_core
 
 # remove zigbee2mqtt
-remove_zigbee2mqtt
+if [ "$trhub_model" == "trhub-v3a" ]; then
+    remove_zigbee2mqtt
+else
+    /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null || true
+    
+    update_zigbee2mqtt_config
+
+    /usr/bin/sync
+    /usr/bin/sync    
+fi
 
 # remove openhab
 remove_openhab
@@ -552,7 +573,9 @@ remove_homeassistant_supervised
 remove_zigpy_tools
 
 # Query and remove all packages matching "thirdreality", leaving room for future upgrades
-dpkg --list | grep thirdreality | awk '{print $2}' | xargs apt-get remove -y
+if [ "$trhub_model" == "trhub-v3a" ]; then
+    dpkg --list | grep thirdreality | awk '{print $2}' | xargs apt-get remove -y
+fi
 
 rm -rf /usr/share/hassio || true
 rm -rf /var/lib/homeassistant  || true
