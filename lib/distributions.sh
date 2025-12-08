@@ -165,17 +165,29 @@ install_common()
 		EOF
 	fi
 
+	# if [ "${RELEASE}" == "bookworm" ]; then
+	# 	cat <<-EOF > "${SDCARD}/etc/t3r-release"
+	# 	PRETTY_NAME="LinuxBox Dev Edition"
+	# 	NAME="LinuxBox/HubV3"
+	# 	MODLE="3RLB01081MH"
+	# 	VERSION_ID="${R3VERSION_ID}"
+	# 	VERSION="${R3VERSION}"
+	# 	HOME_URL="https://3reality.com/"
+	# 	SUPPORT_URL="Support@3reality.com"
+	# 	EOF
+	# fi
+
 	if [ "${RELEASE}" == "bookworm" ]; then
 		cat <<-EOF > "${SDCARD}/etc/t3r-release"
-		PRETTY_NAME="LinuxBox Dev Edition"
+		PRETTY_NAME="Third Reality Care Hub"
 		NAME="LinuxBox/HubV3"
-		MODLE="3RLB01081MH"
+		MODLE="3RCH01091H"
 		VERSION_ID="${R3VERSION_ID}"
 		VERSION="${R3VERSION}"
 		HOME_URL="https://3reality.com/"
 		SUPPORT_URL="Support@3reality.com"
 		EOF
-	fi
+	fi	
 
 	# enable few bash aliases enabled in Ubuntu by default to make it even
 	sed "s/#alias ll='ls -l'/alias ll='ls -l'/" -i "${SDCARD}"/etc/skel/.bashrc
