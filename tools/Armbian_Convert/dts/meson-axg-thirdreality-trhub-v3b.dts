@@ -7,7 +7,7 @@
 
 / {
 	compatible = "thirdreality,trhub-v3b", "amlogic,a113x", "amlogic,meson-axg";
-	model = "ThirdReality TRHub V3B";
+	model = "ThirdReality TRHub-V3B";
 	amlogic-dt-id = "axg_jethubj100_v1";
 
 	aliases {
