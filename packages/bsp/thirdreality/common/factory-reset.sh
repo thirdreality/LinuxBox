@@ -53,8 +53,16 @@ APT_AUTO_TIMERS=(
 
 
 get_trhub_model() {
-  tr '\0' '\n' < /proc/device-tree/compatible \
-    | awk -F',' 'NF>=2 {print $2; exit}'
+  if [ -f /etc/armbian-release ]; then
+    local board=$(grep "^BOARD=" /etc/armbian-release | cut -d'=' -f2)
+    if [ -n "$board" ]; then
+      echo "$board"
+    else
+      echo "trhubv3"
+    fi
+  else
+    echo "trhubv3"
+  fi
 }
 
 
@@ -555,7 +563,7 @@ wait_for_dpkg_lock
 remove_homeassistant_core
 
 # remove zigbee2mqtt
-if [ "$trhub_model" == "trhub-v3" ]; then
+if [ "$trhub_model" == "trhubv3" ]; then
     remove_zigbee2mqtt
 else
     /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null || true
@@ -575,7 +583,7 @@ remove_homeassistant_supervised
 remove_zigpy_tools
 
 # Query and remove all packages matching "thirdreality", leaving room for future upgrades
-if [ "$trhub_model" == "trhub-v3" ]; then
+if [ "$trhub_model" == "trhubv3" ]; then
     dpkg --list | grep thirdreality | awk '{print $2}' | xargs apt-get remove -y
 fi
 
