@@ -52,21 +52,6 @@ check_and_install_tools() {
         exit 1
     fi
 
-    print_info "Using mirrors.tuna.tsinghua.edu.cn as source list ..."
-	cat <<-EOF > /etc/apt/sources.list
-	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
-	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware
-
-	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
-	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware
-
-	deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
-	# deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware
-
-	deb https://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
-	# deb-src https://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
-	EOF
-
     apt-get update -y || { print_error "Failed to update package list"; }
     DEBIAN_FRONTEND=noninteractive APT_LISTCHANGES_FRONTEND=none apt install apparmor bluez  cifs-utils curl dbus \
         jq libglib2.0-bin lsb-release network-manager \
@@ -88,79 +73,16 @@ check_and_install_docker() {
         print_info "Docker already installed"
     else
         print_info "Installing docker..."
-        curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh --mirror Aliyun
+        curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh
 
         if [[ -n "${SUDO_USER}" ]] ; then 
             usermod -aG docker "$SUDO_USER"
         fi
         rm -f get-docker.sh
-
-        update_docker_config
-
         print_info "Installing docker done"
     fi
 }
 
-update_docker_config() {
-    mkdir -p /etc/docker/
-
-    # 定义要写入的JSON内容
-    cat <<-EOF > /etc/docker/daemon.json
-    {
-    "log-driver": "journald",
-    "storage-driver": "overlay2",
-    "ip6tables": true,
-    "experimental": true,
-    "log-opts": {
-        "tag": "{{.Name}}"
-    },
-    "registry-mirrors": [
-        "https://docker.1panel.live",
-        "https://docker.kejilion.pro",
-        "https://dockercf.jsdelivr.fyi",
-        "https://docker.jsdelivr.fyi",
-        "https://dockertest.jsdelivr.fyi",
-        "https://hub.littlediary.cn",
-        "https://proxy.1panel.live",
-        "https://docker.1panelproxy.com",
-        "https://image.cloudlayer.icu",
-        "https://docker.1panel.top",
-        "https://docker.anye.in",
-        "https://docker-0.unsee.tech",
-        "https://hub.rat.dev",
-        "https://hub3.nat.tf",
-        "https://docker.1ms.run",
-        "https://func.ink",
-        "https://a.ussh.net",
-        "https://docker.hlmirror.com",
-        "https://lispy.org",
-        "https://docker.yomansunter.com",
-        "https://docker.xuanyuan.me",
-        "https://docker.mybacc.com",
-        "https://dytt.online",
-        "https://docker.xiaogenban1993.com",
-        "https://dockerpull.cn",
-        "https://docker.zhai.cm",
-        "https://dockerhub.websoft9.com",
-        "https://dockerpull.pw",
-        "https://docker-mirror.aigc2d.com",
-        "https://docker.sunzishaokao.com",
-        "https://docker.melikeme.cn"
-    ]
-    }
-EOF
-
-    # Restart Docker to apply the changes
-    echo "Restarting Docker daemon..."
-    sudo systemctl restart docker
-
-    # Check the status of Docker service
-    if systemctl is-active --quiet docker; then
-        echo "Docker daemon restarted successfully."
-    else
-        echo "Failed to restart Docker daemon."
-    fi
-}
 
 check_and_install_os_agent(){
     # os-agent   deb: amd64 https://github.com/home-assistant/os-agent/releases/download/1.6.0/os-agent_1.6.0_linux_x86_64.deb
@@ -194,8 +116,7 @@ check_and_install_os_agent(){
 check_and_install_supervised()
 {
     # https://github.com/home-assistant/supervised-installer/releases/download/2.0.0/homeassistant-supervised.deb
-    # https://github.com/home-assistant/supervised-installer/releases/download/3.0.0/homeassistant-supervised.deb
-
+    #https://github.com/home-assistant/supervised-installer/releases/download/3.0.0/homeassistant-supervised.deb
     HA_SUPERVISED_VERSION="3.0.0"
 	HA_SUPERVISED_FILENAME="homeassistant-supervised.deb"
 	HA_SUPERVISED_URL="https://github.com/home-assistant/supervised-installer/releases/download/${HA_SUPERVISED_VERSION}/homeassistant-supervised.deb"
@@ -222,10 +143,8 @@ check_and_install_supervised()
         print_info "remove supervised deb..."
         rm -rf "/tmp/${HA_SUPERVISED_FILENAME}"
 
-        update_docker_config
-
         sed -i.bak "/$PATTERN_LINE/c $REPLACEMENT_LINE" "$CONFIG_FILE"
-    fi
+    fi    
 
     if [ -e "/etc/systemd/system/hassio-supervisor.service" ]; then
         chmod 644 "/etc/systemd/system/hassio-supervisor.service"
@@ -233,27 +152,11 @@ check_and_install_supervised()
 
     if [ -e "/etc/systemd/system/hassio-apparmor.service" ]; then
         chmod 644 "/etc/systemd/system/hassio-apparmor.service"
-    fi        
+    fi    
 }
 
 check_install_suervised_process()
 {
-    print_info "Restore deb.debian.org as source list ..."
-	cat <<-EOF > /etc/apt/sources.list
-    deb http://deb.debian.org/debian bookworm main contrib non-free
-    #deb-src http://deb.debian.org/debian bookworm main contrib non-free
-
-    deb http://deb.debian.org/debian bookworm-updates main contrib non-free
-    #deb-src http://deb.debian.org/debian bookworm-updates main contrib non-free
-
-    deb http://deb.debian.org/debian bookworm-backports main contrib non-free
-    #deb-src http://deb.debian.org/debian bookworm-backports main contrib non-free
-
-    deb http://security.debian.org/ bookworm-security main contrib non-free
-    #deb-src http://security.debian.org/ bookworm-security main contrib non-free
-	EOF
-
-
     i=0
 
     while ! docker ps | grep -q hassio_supervisor;
@@ -324,6 +227,7 @@ repositories_to_remove=(
     "ghcr.io/home-assistant/odroid-n2-homeassistant"
     "ghcr.io/home-assistant/aarch64-hassio-supervisor"
     "homeassistant/aarch64-addon-matter-server"
+    "homeassistant/aarch64-addon-otbr"
     "ghcr.io/home-assistant/aarch64-hassio-dns"
     "ghcr.io/home-assistant/aarch64-hassio-cli"
     "ghcr.io/home-assistant/aarch64-hassio-multicast"
@@ -342,36 +246,37 @@ check_and_uninstall_suervised_process()
         dpkg -r homeassistant-supervised-jethome > /dev/null 2>&1 || true
         dpkg -r os-agent > /dev/null 2>&1
 
-        # docker ps --format json|jq -r .Names | grep -E 'addon_|hassio_' | xargs -n 1 docker stop || true
-        # sleep 1
-        # if [ -n "$(docker ps --format json|jq -r .Names | grep -E 'addon_|hassio_')" ]; then
-        #     print_info "Wait for stop containers"
-        #     docker ps --format json|jq -r .Names | grep -E 'addon_|hassio_' | xargs -n 1 docker stop  || true
-        #     sleep 5
-        # fi
-
         # Stop and kill containers and images.
         for repo in "${repositories_to_remove[@]}"; do
-            images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo")
-            for image in $images; do
-                containers=$(docker ps -a -q --filter ancestor="$image")
-                if [ -n "$containers" ]; then
-                    print_info "Stopping containers based on image: $image"
-                    docker stop $containers
-                    docker rm $containers
-                fi
-                
-                print_info "Removing image: $image"
-                docker rmi "$image"
-            done
+            images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo" || true)
+            if [ ! -z "$images" ]; then
+                for image in $images; do
+                    containers=$(docker ps -a -q --filter ancestor="$image")
+                    if [ -n "$containers" ]; then
+                        print_info "Stopping containers based on image: $image"
+                        docker stop $containers
+                        docker rm $containers
+                    fi
+                    
+                    print_info "Removing image: $image"
+                    docker rmi "$image"
+                done
+            fi
         done
 
         print_info "Selected containers stopped and images removed successfully."
 
         sleep 5
         docker system prune -a -f > /dev/null 2>&1
-        docker system prune -a -f > /dev/null 2>&1
 
+        if [ -e "/etc/hassio.json" ]; then
+            rm -rf /etc/hassio.json
+        fi
+        
+        if [ -e "/var/lib/homeassistant" ]; then
+            rm -rf /var/lib/homeassistant
+        fi
+        
         print_info "Remove old Home Assistant done"
     else
         print_error "Home Assistant Supervised is not founed."
