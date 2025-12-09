@@ -486,6 +486,10 @@ update_zigbee2mqtt_config()
                 print "  password: thirdreality"
                 next
             }
+            # Skip client_id field
+            if (/^[[:space:]]+client_id:/) {
+                next
+            }
             # Keep other lines in mqtt section (comments, other settings)
             print
             next
@@ -543,8 +547,6 @@ fi
 trhub_model=$(get_trhub_model)
 echo "TRHub model: $trhub_model"
 
-trhub_model="trhub-v3c"
-
 # Stop and disable automatic apt services to avoid lock contention
 disable_apt_auto_services
 
@@ -553,7 +555,7 @@ wait_for_dpkg_lock
 remove_homeassistant_core
 
 # remove zigbee2mqtt
-if [ "$trhub_model" == "trhub-v3a" ]; then
+if [ "$trhub_model" == "trhub-v3" ]; then
     remove_zigbee2mqtt
 else
     /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null || true
@@ -573,7 +575,7 @@ remove_homeassistant_supervised
 remove_zigpy_tools
 
 # Query and remove all packages matching "thirdreality", leaving room for future upgrades
-if [ "$trhub_model" == "trhub-v3a" ]; then
+if [ "$trhub_model" == "trhub-v3" ]; then
     dpkg --list | grep thirdreality | awk '{print $2}' | xargs apt-get remove -y
 fi
 
