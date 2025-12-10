@@ -66,15 +66,15 @@ jobs:
         run: |
           sudo apt-get update
           # Install essential build tools for U-boot and kernel compilation
-          sudo apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates \
             gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils \
             binfmt-support qemu-user-static \
             bc bison flex libssl-dev libncurses5-dev libncursesw5-dev \
             device-tree-compiler u-boot-tools swig libpython3-dev \
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
             ccache ntpdate imagemagick pixz
-          sudo apt-get autoremove -y || true
-          sudo apt-get clean || true          
+          sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -y || true
+          sudo DEBIAN_FRONTEND=noninteractive apt-get clean || true          
           # Clean apt cache
           sudo rm -rf /var/lib/apt/lists/* || true
           sudo rm -rf /var/cache/apt/archives/* || true
@@ -145,7 +145,7 @@ jobs:
           ./compile.sh hubv3-images BOARD=${{ github.event.inputs.board }} BRANCH=current RELEASE=bookworm R3VERSION=$r3version R3VERSION_ID=$r3_version_id \
             BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
             COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no \
-            UBOOT_MIRROR=github \
+            UBOOT_MIRROR=github NO_APT_CACHER=yes \
             DOWNLOAD_MIRROR=$destination
 
       - name: Convert image
