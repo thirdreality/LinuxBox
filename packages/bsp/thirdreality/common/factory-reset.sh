@@ -311,68 +311,76 @@ remove_openhab()
     systemctl daemon-reload
 }
 
-remove_homeassistant_supervised()
-{
-    if [ -f /usr/sbin/hassio-supervisor ]; then    
-        systemctl stop haos-agent > /dev/null 2>&1
-        systemctl stop hassio-apparmor > /dev/null 2>&1
-        systemctl stop hassio-supervisor > /dev/null 2>&1
-        apt-get purge -y homeassistant-supervised\* > /dev/null 2>&1 || true
-        dpkg -r homeassistant-supervised > /dev/null 2>&1 || true
-        dpkg -r os-agent > /dev/null 2>&1 || true
+# remove_homeassistant_supervised()
+# {
+#     if [ -f /usr/sbin/hassio-supervisor ]; then    
+#         systemctl stop haos-agent > /dev/null 2>&1
+#         systemctl stop hassio-apparmor > /dev/null 2>&1
+#         systemctl stop hassio-supervisor > /dev/null 2>&1
+#         apt-get purge -y homeassistant-supervised\* > /dev/null 2>&1 || true
+#         dpkg -r homeassistant-supervised > /dev/null 2>&1 || true
+#         dpkg -r os-agent > /dev/null 2>&1 || true
 
-        dpkg -r thirdreality-hassio-config > /dev/null 2>&1 || true
+#         dpkg -r thirdreality-hassio-config > /dev/null 2>&1 || true
 
-        # Stop and kill containers and images.
-        for repo in "${repositories_to_remove[@]}"; do
-            images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo" || true)
-            if [ ! -z "$images" ]; then
-                for image in $images; do
-                    containers=$(docker ps -a -q --filter ancestor="$image")
-                    if [ -n "$containers" ]; then
-                        print_info "Stopping containers based on image: $image"
-                        docker stop $containers
-                        docker rm $containers
-                    fi
+#         # Stop and kill containers and images.
+#         for repo in "${repositories_to_remove[@]}"; do
+#             images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo" || true)
+#             if [ ! -z "$images" ]; then
+#                 for image in $images; do
+#                     containers=$(docker ps -a -q --filter ancestor="$image")
+#                     if [ -n "$containers" ]; then
+#                         print_info "Stopping containers based on image: $image"
+#                         docker stop $containers
+#                         docker rm $containers
+#                     fi
                         
-                    print_info "Removing image: $image"
-                    docker rmi "$image"
-                done
-            fi
-        done
+#                     print_info "Removing image: $image"
+#                     docker rmi "$image"
+#                 done
+#             fi
+#         done
 
-        print_info "Selected containers stopped and images removed successfully."
+#         print_info "Selected containers stopped and images removed successfully."
 
-        sleep 5
-        docker system prune -a -f > /dev/null 2>&1
+#         sleep 5
+#         docker system prune -a -f > /dev/null 2>&1
 
-        if [ -f "/etc/hassio.json" ]; then
-            rm -rf /etc/hassio.json
-        fi
+#         if [ -f "/etc/hassio.json" ]; then
+#             rm -rf /etc/hassio.json
+#         fi
             
-        if [ -e "/var/lib/homeassistant" ]; then
-            rm -rf /var/lib/homeassistant
-        fi
+#         if [ -e "/var/lib/homeassistant" ]; then
+#             rm -rf /var/lib/homeassistant
+#         fi
 
-        if [ -d "/usr/share/hassio" ]; then
-            rm -rf /usr/share/hassio
-        fi
+#         if [ -d "/usr/share/hassio" ]; then
+#             rm -rf /usr/share/hassio
+#         fi
 
-        print_info "Remove old Home Assistant done"
-    else
-        print_error "Home Assistant Supervised is not found."
-    fi
-}
+#         print_info "Remove old Home Assistant done"
+#     else
+#         print_error "Home Assistant Supervised is not found."
+#     fi
+# }
 
-remove_zigpy_tools()
+# remove_zigpy_tools()
+# {
+#     if [ -e "/usr/local/thirdreality/zigpy_tools/bin/activate" ]; then
+#         dpkg -r thirdreality-zigpy-tools > /dev/null 2>&1 || true
+
+#         print_info "Remove old thirdreality zigpy-tools done"
+#     fi
+# }
+
+
+remove_music_assistant()
 {
-    if [ -e "/usr/local/thirdreality/zigpy_tools/bin/activate" ]; then
-        dpkg -r thirdreality-zigpy-tools > /dev/null 2>&1 || true
+    /usr/bin/systemctl stop music-assistant.service > /dev/null || true
+    /usr/bin/systemctl disable music-assistant.service > /dev/null || true
 
-        print_info "Remove old thirdreality zigpy-tools done"
-    fi
+    apt-get purge -y thirdreality-music-assistant > /dev/null || true
 }
-
 restore_serial_tty()
 {
     print_info "Restoring serial tty service"
@@ -577,14 +585,20 @@ fi
 # remove openhab
 remove_openhab
 
-# remove homeassistant supervised
-remove_homeassistant_supervised
+# remove_homeassistant_supervised
+# remove_zigpy_tools
 
-remove_zigpy_tools
+remove_music_assistant
 
 # Query and remove all packages matching "thirdreality", leaving room for future upgrades
 if [ "$trhub_model" == "trhubv3" ]; then
-    dpkg --list | grep thirdreality | awk '{print $2}' | xargs apt-get remove -y
+    debs=$(dpkg --list | awk '/^ii/ && $2 ~ /^thirdreality-/{print $2}')
+    if [ -n "$debs" ]; then
+        print_info "Found thirdreality packages: $debs"
+        echo "$debs" | xargs -r apt-get remove -y
+    else
+        print_info "No thirdreality packages found"
+    fi
 fi
 
 rm -rf /usr/share/hassio || true
