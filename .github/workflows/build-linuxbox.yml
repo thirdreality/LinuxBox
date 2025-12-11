@@ -81,6 +81,20 @@ jobs:
           echo "=== Final disk usage ==="
           df -h
 
+      - name: Ensure DNS and apt fallback
+        run: |
+            echo "Setting fallback DNS and apt retries..."
+            sudo rm -f /etc/resolv.conf
+            printf "nameserver 1.1.1.1\nnameserver 8.8.8.8\n" | sudo tee /etc/resolv.conf
+            sudo bash -c 'printf "%s\n" \
+            "Acquire::ForceIPv4 \"true\";" \
+            "Acquire::Retries \"5\";" \
+            "Acquire::http::Timeout \"30\";" \
+            "Acquire::https::Timeout \"30\";" \
+            "Acquire::Languages \"none\";" \
+            > /etc/apt/apt.conf.d/99force-ipv4'
+            sudo systemd-resolve --flush-caches || true
+  
       - name: Clone repository to /mnt/linuxbox
         run: |
           echo "Cloning repository to /mnt/linuxbox..."
