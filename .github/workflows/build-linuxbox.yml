@@ -43,22 +43,31 @@ jobs:
           # Remove large tool caches
           sudo rm -rf /opt/hostedtoolcache/* || true
           # Remove large packages
-          sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' '^llvm-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri || true
-
+          sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' '^llvm-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri >/dev/null 2>&1 || true
 
           # Remove Docker images and containers
           docker rmi $(docker image ls -aq) >/dev/null 2>&1 || true
-          docker system prune -a -f || true
+          docker system prune -a -f >/dev/null 2>&1 || true
           # Remove swap
           sudo swapoff -a || true
           sudo rm -f /mnt/swapfile || true
           sudo rm -f /swapfile || true
+          
+          # Additional cleanup
+          echo "=== Additional cleanup ==="
+          sudo rm -rf /tmp/* || true
+          sudo rm -rf /var/tmp/* || true
+          sudo rm -rf ~/.cache/* || true
+          sudo rm -rf /root/.cache/* || true
+          sudo find /tmp -type f -atime +0 -delete 2>/dev/null || true
+          sudo find /var/tmp -type f -atime +0 -delete 2>/dev/null || true
+          
           echo ""
           echo "=== Disk usage after cleanup ==="
           df -h
           echo ""
           echo "=== Cleaning up previous build artifacts ==="
-          sudo rm -rf /mnt/linuxbox /mnt/output
+          sudo rm -rf /mnt/linuxbox /mnt/output /mnt/cache
           echo "=== Final disk usage ==="
           df -h
 
@@ -78,6 +87,8 @@ jobs:
           # Clean apt cache
           sudo rm -rf /var/lib/apt/lists/* || true
           sudo rm -rf /var/cache/apt/archives/* || true
+          echo "Disk usage after installing dependencies:"
+          df -h
           
       - name: Setup QEMU for ARM emulation
         run: |
@@ -95,13 +106,23 @@ jobs:
           sudo chown -R $USER:$USER /mnt/output
           ln -s /mnt/output ${{ github.workspace }}/output
           echo "Symlink created: ${{ github.workspace }}/output -> /mnt/output"
+          
+          echo "Setting up cache directory symlink..."
+          sudo mkdir -p /mnt/cache
+          sudo chown -R $USER:$USER /mnt/cache
+          ln -s /mnt/cache ${{ github.workspace }}/cache
+          echo "Symlink created: ${{ github.workspace }}/cache -> /mnt/cache"
+          
           ls -lah ${{ github.workspace }}/
 
       - name: Clean build cache
         run: |
           echo "Cleaning build cache..."
           sudo rm -rf cache/
+          sudo rm -rf .tmp/
           echo "Build cache cleaned"
+          echo "Disk usage after cache cleanup:"
+          df -h
 
       - name: Build userpatches
         run: |
@@ -118,10 +139,31 @@ jobs:
           rm -rf output/images
           mkdir -p output/images
 
+      - name: Check disk space before build
+        run: |
+          echo "=== Disk space check before build ==="
+          df -h
+          echo ""
+          echo "Available space:"
+          df -h . | tail -1 | awk '{print "Available: " $4}'
+          echo ""
+          # Check if we have at least 20GB free
+          AVAILABLE=$(df -BG . | tail -1 | awk '{print $4}' | sed 's/G//')
+          if [ "$AVAILABLE" -lt 20 ]; then
+            echo "WARNING: Less than 20GB available. Attempting additional cleanup..."
+            sudo rm -rf /tmp/* || true
+            sudo rm -rf /var/tmp/* || true
+            sudo find /tmp -type f -atime +1 -delete 2>/dev/null || true
+            sudo find /var/tmp -type f -atime +1 -delete 2>/dev/null || true
+            df -h
+          fi
+
       - name: Build firmware
         env:
           NO_APT_CACHER: yes
         run: |
+          set -e
+          
           # Calculate version ID from revision
           r3version="${{ github.event.inputs.revision }}"
           ver_no_v=${r3version#v}
@@ -133,6 +175,9 @@ jobs:
           echo "Dist: ${{ github.event.inputs.dist }}"
           echo "Revision: $r3version"
           echo "Version ID: $r3_version_id"
+          echo ""
+          echo "Disk space before build:"
+          df -h .
           
           # Set destination based on dist input
           if [[ "${{ github.event.inputs.dist }}" == "cn" ]]; then
@@ -141,12 +186,24 @@ jobs:
             destination=""
           fi
           
-          # Execute compile.sh
-          ./compile.sh hubv3-images BOARD=${{ github.event.inputs.board }} BRANCH=current RELEASE=bookworm R3VERSION=$r3version R3VERSION_ID=$r3_version_id \
+          # Execute compile.sh with error handling
+          if ! ./compile.sh hubv3-images BOARD=${{ github.event.inputs.board }} BRANCH=current RELEASE=bookworm R3VERSION=$r3version R3VERSION_ID=$r3_version_id \
             BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
             COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no \
             UBOOT_MIRROR=github NO_APT_CACHER=yes \
-            DOWNLOAD_MIRROR=$destination
+            DOWNLOAD_MIRROR=$destination; then
+            echo ""
+            echo "=== Build failed. Checking logs and disk space ==="
+            echo "Disk space after failure:"
+            df -h .
+            echo ""
+            echo "Checking for install.log:"
+            find . -name "install.log" -type f -exec tail -100 {} \; 2>/dev/null || echo "No install.log found"
+            echo ""
+            echo "Checking .tmp directory size:"
+            du -sh .tmp 2>/dev/null || echo ".tmp not found"
+            exit 1
+          fi
 
       - name: Convert image
         run: |
@@ -214,6 +271,6 @@ jobs:
       - name: Clean up after upload
         run: |
           echo "Cleaning up after successful upload..."
-          sudo rm -rf /mnt/output /mnt/linuxbox
+          sudo rm -rf /mnt/output /mnt/linuxbox /mnt/cache
           echo "Final disk usage:"
           df -h
