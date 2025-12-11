@@ -109,8 +109,8 @@ update_z2m_quirks_for_debug()
     # Check js file count
     local js_files_count=$(find "$DEBUG_Z2M_DIR" -maxdepth 1 -name "*.js" -type f | wc -l)
 
-    # If js file count is 1 or less, do nothing
-    if [ "$js_files_count" -le 1 ]; then
+    # If js file count is 0, do nothing
+    if [ "$js_files_count" -eq 0 ]; then
         echo 0 >&2
         echo 0
         return 0

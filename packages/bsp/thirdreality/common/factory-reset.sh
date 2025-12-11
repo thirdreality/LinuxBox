@@ -169,56 +169,56 @@ function wait_for_dpkg_lock() {
 
 function _remove_otbr_agent()
 {
-    /usr/bin/systemctl stop otbr-web || true
-    /usr/bin/systemctl stop otbr-agent || true
+    /usr/bin/systemctl stop otbr-web > /dev/null 2>&1 || true
+    /usr/bin/systemctl stop otbr-agent > /dev/null 2>&1 || true
 
-    /usr/bin/systemctl disable otbr-web || true
-    /usr/bin/systemctl disable otbr-agent || true
+    /usr/bin/systemctl disable otbr-web > /dev/null 2>&1 || true
+    /usr/bin/systemctl disable otbr-agent > /dev/null 2>&1 || true
 
-    killall otbr-web otbr-agent || true
+    killall otbr-web otbr-agent > /dev/null 2>&1 || true
 
-    /usr/bin/systemctl stop otbr-firewall || true
-    /usr/bin/systemctl disable otbr-firewall || true
+    /usr/bin/systemctl stop otbr-firewall > /dev/null 2>&1 || true
+    /usr/bin/systemctl disable otbr-firewall > /dev/null 2>&1 || true
 
     if [ -f "/usr/sbin/update-rc.d" ]; then
-        /usr/sbin/update-rc.d otbr-firewall remove || true
+        /usr/sbin/update-rc.d otbr-firewall remove > /dev/null 2>&1 || true
     fi
 
-    test ! -f ${FIREWALL_SERVICE} || rm ${FIREWALL_SERVICE} || true
+    test ! -f ${FIREWALL_SERVICE} || rm ${FIREWALL_SERVICE} > /dev/null 2>&1 || true
 
-    test ! -f ${SYSCTL_ACCEPT_RA_FILE} || rm -v ${SYSCTL_ACCEPT_RA_FILE} || true
-    test ! -f ${SYSCTL_IP_FORWARD_FILE} || rm -v ${SYSCTL_IP_FORWARD_FILE} || true
+    test ! -f ${SYSCTL_ACCEPT_RA_FILE} || rm -v ${SYSCTL_ACCEPT_RA_FILE} > /dev/null 2>&1 || true
+    test ! -f ${SYSCTL_IP_FORWARD_FILE} || rm -v ${SYSCTL_IP_FORWARD_FILE} > /dev/null 2>&1 || true
 
     sed -i.bak '/88\s\+openthread/d' /etc/iproute2/rt_tables
 
-    test ! -f /lib/libnss_mdns.so.2 || rm -rf /lib/libnss_mdns.so.2 || true
-    test ! -f /usr/lib/libdns_sd.so || rm -rf /usr/lib/libdns_sd.so || true
+    test ! -f /lib/libnss_mdns.so.2 || rm -rf /lib/libnss_mdns.so.2 > /dev/null 2>&1 || true
+    test ! -f /usr/lib/libdns_sd.so || rm -rf /usr/lib/libdns_sd.so > /dev/null 2>&1 || true
 
     test ! -f /etc/rc2.d/S52mdns || rm -rf /etc/rc2.d/S52mdns || true
-    test ! -f /etc/rc3.d/S52mdns || rm -rf /etc/rc3.d/S52mdns || true
-    test ! -f /etc/rc4.d/S52mdns || rm -rf /etc/rc4.d/S52mdns || true
-    test ! -f /etc/rc5.d/S52mdns || rm -rf /etc/rc5.d/S52mdns || true
-    test ! -f /etc/rc0.d/K16mdns || rm -rf /etc/rc0.d/K16mdns || true
-    test ! -f /etc/rc6.d/K16mdns || rm -rf /etc/rc6.d/K16mdns || true
+    test ! -f /etc/rc3.d/S52mdns || rm -rf /etc/rc3.d/S52mdns > /dev/null 2>&1 || true
+    test ! -f /etc/rc4.d/S52mdns || rm -rf /etc/rc4.d/S52mdns > /dev/null 2>&1 || true
+    test ! -f /etc/rc5.d/S52mdns || rm -rf /etc/rc5.d/S52mdns > /dev/null 2>&1 || true
+    test ! -f /etc/rc0.d/K16mdns || rm -rf /etc/rc0.d/K16mdns > /dev/null 2>&1 || true
+    test ! -f /etc/rc6.d/K16mdns || rm -rf /etc/rc6.d/K16mdns > /dev/null 2>&1 || true
 
-    sysctl -p /etc/sysctl.conf || true
+    sysctl -p /etc/sysctl.conf > /dev/null 2>&1 || true
 }
 
 remove_homeassistant_core()
 {
-    /usr/bin/systemctl stop home-assistant > /dev/null || true
-    /usr/bin/systemctl stop home-assistant > /dev/null || true
+    /usr/bin/systemctl stop home-assistant > /dev/null 2>&1 || true
+    /usr/bin/systemctl stop home-assistant > /dev/null 2>&1 || true
 
-    /usr/bin/systemctl disable matter-server > /dev/null || true
-    /usr/bin/systemctl disable matter-server > /dev/null || true
+    /usr/bin/systemctl disable matter-server > /dev/null 2>&1 || true
+    /usr/bin/systemctl disable matter-server > /dev/null 2>&1|| true
 
-    dpkg --configure -a > /dev/null || true
+    dpkg --configure -a > /dev/null 2>&1 || true
 
-    apt-get purge -y thirdreality-hacore > /dev/null || true
-    apt-get purge -y thirdreality-hacore-config > /dev/null  || true
-    apt-get purge -y thirdreality-python3.13 > /dev/null || true
-    apt-get purge -y thirdreality-python3 > /dev/null || true
-    apt-get purge -y thirdreality-otbr-agent  > /dev/null || true    
+    apt-get purge -y thirdreality-hacore > /dev/null 2>&1 || true
+    apt-get purge -y thirdreality-hacore-config > /dev/null 2>&1 || true
+    apt-get purge -y thirdreality-python3.13 > /dev/null 2>&1 || true
+    apt-get purge -y thirdreality-python3 > /dev/null 2>&1 || true
+    apt-get purge -y thirdreality-otbr-agent  > /dev/null 2>&1 || true    
     #apt-get purge -y thirdreality-zigbee-mqtt  > /dev/null || true
 
     apt-get autoremove -y >/dev/null || true
@@ -229,81 +229,37 @@ remove_homeassistant_core()
 
 remove_zigbee2mqtt()
 {
-    /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null || true
-    /usr/bin/systemctl stop mosquitto.service > /dev/null || true
+    /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null 2>&1|| true
+    /usr/bin/systemctl stop mosquitto.service > /dev/null 2>&1 || true
 
-    /usr/bin/systemctl disable zigbee2mqtt.service > /dev/null || true
-    /usr/bin/systemctl disable mosquitto.service > /dev/null|| true
+    /usr/bin/systemctl disable zigbee2mqtt.service > /dev/null 2>&1 || true
+    /usr/bin/systemctl disable mosquitto.service > /dev/null 2>&1|| true
 
     dpkg --configure -a > /dev/null || true
 
-    local z2m_backup_dir="/opt/z2m_tmp_backup"
-    local data_backed_up=0
-    if [ -d /opt/zigbee2mqtt/data ]; then
-        print_info "Backing up /opt/zigbee2mqtt/data before package removal"
-        rm -rf /opt/zigbee2mqtt/data/log > /dev/null 2>&1 || true
-        rm -rf "${z2m_backup_dir}" > /dev/null 2>&1 || true
-        mkdir -p "${z2m_backup_dir}"
-        cp -a /opt/zigbee2mqtt/data/. "${z2m_backup_dir}"/ >/dev/null 2>&1 || true
-        data_backed_up=1
+    apt-get purge -y thirdreality-zigbee-mqtt > /dev/null 2>&1 || true
+    apt-get purge -y nodejs libsystemd-dev  > /dev/null 2>&1 || true
+    apt-get purge -y mosquitto mosquitto-clients > /dev/null 2>&1 || true
+    apt-get purge -y libmosquitto1 libdlt2 > /dev/null 2>&1 || true
 
-        /usr/bin/sync
-        /usr/bin/sync
-    fi
-
-    apt-get purge -y thirdreality-zigbee-mqtt > /dev/null || true
-    apt-get purge -y nodejs libsystemd-dev  > /dev/null || true
-    apt-get purge -y mosquitto mosquitto-clients > /dev/null || true
-    apt-get purge -y libmosquitto1 libdlt2 > /dev/null || true
-
-    apt-get autoremove -y >/dev/null || true
+    apt-get autoremove -y >/dev/null 2>&1 || true
     systemctl daemon-reload
     userdel mosquitto > /dev/null 2>&1 || true
 
-    if [ "$data_backed_up" -eq 1 ] && [ -d "${z2m_backup_dir}" ]; then
-        print_info "Restoring Zigbee2MQTT data from temporary backup"
-        # Only remove /opt/zigbee2mqtt if it still exists and is not the data directory we want to preserve
-        if [ -d /opt/zigbee2mqtt ]; then
-            # Remove everything except data directory if it exists
-            if [ -d /opt/zigbee2mqtt/data ]; then
-                # Move data out temporarily, remove dir, then restore
-                mv /opt/zigbee2mqtt/data /opt/zigbee2mqtt_data_tmp >/dev/null 2>&1 || true
-            fi
-            rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
-        fi
-        mkdir -p /opt/zigbee2mqtt/data
-        cp -a "${z2m_backup_dir}"/. /opt/zigbee2mqtt/data/ >/dev/null 2>&1 || true
-        # Restore any existing data that was moved out
-        if [ -d /opt/zigbee2mqtt_data_tmp ]; then
-            cp -a /opt/zigbee2mqtt_data_tmp/. /opt/zigbee2mqtt/data/ >/dev/null 2>&1 || true
-            rm -rf /opt/zigbee2mqtt_data_tmp >/dev/null 2>&1 || true
-        fi
-        rm -rf "${z2m_backup_dir}" > /dev/null 2>&1 || true
-
-        /usr/bin/sync
-        /usr/bin/sync
-        
-        # Update configuration if needed
-        update_zigbee2mqtt_config
-    else
-        # Only remove if data was not backed up
-        if [ "$data_backed_up" -eq 0 ]; then
-            rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
-        fi
-    fi
+    rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
 
     rm -rf /etc/mosquitto > /dev/null 2>&1 || true
 }
 
 remove_openhab()
 {
-    /usr/bin/systemctl stop openhab.service > /dev/null || true
-    /usr/bin/systemctl disable openhab.service > /dev/null || true
+    /usr/bin/systemctl stop openhab.service > /dev/null 2>&1 || true
+    /usr/bin/systemctl disable openhab.service > /dev/null 2>&1 || true
 
-    apt-get purge -y openhab* > /dev/null || true
-    apt-get purge -y openjdk-17-jre* > /dev/null || true
+    apt-get purge -y openhab* > /dev/null 2>&1 || true
+    apt-get purge -y openjdk-17-jre* > /dev/null 2>&1 || true
 
-    rm -rf /usr/share/keyrings/openhab.gpg > /dev/null || true
+    rm -rf /usr/share/keyrings/openhab.gpg > /dev/null 2>&1 || true
     rm -rf /etc/apt/sources.list.d/openhab.list > /dev/null || true
     rm -rf /var/log/openhab > /dev/null || true
 
@@ -376,11 +332,12 @@ remove_openhab()
 
 remove_music_assistant()
 {
-    /usr/bin/systemctl stop music-assistant.service > /dev/null || true
-    /usr/bin/systemctl disable music-assistant.service > /dev/null || true
+    /usr/bin/systemctl stop music-assistant.service > /dev/null 2>&1 || true
+    /usr/bin/systemctl disable music-assistant.service > /dev/null 2>&1 || true
 
-    apt-get purge -y thirdreality-music-assistant > /dev/null || true
+    apt-get purge -y thirdreality-music-assistant > /dev/null 2>&1 || true
 }
+
 restore_serial_tty()
 {
     print_info "Restoring serial tty service"
@@ -574,7 +531,7 @@ remove_homeassistant_core
 if [ "$trhub_model" == "trhubv3" ]; then
     remove_zigbee2mqtt
 else
-    /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null || true
+    /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null 2>&1 || true
     
     update_zigbee2mqtt_config
 
@@ -601,14 +558,14 @@ if [ "$trhub_model" == "trhubv3" ]; then
     fi
 fi
 
-rm -rf /usr/share/hassio || true
-rm -rf /var/lib/homeassistant  || true
-rm -rf /var/lib/thread  || true
-rm -rf /lib/thirdreality/conf/*  || true
-rm -rf /lib/thirdreality/backup/*  || true
-rm -rf /lib/thirdreality/archives/* || true
+rm -rf /usr/share/hassio > /dev/null 2>&1 || true
+rm -rf /var/lib/homeassistant > /dev/null 2>&1 || true
+rm -rf /var/lib/thread  > /dev/null 2>&1 || true
+rm -rf /lib/thirdreality/conf/*  > /dev/null 2>&1 || true
+rm -rf /lib/thirdreality/backup/*  > /dev/null 2>&1 || true
+rm -rf /lib/thirdreality/archives/* > /dev/null 2>&1 || true
 
-rm -rf /usr/lib/firmware/bl706/bflb_iot || true
+rm -rf /usr/lib/firmware/bl706/bflb_iot > /dev/null 2>&1 || true
 
 /usr/bin/sync
 
