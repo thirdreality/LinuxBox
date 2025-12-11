@@ -276,7 +276,7 @@ update_zha_ota_config()
     fi
 
     # Check if OTA providers are already configured
-    if grep -qE "extra_providers.*zigpy_local|index_file:.*zigpy_local_ota" "$ha_cfg"; then
+    if grep -qE "extra_providers.*z2m_local|index_file:.*zigpy_local_ota" "$ha_cfg"; then
         echo "[DEBUG-OTA-ZHA] ZHA OTA providers already configured in $ha_cfg" >&2
         echo "$updated"
         return 0
@@ -296,7 +296,7 @@ update_zha_ota_config()
             print "  zigpy_config:"
             print "    ota:"
             print "      extra_providers:"
-            print "        - type: zigpy_local"
+            print "        - type: z2m_local"
             print "          index_file: '"$ota_dir"'/local_index.json"
             done=1
             next
@@ -313,7 +313,7 @@ update_zha_ota_config()
             echo "  zigpy_config:"
             echo "    ota:"
             echo "      extra_providers:"
-            echo "        - type: zigpy_local"
+            echo "        - type: z2m_local"
             echo "          index_file: $ota_dir/local_index.json"
         } >> "$ha_cfg"
         echo "[DEBUG-OTA-ZHA] Created new zha: section with OTA configuration" >&2
