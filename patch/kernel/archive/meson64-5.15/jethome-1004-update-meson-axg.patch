@@ -1,0 +1,713 @@
+From ff34dff1f5c2e369366db5594798ee502c5dc695 Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Sun, 28 Sep 2025 16:58:51 +0800
+Subject: [PATCH] fixed mmc drivers and dts
+
+---
+ arch/arm64/boot/dts/amlogic/Makefile          | 130 +++++++++---------
+ .../meson-axg-jethome-jethub-j1xx.dtsi        |   8 +-
+ arch/arm64/boot/dts/amlogic/meson-axg.dtsi    | 121 ----------------
+ drivers/amlogic/bluetooth/bt_device.c         |   7 +
+ drivers/amlogic/pwm/pwm-meson.c               |   4 +
+ drivers/amlogic/wifi/Kconfig                  |   2 +-
+ drivers/amlogic/wifi/wifi_dt.c                |  12 +-
+ drivers/base/dd.c                             |  18 ++-
+ drivers/mmc/core/core.c                       |  23 +++-
+ drivers/mmc/core/mmc.c                        |   8 ++
+ drivers/mmc/core/sdio.c                       |   8 ++
+ drivers/mmc/host/meson-gx-mmc.c               |  15 +-
+ 12 files changed, 152 insertions(+), 204 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/amlogic/Makefile b/arch/arm64/boot/dts/amlogic/Makefile
+index 4b8fc1cfb9b4..59eae6b57a8d 100644
+--- a/arch/arm64/boot/dts/amlogic/Makefile
++++ b/arch/arm64/boot/dts/amlogic/Makefile
+@@ -1,74 +1,74 @@
+ # SPDX-License-Identifier: GPL-2.0
+-dtb-$(CONFIG_ARCH_MESON) += meson-axg-s400.dtb
++#dtb-$(CONFIG_ARCH_MESON) += meson-axg-s400.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-axg-jethome-jethub-j100.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-axg-jethome-jethub-j110-rev-2.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-axg-jethome-jethub-j110-rev-3.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-axg-thirdreality-trhub-v3.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-axg-thirdreality-trhub-v3b.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-axg-thirdreality-linuxbox.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12a-radxa-zero.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12a-sei510.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12a-tanix-tx5max.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12a-u200.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12a-x96-max.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-gsking-x.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-gtking.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-gtking-pro.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-a311d-khadas-vim3.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-s922x-khadas-vim3.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-odroid-n2.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-odroid-n2-spi.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-odroid-n2-plus.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-odroid-n2-plus-spi.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-g12b-ugoos-am6.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-kii-pro.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-nanopi-k2.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-nexbox-a95x.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-odroidc2.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-p200.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-p201.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-vega-s95-pro.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-vega-s95-meta.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-vega-s95-telos.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-wetek-hub.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-wetek-play2.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s805x-libretech-ac.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-hwacom-amazetv.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-khadas-vim.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-libretech-cc.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-libretech-cc-v2.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-nexbox-a95x.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-p212.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-mecool-kii-pro.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-p230.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-p231.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-phicomm-n1.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-sml5442tw.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s805x-p241.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-p281.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-tx3-mini.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-libretech-pc.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-jethome-jethub-j80.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-khadas-vim2.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-mecool-kiii-pro.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-minix-neo-u9h.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-nexbox-a1.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-q200.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-q201.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-rbox-pro.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-s912-libretech-pc.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-vega-s96.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-gxm-wetek-core2.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-h96-max.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-a95xf3-air-100.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-a95xf3-air-1000.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-bananapi-m5.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-khadas-vim3l.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-odroid-c4.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-odroid-hc4.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-x96-air-100.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-x96-air-1000.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-sm1-sei610.dtb
+-dtb-$(CONFIG_ARCH_MESON) += meson-a1-ad401.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12a-radxa-zero.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12a-sei510.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12a-tanix-tx5max.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12a-u200.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12a-x96-max.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-gsking-x.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-gtking.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-gtking-pro.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-a311d-khadas-vim3.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-s922x-khadas-vim3.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-odroid-n2.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-odroid-n2-spi.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-odroid-n2-plus.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-odroid-n2-plus-spi.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-g12b-ugoos-am6.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-kii-pro.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-nanopi-k2.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-nexbox-a95x.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-odroidc2.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-p200.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-p201.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-vega-s95-pro.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-vega-s95-meta.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-vega-s95-telos.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-wetek-hub.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxbb-wetek-play2.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s805x-libretech-ac.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-hwacom-amazetv.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-khadas-vim.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-libretech-cc.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-libretech-cc-v2.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-nexbox-a95x.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905x-p212.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-mecool-kii-pro.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-p230.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-p231.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-phicomm-n1.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-sml5442tw.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s805x-p241.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-p281.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-tx3-mini.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905d-libretech-pc.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxl-s905w-jethome-jethub-j80.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-khadas-vim2.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-mecool-kiii-pro.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-minix-neo-u9h.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-nexbox-a1.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-q200.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-q201.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-rbox-pro.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-s912-libretech-pc.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-vega-s96.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-gxm-wetek-core2.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-h96-max.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-a95xf3-air-100.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-a95xf3-air-1000.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-bananapi-m5.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-khadas-vim3l.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-odroid-c4.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-odroid-hc4.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-x96-air-100.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-x96-air-1000.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-sm1-sei610.dtb
++# dtb-$(CONFIG_ARCH_MESON) += meson-a1-ad401.dtb
+ 
+ subdir-y       := $(dts-dirs) overlay
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
+index 82c3dffcb3f0..791fd9d40636 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-jethome-jethub-j1xx.dtsi
+@@ -19,7 +19,11 @@ aliases {
+ 		serial1 = &uart_A; /* UART Bluetooth */
+ 		serial3 = &uart_AO_B; /* ZigBee */
+ 		serial6 = &uart_B; /* Thread */
++		
+ 		ethernet0 = &ethmac;
++
++		mmc0 = &sd_emmc_c; /* emmc storage */
++		mmc1 = &sd_emmc_b; /* wifi module */
+ 	};
+ 
+ 	chosen {
+@@ -221,7 +225,7 @@ eth_phy0: ethernet-phy@0 {
+ 
+ /* Internal I2C bus (on CPU module) */
+ &i2c1 {
+-	status = "okay";
++	status = "disabled";
+ 	pinctrl-0 = <&i2c1_z_pins>;
+ 	pinctrl-names = "default";
+ 
+@@ -348,7 +352,7 @@ &usb {
+ };
+ 
+ &spicc1 {
+-	status = "okay";
++	status = "disabled";
+ 	pinctrl-0 = <&spi1_x_pins>, <&spi1_ss0_x_pins>;
+ 	pinctrl-names = "default";
+ };
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
+index e231e7a97ff7..ae60b20a79e9 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
+@@ -171,58 +171,6 @@ soc {
+ 		#size-cells = <2>;
+ 		ranges;
+ 
+-		pcieA: pcie@f9800000 {
+-			compatible = "amlogic,axg-pcie", "snps,dw-pcie";
+-			reg = <0x0 0xf9800000 0x0 0x400000>,
+-			      <0x0 0xff646000 0x0 0x2000>,
+-			      <0x0 0xf9f00000 0x0 0x100000>;
+-			reg-names = "elbi", "cfg", "config";
+-			interrupts = <GIC_SPI 177 IRQ_TYPE_EDGE_RISING>;
+-			#interrupt-cells = <1>;
+-			interrupt-map-mask = <0 0 0 0>;
+-			interrupt-map = <0 0 0 0 &gic GIC_SPI 179 IRQ_TYPE_EDGE_RISING>;
+-			bus-range = <0x0 0xff>;
+-			#address-cells = <3>;
+-			#size-cells = <2>;
+-			device_type = "pci";
+-			ranges = <0x82000000 0 0xf9c00000 0x0 0xf9c00000 0 0x00300000>;
+-
+-			clocks = <&clkc CLKID_USB>, <&clkc CLKID_PCIE_A>, <&clkc CLKID_PCIE_CML_EN0>;
+-			clock-names = "general", "pclk", "port";
+-			resets = <&reset RESET_PCIE_A>, <&reset RESET_PCIE_APB>;
+-			reset-names = "port", "apb";
+-			num-lanes = <1>;
+-			phys = <&pcie_phy>;
+-			phy-names = "pcie";
+-			status = "disabled";
+-		};
+-
+-		pcieB: pcie@fa000000 {
+-			compatible = "amlogic,axg-pcie", "snps,dw-pcie";
+-			reg = <0x0 0xfa000000 0x0 0x400000>,
+-			      <0x0 0xff648000 0x0 0x2000>,
+-			      <0x0 0xfa400000 0x0 0x100000>;
+-			reg-names = "elbi", "cfg", "config";
+-			interrupts = <GIC_SPI 167 IRQ_TYPE_EDGE_RISING>;
+-			#interrupt-cells = <1>;
+-			interrupt-map-mask = <0 0 0 0>;
+-			interrupt-map = <0 0 0 0 &gic GIC_SPI 169 IRQ_TYPE_EDGE_RISING>;
+-			bus-range = <0x0 0xff>;
+-			#address-cells = <3>;
+-			#size-cells = <2>;
+-			device_type = "pci";
+-			ranges = <0x82000000 0 0xfa500000 0x0 0xfa500000 0 0x00300000>;
+-
+-			clocks = <&clkc CLKID_USB>, <&clkc CLKID_PCIE_B>, <&clkc CLKID_PCIE_CML_EN1>;
+-			clock-names = "general", "pclk", "port";
+-			resets = <&reset RESET_PCIE_B>, <&reset RESET_PCIE_APB>;
+-			reset-names = "port", "apb";
+-			num-lanes = <1>;
+-			phys = <&pcie_phy>;
+-			phy-names = "pcie";
+-			status = "disabled";
+-		};
+-
+ 		usb: usb@ffe09080 {
+ 			compatible = "amlogic,meson-axg-usb-ctrl";
+ 			reg = <0x0 0xffe09080 0x0 0x20>;
+@@ -282,15 +230,6 @@ ethmac: ethernet@ff3f0000 {
+ 			status = "disabled";
+ 		};
+ 
+-		pcie_phy: phy@ff644000 {
+-			compatible = "amlogic,axg-pcie-phy";
+-			reg = <0x0 0xff644000 0x0 0x1c>;
+-			resets = <&reset RESET_PCIE_PHY>;
+-			phys = <&mipi_pcie_analog_dphy>;
+-			phy-names = "analog";
+-			#phy-cells = <0>;
+-		};
+-
+ 		pdm: audio-controller@ff632000 {
+ 			compatible = "amlogic,axg-pdm";
+ 			reg = <0x0 0xff632000 0x0 0x34>;
+@@ -1218,52 +1157,6 @@ clkc: clock-controller {
+ 					clocks = <&xtal>;
+ 					clock-names = "xtal";
+ 				};
+-
+-				pwrc: power-controller {
+-					compatible = "amlogic,meson-axg-pwrc";
+-					#power-domain-cells = <1>;
+-					amlogic,ao-sysctrl = <&sysctrl_AO>;
+-					resets = <&reset RESET_VIU>,
+-						 <&reset RESET_VENC>,
+-						 <&reset RESET_VCBUS>,
+-						 <&reset RESET_VENCL>,
+-						 <&reset RESET_VID_LOCK>;
+-					reset-names = "viu", "venc", "vcbus",
+-						      "vencl", "vid_lock";
+-					clocks = <&clkc CLKID_VPU>,
+-						 <&clkc CLKID_VAPB>;
+-					clock-names = "vpu", "vapb";
+-					/*
+-					 * VPU clocking is provided by two identical clock paths
+-					 * VPU_0 and VPU_1 muxed to a single clock by a glitch
+-					 * free mux to safely change frequency while running.
+-					 * Same for VAPB but with a final gate after the glitch free mux.
+-					 */
+-					assigned-clocks = <&clkc CLKID_VPU_0_SEL>,
+-							  <&clkc CLKID_VPU_0>,
+-							  <&clkc CLKID_VPU>, /* Glitch free mux */
+-							  <&clkc CLKID_VAPB_0_SEL>,
+-							  <&clkc CLKID_VAPB_0>,
+-							  <&clkc CLKID_VAPB_SEL>; /* Glitch free mux */
+-					assigned-clock-parents = <&clkc CLKID_FCLK_DIV4>,
+-								 <0>, /* Do Nothing */
+-								 <&clkc CLKID_VPU_0>,
+-								 <&clkc CLKID_FCLK_DIV4>,
+-								 <0>, /* Do Nothing */
+-								 <&clkc CLKID_VAPB_0>;
+-					assigned-clock-rates = <0>, /* Do Nothing */
+-							       <250000000>,
+-							       <0>, /* Do Nothing */
+-							       <0>, /* Do Nothing */
+-							       <250000000>,
+-							       <0>; /* Do Nothing */
+-				};
+-
+-				mipi_pcie_analog_dphy: phy {
+-					compatible = "amlogic,axg-mipi-pcie-analog-phy";
+-					#phy-cells = <0>;
+-					status = "disabled";
+-				};
+ 			};
+ 		};
+ 
+@@ -1276,19 +1169,6 @@ mailbox: mailbox@ff63c404 {
+ 			#mbox-cells = <1>;
+ 		};
+ 
+-		mipi_dphy: phy@ff640000 {
+-			compatible = "amlogic,axg-mipi-dphy";
+-			reg = <0x0 0xff640000 0x0 0x100>;
+-			clocks = <&clkc CLKID_MIPI_DSI_PHY>;
+-			clock-names = "pclk";
+-			resets = <&reset RESET_MIPI_PHY>;
+-			reset-names = "phy";
+-			phys = <&mipi_pcie_analog_dphy>;
+-			phy-names = "analog";
+-			#phy-cells = <0>;
+-			status = "disabled";
+-		};
+-
+ 		audio: bus@ff642000 {
+ 			compatible = "simple-bus";
+ 			reg = <0x0 0xff642000 0x0 0x2000>;
+@@ -1871,7 +1751,6 @@ uart_A: serial@24000 {
+ 				status = "disabled";
+ 				clocks = <&xtal>, <&clkc CLKID_UART0>, <&xtal>;
+ 				clock-names = "xtal", "pclk", "baud";
+-				fifo-size = <128>;
+ 			};
+ 		};
+ 
+diff --git a/drivers/amlogic/bluetooth/bt_device.c b/drivers/amlogic/bluetooth/bt_device.c
+index e43437b9ed21..ce10c7c8ca51 100644
+--- a/drivers/amlogic/bluetooth/bt_device.c
++++ b/drivers/amlogic/bluetooth/bt_device.c
+@@ -755,6 +755,13 @@ MODULE_PARM_DESC(btpower_evt, "btpower_evt");
+ module_param(btwake_evt, int, 0664);
+ MODULE_PARM_DESC(btwake_evt, "btwake_evt");
+ 
++module_init(bt_init);
++module_exit(bt_exit);
++
++MODULE_DESCRIPTION("bt rfkill");
++MODULE_AUTHOR("");
++MODULE_LICENSE("GPL");
++
+ /**************** bt mac *****************/
+ 
+ //static int __init mac_addr_set(char *line)
+diff --git a/drivers/amlogic/pwm/pwm-meson.c b/drivers/amlogic/pwm/pwm-meson.c
+index 859bf6981ba4..59bcadebf575 100644
+--- a/drivers/amlogic/pwm/pwm-meson.c
++++ b/drivers/amlogic/pwm/pwm-meson.c
+@@ -1156,6 +1156,10 @@ void __exit pwm_meson_exit(void)
+ {
+ 	platform_driver_unregister(&meson_pwm_driver);
+ }
++
++module_init(pwm_meson_init);
++//fs_initcall_sync(meson_pwm_init);
++module_exit(pwm_meson_exit);
+ #else
+ module_platform_driver(meson_pwm_driver);
+ module_exit(meson_pwm_exit);
+diff --git a/drivers/amlogic/wifi/Kconfig b/drivers/amlogic/wifi/Kconfig
+index 7cb70da8913f..cf8805cc3163 100644
+--- a/drivers/amlogic/wifi/Kconfig
++++ b/drivers/amlogic/wifi/Kconfig
+@@ -10,7 +10,7 @@ if AMLOGIC_WIFI
+ 
+ config AMLOGIC_PWM_32K
+ 	bool "amlogic soc pwm 32k support"
+-	depends on PWM_MESON
++	depends on AMLOGIC_PWM_MESON
+ 	default y
+ 	help
+ 		WiFi usually needs a 32K frequency clock signal.
+diff --git a/drivers/amlogic/wifi/wifi_dt.c b/drivers/amlogic/wifi/wifi_dt.c
+index 2365c5cefd94..5fcdb887e48e 100644
+--- a/drivers/amlogic/wifi/wifi_dt.c
++++ b/drivers/amlogic/wifi/wifi_dt.c
+@@ -25,7 +25,7 @@
+ #include <linux/amlogic/pm.h>
+ #include <linux/uaccess.h>
+ #include <linux/pci.h>
+-#include <linux/amlogic/aml_sd.h>
++//#include <linux/amlogic/aml_sd.h>
+ #include <linux/printk.h>
+ #ifdef CONFIG_AMLOGIC_PWM_32K
+ #include <linux/pwm.h>
+@@ -34,6 +34,10 @@
+ //#include <gpiolib-of.h>
+ #define OWNER_NAME "sdio_wifi"
+ 
++extern void sdio_reinit(void);
++extern const char *get_wifi_inf(void);
++extern int sdio_get_vendor(void);
++
+ static char aml_wifi_chip_type[15] = "NULL";
+ 
+ struct pcie_wifi_chip {
+@@ -1018,14 +1022,20 @@ int __init wifi_dt_init(void)
+ {
+ 	int ret;
+ 
++	pr_info("amlogic wifi dt init\n");
++
+ 	ret = platform_driver_register(&wifi_plat_driver);
+ 	return ret;
+ }
+ 
++/* module_init(wifi_dt_init); */
++fs_initcall_sync(wifi_dt_init);
++
+ void __exit wifi_dt_exit(void)
+ {
+ 	platform_driver_unregister(&wifi_plat_driver);
+ }
++module_exit(wifi_dt_exit);
+ 
+ /**************** wifi mac *****************/
+ u8 WIFI_MAC[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+diff --git a/drivers/base/dd.c b/drivers/base/dd.c
+index 0bd166ad6f13..d29a8cfb7f0f 100644
+--- a/drivers/base/dd.c
++++ b/drivers/base/dd.c
+@@ -543,6 +543,7 @@ static int really_probe(struct device *dev, struct device_driver *drv)
+ 			   !drv->suppress_bind_attrs;
+ 	int ret;
+ 
++	pr_warn("%s: really_probe\n", drv->name);
+ 	if (defer_all_probes) {
+ 		/*
+ 		 * Value of defer_all_probes can be set only by
+@@ -557,7 +558,7 @@ static int really_probe(struct device *dev, struct device_driver *drv)
+ 	if (ret)
+ 		return ret;
+ 
+-	pr_debug("bus: '%s': %s: probing driver %s with device %s\n",
++		pr_warn("bus: '%s': %s: probing driver %s with device %s\n",
+ 		 drv->bus->name, __func__, drv->name, dev_name(dev));
+ 	if (!list_empty(&dev->devres_head)) {
+ 		dev_crit(dev, "Resources present before probing\n");
+@@ -570,13 +571,16 @@ static int really_probe(struct device *dev, struct device_driver *drv)
+ 
+ 	/* If using pinctrl, bind pins now before probing */
+ 	ret = pinctrl_bind_pins(dev);
++	pr_warn("%s: really_probe pinctrl_bind_pins ret:%d\n", drv->name,ret);
+ 	if (ret)
+ 		goto pinctrl_bind_failed;
+ 
+ 	if (dev->bus->dma_configure) {
+ 		ret = dev->bus->dma_configure(dev);
+-		if (ret)
++		if (ret) {
++			pr_warn("%s: really_probe dma_configure ret:%d\n", drv->name,ret);
+ 			goto probe_failed;
++		}
+ 	}
+ 
+ 	ret = driver_sysfs_add(dev);
+@@ -588,8 +592,10 @@ static int really_probe(struct device *dev, struct device_driver *drv)
+ 
+ 	if (dev->pm_domain && dev->pm_domain->activate) {
+ 		ret = dev->pm_domain->activate(dev);
+-		if (ret)
++		if (ret) {
++			pr_warn("%s: really_probe pm_domain activate ret:%d\n", drv->name,ret);
+ 			goto probe_failed;
++		}
+ 	}
+ 
+ 	ret = call_driver_probe(dev, drv);
+@@ -599,12 +605,14 @@ static int really_probe(struct device *dev, struct device_driver *drv)
+ 		 * can distinguish them from other errors.
+ 		 */
+ 		ret = -ret;
++		pr_warn("%s: really_probe call_driver_probe ret:%d\n", drv->name,ret);
+ 		goto probe_failed;
+ 	}
+ 
+ 	ret = device_add_groups(dev, drv->dev_groups);
+ 	if (ret) {
+ 		dev_err(dev, "device_add_groups() failed\n");
++		pr_warn("%s: really_probe device_add_groups ret:%d\n", drv->name,ret);
+ 		goto dev_groups_failed;
+ 	}
+ 
+@@ -612,6 +620,7 @@ static int really_probe(struct device *dev, struct device_driver *drv)
+ 		ret = device_create_file(dev, &dev_attr_state_synced);
+ 		if (ret) {
+ 			dev_err(dev, "state_synced sysfs add failed\n");
++			pr_warn("%s: really_probe sysfs add ret:%d\n", drv->name,ret);
+ 			goto dev_sysfs_state_synced_failed;
+ 		}
+ 	}
+@@ -638,6 +647,7 @@ static int really_probe(struct device *dev, struct device_driver *drv)
+ 			dev->pm_domain->dismiss(dev);
+ 		pm_runtime_reinit(dev);
+ 
++		pr_warn("%s: really_probe test_remove\n", drv->name);
+ 		goto re_probe;
+ 	}
+ 
+@@ -647,7 +657,7 @@ static int really_probe(struct device *dev, struct device_driver *drv)
+ 		dev->pm_domain->sync(dev);
+ 
+ 	driver_bound(dev);
+-	pr_debug("bus: '%s': %s: bound device %s to driver %s\n",
++	pr_warn("bus: '%s': %s: bound device %s to driver %s\n",
+ 		 drv->bus->name, __func__, dev_name(dev), drv->name);
+ 	goto done;
+ 
+diff --git a/drivers/mmc/core/core.c b/drivers/mmc/core/core.c
+index c3f95c5015d9..c983d8ea19f9 100644
+--- a/drivers/mmc/core/core.c
++++ b/drivers/mmc/core/core.c
+@@ -2081,18 +2081,29 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
+ 			return 0;
+ 	}
+ 
++	pr_warn("%s(%s)\n", __func__, mmc_hostname(host));
++
+ 	/* Order's important: probe SDIO, then SD, then MMC */
+-	if (!(host->caps2 & MMC_CAP2_NO_SDIO))
+-		if (!mmc_attach_sdio(host))
++	if (!(host->caps2 & MMC_CAP2_NO_SDIO)) {
++		pr_warn("%s -> try mmc_attach_sdio(%s)\n", __func__, mmc_hostname(host));
++		if (!mmc_attach_sdio(host)) {
+ 			return 0;
++		}
++	}
+ 
+-	if (!(host->caps2 & MMC_CAP2_NO_SD))
+-		if (!mmc_attach_sd(host))
++	if (!(host->caps2 & MMC_CAP2_NO_SD)) {
++		pr_warn("%s -> try mmc_attach_sd (%s)\n", __func__, mmc_hostname(host));
++		if (!mmc_attach_sd(host)) {
+ 			return 0;
++		}
++	}
+ 
+-	if (!(host->caps2 & MMC_CAP2_NO_MMC))
+-		if (!mmc_attach_mmc(host))
++	if (!(host->caps2 & MMC_CAP2_NO_MMC)) {
++		pr_warn("%s -> try mmc_attach_mmc (%s)\n", __func__, mmc_hostname(host));
++		if (!mmc_attach_mmc(host)) {
+ 			return 0;
++		}
++	}
+ 
+ out:
+ 	mmc_power_off(host);
+diff --git a/drivers/mmc/core/mmc.c b/drivers/mmc/core/mmc.c
+index a56906633ddf..773dd7a6b89b 100644
+--- a/drivers/mmc/core/mmc.c
++++ b/drivers/mmc/core/mmc.c
+@@ -2031,6 +2031,8 @@ static void mmc_detect(struct mmc_host *host)
+ {
+ 	int err;
+ 
++	pr_warn("%s(%s) ...\n", __func__, mmc_hostname(host));
++
+ 	mmc_get_card(host->card, NULL);
+ 
+ 	/*
+@@ -2114,6 +2116,7 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
+ static int mmc_suspend(struct mmc_host *host)
+ {
+ 	int err;
++	pr_warn("%s(%s) ...\n", __func__, mmc_hostname(host));
+ 
+ 	err = _mmc_suspend(host, true);
+ 	if (!err) {
+@@ -2131,6 +2134,7 @@ static int mmc_suspend(struct mmc_host *host)
+ static int _mmc_resume(struct mmc_host *host)
+ {
+ 	int err = 0;
++	pr_warn("%s(%s) ...\n", __func__, mmc_hostname(host));
+ 
+ 	mmc_claim_host(host);
+ 
+@@ -2152,6 +2156,7 @@ static int _mmc_resume(struct mmc_host *host)
+ static int mmc_shutdown(struct mmc_host *host)
+ {
+ 	int err = 0;
++	pr_warn("%s(%s) ...\n", __func__, mmc_hostname(host));
+ 
+ 	/*
+ 	 * In a specific case for poweroff notify, we need to resume the card
+@@ -2172,6 +2177,7 @@ static int mmc_shutdown(struct mmc_host *host)
+  */
+ static int mmc_resume(struct mmc_host *host)
+ {
++	pr_warn("%s(%s) ...\n", __func__, mmc_hostname(host));
+ 	pm_runtime_enable(&host->card->dev);
+ 	return 0;
+ }
+@@ -2268,6 +2274,8 @@ int mmc_attach_mmc(struct mmc_host *host)
+ 
+ 	WARN_ON(!host->claimed);
+ 
++	pr_warn("%s(%s)\n", __func__, mmc_hostname(host));
++
+ 	/* Set correct bus mode for MMC before attempting attach */
+ 	if (!mmc_host_is_spi(host))
+ 		mmc_set_bus_mode(host, MMC_BUSMODE_OPENDRAIN);
+diff --git a/drivers/mmc/core/sdio.c b/drivers/mmc/core/sdio.c
+index 539dbae96c94..0eab1af46786 100644
+--- a/drivers/mmc/core/sdio.c
++++ b/drivers/mmc/core/sdio.c
+@@ -939,6 +939,8 @@ static void mmc_sdio_detect(struct mmc_host *host)
+ {
+ 	int err;
+ 
++	pr_warn("%s(%s):\n", __func__, mmc_hostname(host));
++
+ 	/* Make sure card is powered before detecting it */
+ 	if (host->caps & MMC_CAP_POWER_OFF_CARD) {
+ 		err = pm_runtime_resume_and_get(&host->card->dev);
+@@ -1027,6 +1029,8 @@ static int mmc_sdio_suspend(struct mmc_host *host)
+ {
+ 	WARN_ON(host->sdio_irqs && !mmc_card_keep_power(host));
+ 
++	pr_warn("%s(%s):\n", __func__, mmc_hostname(host));
++
+ 	/* Prevent processing of SDIO IRQs in suspended state. */
+ 	mmc_card_set_suspended(host->card);
+ 	cancel_delayed_work_sync(&host->sdio_irq_work);
+@@ -1052,6 +1056,8 @@ static int mmc_sdio_resume(struct mmc_host *host)
+ {
+ 	int err = 0;
+ 
++	pr_warn("%s(%s):\n", __func__, mmc_hostname(host));
++
+ 	/* Basic card reinitialization. */
+ 	mmc_claim_host(host);
+ 
+@@ -1197,6 +1203,8 @@ int mmc_attach_sdio(struct mmc_host *host)
+ 
+ 	WARN_ON(!host->claimed);
+ 
++	pr_warn("%s(%s)\n", __func__, mmc_hostname(host));
++
+ 	err = mmc_send_io_op_cond(host, 0, &ocr);
+ 	if (err)
+ 		return err;
+diff --git a/drivers/mmc/host/meson-gx-mmc.c b/drivers/mmc/host/meson-gx-mmc.c
+index 192947a5d09e..4eb0626275ea 100644
+--- a/drivers/mmc/host/meson-gx-mmc.c
++++ b/drivers/mmc/host/meson-gx-mmc.c
+@@ -1293,11 +1293,17 @@
+ 		 goto err_free_irq;
+  
+ 	 /* if sdio_wifi */
+-	 printk("###%s: Check MMC Type ###\n",mmc_hostname(mmc));
++	 printk("### %s: Check MMC Type 0x%x ###\n",mmc_hostname(mmc),mmc->caps2);
+ 	 if (!(mmc->caps2 & MMC_CAP2_NO_SDIO))
+ 	 {
+-		 printk("###%s: Set sdio_host ###\n",mmc_hostname(mmc));
+-		 sdio_host = mmc;
++		/* 只选择 mmc1 (ffe05000.sdio) 作为 sdio_host */
++		if (strcmp(mmc_hostname(mmc), "mmc1") == 0) {
++			printk("### %s: [1]Set sdio_host ###\n",mmc_hostname(mmc));
++			sdio_host = mmc;
++			printk("### %s: [2]Set sdio_host: %p ###\n",mmc_hostname(mmc),sdio_host);
++		} else {
++			printk("### %s: Skip setting sdio_host (not mmc1) ###\n",mmc_hostname(mmc));
++		}
+ 	 }
+ 			 
+ 	 return 0;
+@@ -1396,8 +1402,9 @@
+  void sdio_reinit(void)
+  {
+  #if 1
+-	 printk("[%s] \n", __func__);
++ 	printk("[%s] start ... \n", __func__);
+ 	 if (sdio_host) {
++		printk("[%s] - mmc: %s \n", __func__, mmc_hostname(sdio_host));
+ 		 if (sdio_host->card){
+ 			 printk("[%s] sdio_reset_comm\n", __func__);
+ 			 sdio_reset_comm(sdio_host->card);
+-- 
+2.39.5
+

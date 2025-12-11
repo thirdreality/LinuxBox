@@ -32,12 +32,12 @@ jobs:
           lsb_release -a
           cat /etc/os-release
           cat /etc/lsb-release
-          cat /etc/debian_version
-          cat /etc/redhat-release
-          cat /etc/system-release
-          cat /etc/issue
-          cat /etc/issue.net
-          cat /etc/motd
+          cat /etc/debian_version || true
+          cat /etc/redhat-release || true
+          cat /etc/system-release || true
+          cat /etc/issue || true
+          cat /etc/issue.net || true
+          cat /etc/motd || true
           df -h
           echo ""
           echo "=== Removing unnecessary software ==="
