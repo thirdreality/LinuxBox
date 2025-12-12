@@ -1,11 +1,10 @@
 #!/bin/bash
 # hubv3-generate-ota-indexes.sh
-# Generate OTA index files for both zigpy and Z2M formats
+# Generate OTA index files for both ZHA (zigpy) and Z2M formats
  
 set -e  # Exit immediately on error
  
 # ==================== Configuration Section ====================
-VENV_PATH="/srv/homeassistant/bin/activate"
 # OTA_DIR will be set in main() function (default: current directory, or from command line argument)
 ZIGPY_INDEX="local_index.json"
 Z2M_INDEX="local_z2m_index.json"
@@ -41,127 +40,150 @@ check_dependencies() {
         return 1
     fi
     
-    # Check if VENV_PATH exists
-    if [ -f "$VENV_PATH" ]; then
-        print_info "Home Assistant virtual environment found: $VENV_PATH"
-        return 0
-    else
-        print_warn "Virtual environment not found: $VENV_PATH"
-        print_warn "Will generate simple Z2M index only (requires jq)"
+    # python3 is required for parsing OTA headers
+    if ! command -v python3 &> /dev/null; then
+        print_error "python3 not installed, please install: sudo apt-get install python3"
         return 1
     fi
+    
+    return 0
 }
  
-# Activate virtual environment and generate zigpy index
+# Generate zigpy format index (local_index.json)
 generate_zigpy_index() {
     print_info "Generating zigpy format index ($ZIGPY_INDEX)..."
-     
+    
     cd "$OTA_DIR"
-     
-    # Activate virtual environment
-    source "$VENV_PATH"
-     
+    
     # Check for .ota files
     if ! ls *.ota 1> /dev/null 2>&1; then
         print_warn "No .ota files found in directory"
         return 1
     fi
-     
-    # Generate index using zigpy tool
-    # --ota-url-root uses relative path (filename only)
-    zigpy ota generate-index --ota-url-root="" ./*.ota > "$ZIGPY_INDEX"
-     
+    
+    # Build firmwares array
+    json_entries=""
+    
+    for ota in *.ota; do
+        if [ -f "$ota" ]; then
+            print_info "  Processing: $ota"
+            
+            # Get file size
+            file_size=$(stat -c%s "$ota" 2>/dev/null || stat -f%z "$ota" 2>/dev/null || echo "0")
+            
+            # Calculate SHA3-256 for zigpy checksum using Python (most reliable method)
+            sha3_256=$(python3 - "$ota" <<'PY'
+import hashlib
+import sys
+
+if len(sys.argv) < 2:
+    sys.exit(1)
+
+path = sys.argv[1]
+try:
+    with open(path, 'rb') as f:
+        data = f.read()
+    sha3_hash = hashlib.sha3_256(data).hexdigest()
+    print(sha3_hash)
+except Exception as e:
+    sys.exit(1)
+PY
+)
+            
+            if [ -z "$sha3_256" ]; then
+                print_warn "    Failed to calculate SHA3-256, using empty checksum"
+                sha3_256=""
+            fi
+            
+            # Parse OTA header using python3
+            ota_meta=$(python3 - "$ota" <<'PY'
+import struct
+import sys
+
+if len(sys.argv) < 2:
+    sys.exit(0)
+
+path = sys.argv[1]
+try:
+    with open(path, "rb") as f:
+        header = f.read(32)
+    if len(header) < 18:
+        sys.exit(0)
+    
+    # Extract manufacturer, image_type, file_version
+    manufacturer, image_type = struct.unpack("<HH", header[10:14])
+    (file_version,) = struct.unpack("<I", header[14:18])
+    
+    # Output: manufacturer image_type file_version
+    print(f"{manufacturer} {image_type} {file_version}")
+except Exception as e:
+    sys.exit(0)
+PY
+)
+            
+            manufacturer=""
+            image_type=""
+            file_version=""
+            
+            if [ -n "$ota_meta" ]; then
+                manufacturer=$(echo "$ota_meta" | awk '{print $1}')
+                image_type=$(echo "$ota_meta" | awk '{print $2}')
+                file_version=$(echo "$ota_meta" | awk '{print $3}')
+            else
+                print_warn "    Failed to parse OTA header"
+            fi
+            
+            # Create JSON entry for zigpy format
+            if [ -n "$sha3_256" ]; then
+                checksum_value="sha3-256:$sha3_256"
+            else
+                checksum_value="sha3-256:"
+                print_warn "    Using empty SHA3-256 checksum"
+            fi
+            
+            entry=$(jq -n \
+                --arg path "$ota" \
+                --arg fileVersion "${file_version:-0}" \
+                --arg fileSize "$file_size" \
+                --arg imageType "${image_type:-0}" \
+                --arg manufacturerId "${manufacturer:-0}" \
+                --arg checksum "$checksum_value" \
+                '{
+                    path: $path,
+                    file_version: ($fileVersion | tonumber),
+                    file_size: ($fileSize | tonumber),
+                    image_type: ($imageType | tonumber),
+                    manufacturer_id: ($manufacturerId | tonumber),
+                    checksum: $checksum,
+                    min_hardware_version: 0,
+                    max_hardware_version: 65520
+                }')
+            
+            if [ -z "$json_entries" ]; then
+                json_entries="$entry"
+            else
+                json_entries="$json_entries,$entry"
+            fi
+            
+            print_info "    SHA3-256: ${sha3_256:0:16}..."
+        fi
+    done
+    
+    # Build final JSON with firmwares array
+    jq -n --argjson firmwares "[$json_entries]" '{firmwares: $firmwares}' > "$ZIGPY_INDEX"
+    
     if [ $? -eq 0 ]; then
-        print_info "zigpy index generated successfully, removing leading slash from binary_url..."
-         
-        # Remove leading slash from binary_url
-        jq '[.[] | .binary_url = (.binary_url | ltrimstr("/"))]' "$ZIGPY_INDEX" > "${ZIGPY_INDEX}.tmp" && mv "${ZIGPY_INDEX}.tmp" "$ZIGPY_INDEX"
-         
-        if [ $? -ne 0 ]; then
-            print_error "Failed to remove leading slash"
-            return 1
-        fi
-         
-        # Format JSON (optional)
-        if command -v python3 &> /dev/null; then
-            python3 -m json.tool "$ZIGPY_INDEX" > "${ZIGPY_INDEX}.tmp" && mv "${ZIGPY_INDEX}.tmp" "$ZIGPY_INDEX"
-        fi
-         
-        print_info "zigpy index processing completed: $OTA_DIR/$ZIGPY_INDEX"
+        print_info "Zigpy index generated successfully: $OTA_DIR/$ZIGPY_INDEX"
         return 0
     else
         print_error "Failed to generate zigpy index"
         return 1
     fi
 }
- 
-# Convert to Z2M format
-convert_to_z2m() {
-    print_info "Converting to Z2M format ($Z2M_INDEX)..."
-     
-    cd "$OTA_DIR"
-     
-    if [ ! -f "$ZIGPY_INDEX" ]; then
-        print_error "zigpy index file not found, cannot convert"
-        return 1
-    fi
-     
-    # Convert format using jq, remove leading slash from binary_url
-    jq '[.[] | {
-        url: (.binary_url | ltrimstr("/")),
-        imageType: .image_type,
-        manufacturerCode: .manufacturer_id,
-        fileVersion: .file_version,
-        sha512: ""
-    }]' "$ZIGPY_INDEX" > "$Z2M_INDEX"
-     
-    if [ $? -ne 0 ]; then
-        print_error "JSON conversion failed"
-        return 1
-    fi
-     
-    print_info "Z2M index framework generated successfully"
-}
- 
-# Calculate and populate SHA512
-calculate_sha512() {
-    print_info "Calculating SHA512 checksums..."
-     
-    cd "$OTA_DIR"
-     
-    for ota in *.ota; do
-        if [ -f "$ota" ]; then
-            print_info "  Processing: $ota"
-             
-            # Calculate SHA512
-            sha512=$(sha512sum "$ota" | cut -d' ' -f1)
-             
-            # Update sha512 value in Z2M index
-            jq --arg url "$ota" --arg sha "$sha512" \
-               '(.[] | select(.url == $url) | .sha512) = $sha' \
-               "$Z2M_INDEX" > "${Z2M_INDEX}.tmp"
-             
-            if [ $? -eq 0 ]; then
-                mv "${Z2M_INDEX}.tmp" "$Z2M_INDEX"
-                print_info "    SHA512: ${sha512:0:16}..."
-            else
-                print_error "    Failed to update SHA512"
-                rm -f "${Z2M_INDEX}.tmp"
-            fi
-        fi
-    done
-     
-    # Format final JSON
-    if command -v python3 &> /dev/null; then
-        python3 -m json.tool "$Z2M_INDEX" > "${Z2M_INDEX}.tmp" && mv "${Z2M_INDEX}.tmp" "$Z2M_INDEX"
-    fi
-     
-    print_info "SHA512 calculation completed"
-}
 
-# Generate simple Z2M index (only url and sha512)
-generate_simple_z2m_index() {
-    print_info "Generating simple Z2M format index ($Z2M_INDEX)..."
+# Generate Z2M format index (local_z2m_index.json)
+generate_z2m_index() {
+    print_info "Generating Z2M format index ($Z2M_INDEX)..."
     
     cd "$OTA_DIR"
     
@@ -172,28 +194,21 @@ generate_simple_z2m_index() {
     fi
     
     # Build JSON array
-    json_input="["
-    first=true
+    json_entries=""
     
     for ota in *.ota; do
         if [ -f "$ota" ]; then
             print_info "  Processing: $ota"
             
-            # Calculate SHA512
+            # Calculate SHA512 for Z2M
             sha512=$(sha512sum "$ota" | cut -d' ' -f1)
             
-            manufacturer=""
-            image_type=""
-            file_version=""
-            
-            # Try to parse OTA header using python3
-            if command -v python3 >/dev/null 2>&1; then
-                ota_meta=$(python3 - "$ota" <<'PY'
+            # Parse OTA header using python3
+            ota_meta=$(python3 - "$ota" <<'PY'
 import struct
 import sys
 
 if len(sys.argv) < 2:
-    # No path provided, output nothing
     sys.exit(0)
 
 path = sys.argv[1]
@@ -201,58 +216,86 @@ try:
     with open(path, "rb") as f:
         header = f.read(32)
     if len(header) < 18:
-        # Header too short, do not output anything
         sys.exit(0)
+    
+    # Extract manufacturer, image_type, file_version
     manufacturer, image_type = struct.unpack("<HH", header[10:14])
     (file_version,) = struct.unpack("<I", header[14:18])
-    # Single line, space separated
+    
+    # Output: manufacturer image_type file_version
     print(f"{manufacturer} {image_type} {file_version}")
-except Exception:
-    # On any error, output nothing so shell side can fall back
+except Exception as e:
     sys.exit(0)
 PY
 )
-                if [ -n "$ota_meta" ]; then
-                    manufacturer=$(echo "$ota_meta" | awk '{print $1}')
-                    image_type=$(echo "$ota_meta" | awk '{print $2}')
-                    file_version=$(echo "$ota_meta" | awk '{print $3}')
-                else
-                    print_warn "Failed to parse OTA header for $ota, will not fill manufacturerCode/imageType/fileVersion"
-                fi
+            
+            manufacturer=""
+            image_type=""
+            file_version=""
+            
+            if [ -n "$ota_meta" ]; then
+                manufacturer=$(echo "$ota_meta" | awk '{print $1}')
+                image_type=$(echo "$ota_meta" | awk '{print $2}')
+                file_version=$(echo "$ota_meta" | awk '{print $3}')
             else
-                print_warn "python3 not found, will not fill manufacturerCode/imageType/fileVersion"
+                print_warn "    Failed to parse OTA header"
             fi
             
-            # Add comma if not first item
-            if [ "$first" = false ]; then
-                json_input="${json_input},"
-            fi
-            first=false
+            # Create JSON entry for Z2M format
+            entry=$(jq -n \
+                --arg url "$ota" \
+                --arg imageType "${image_type:-0}" \
+                --arg manufacturerCode "${manufacturer:-0}" \
+                --arg fileVersion "${file_version:-0}" \
+                --arg sha512 "$sha512" \
+                '{
+                    url: $url,
+                    imageType: ($imageType | tonumber),
+                    manufacturerCode: ($manufacturerCode | tonumber),
+                    fileVersion: ($fileVersion | tonumber),
+                    sha512: $sha512
+                }')
             
-            if [ -n "$manufacturer" ] && [ -n "$image_type" ] && [ -n "$file_version" ]; then
-                # Full Z2M entry with metadata
-                json_input="${json_input}{\"url\":\"$ota\",\"imageType\":$image_type,\"manufacturerCode\":$manufacturer,\"fileVersion\":$file_version,\"sha512\":\"$sha512\"}"
+            if [ -z "$json_entries" ]; then
+                json_entries="$entry"
             else
-                # Fallback: only url + sha512
-                json_input="${json_input}{\"url\":\"$ota\",\"sha512\":\"$sha512\"}"
+                json_entries="$json_entries,$entry"
             fi
             
             print_info "    SHA512: ${sha512:0:16}..."
         fi
     done
     
-    json_input="${json_input}]"
-    
-    # Write to file using jq for proper formatting and validation
-    echo "$json_input" | jq '.' > "$Z2M_INDEX"
+    # Build final JSON array
+    echo "[$json_entries]" | jq '.' > "$Z2M_INDEX"
     
     if [ $? -eq 0 ]; then
-        print_info "Simple Z2M index generated successfully: $OTA_DIR/$Z2M_INDEX"
+        print_info "Z2M index generated successfully: $OTA_DIR/$Z2M_INDEX"
         return 0
     else
-        print_error "Failed to generate simple Z2M index"
+        print_error "Failed to generate Z2M index"
         return 1
     fi
+}
+
+# Generate both index files
+generate_indexes() {
+    print_info "Generating OTA index files..."
+    
+    cd "$OTA_DIR"
+    
+    # Generate zigpy index
+    if ! generate_zigpy_index; then
+        return 1
+    fi
+    
+    # Generate Z2M index
+    if ! generate_z2m_index; then
+        return 1
+    fi
+    
+    print_info "Both index files generated successfully"
+    return 0
 }
  
 # Show statistics
@@ -265,13 +308,13 @@ show_statistics() {
     ota_count=$(ls -1 *.ota 2>/dev/null | wc -l)
     echo "  OTA files count: $ota_count"
      
-    # zigpy index
+    # ZIGPY index (for ZHA)
     if [ -f "$ZIGPY_INDEX" ]; then
         zigpy_count=$(jq 'length' "$ZIGPY_INDEX")
         zigpy_size=$(ls -lh "$ZIGPY_INDEX" | awk '{print $5}')
-        echo "  zigpy index: $ZIGPY_INDEX ($zigpy_count entries, $zigpy_size)"
+        echo "  ZIGPY index: $ZIGPY_INDEX ($zigpy_count entries, $zigpy_size)"
     else
-        echo "  zigpy index: Not generated"
+        echo "  ZIGPY index: Not generated"
     fi
      
     # Z2M index
@@ -294,41 +337,24 @@ show_config_examples() {
     print_info "===== Configuration Examples ====="
      
     echo ""
-    echo "1. Home Assistant ZHA Configuration (configuration.yaml):"
+    echo "Home Assistant ZHA Configuration (configuration.yaml):"
     echo "---"
     cat << EOF
 zha:
   zigpy_config:
     ota:
       extra_providers:
-        - type: zigpy_local
-          index_file: $OTA_DIR/local_index.json
+        - type: z2m_local
+          index_file: /var/lib/homeassistant/homeassistant/zigpy_local_ota/$ZIGPY_INDEX
 EOF
     echo "---"
      
     echo ""
-    echo "2. Zigbee2MQTT Configuration (configuration.yaml):"
+    echo "Zigbee2MQTT Configuration (configuration.yaml):"
     echo "---"
     cat << EOF
 ota:
-  zigbee_ota_override_index_location: $OTA_DIR/local_z2m_index.json
-EOF
-    echo "---"
-     
-    echo ""
-    echo "3. ZHA Configuration using both formats:"
-    echo "---"
-    cat << EOF
-zha:
-  zigpy_config:
-    ota:
-      extra_providers:
-        # Use Z2M community repository
-        - type: z2m_local
-          index_file: /path/to/zigbee-OTA/index.json
-        # Use custom firmware (zigpy format)
-        - type: zigpy_local
-          index_file: $OTA_DIR/local_index.json
+  zigbee_ota_override_index_location: /opt/zigbee2mqtt/data/$Z2M_INDEX
 EOF
     echo "---"
      
@@ -356,7 +382,7 @@ backup_old_indexes() {
 show_usage() {
     echo "Usage: $0 [OTA_DIRECTORY]"
     echo ""
-    echo "Generate OTA index files for both zigpy and Z2M formats"
+    echo "Generate OTA index files for both ZHA (zigpy) and Z2M formats"
     echo ""
     echo "Arguments:"
     echo "  OTA_DIRECTORY    Directory containing .ota files (default: current directory)"
@@ -391,41 +417,20 @@ main() {
     
     echo "========================================"
     echo "  OTA Index File Generator"
-    echo "  Generate both zigpy and Z2M formats"
+    echo "  Generate ZHA (zigpy) and Z2M format indexes"
     echo "========================================"
     echo ""
      
     # Backup old indexes first
     backup_old_indexes
      
-    # Check dependencies - jq is always required
-    if ! command -v jq &> /dev/null; then
-        print_error "jq not installed, please install: sudo apt-get install jq"
+    # Check dependencies
+    if ! check_dependencies; then
         exit 1
     fi
      
-    # Check if VENV_PATH exists to determine workflow
-    if [ -f "$VENV_PATH" ]; then
-        # VENV_PATH exists - use full workflow with zigpy
-        print_info "Home Assistant virtual environment found: $VENV_PATH"
-        print_info "Using full workflow (zigpy + Z2M)"
-        
-        # Generate zigpy index
-        if generate_zigpy_index; then
-            # Convert to Z2M format
-            if convert_to_z2m; then
-                # Calculate SHA512
-                calculate_sha512
-            fi
-        fi
-    else
-        # VENV_PATH does not exist - use simple Z2M only
-        print_warn "Virtual environment not found: $VENV_PATH"
-        print_info "Using simple Z2M workflow (no zigpy)"
-        
-        # Generate simple Z2M index
-        generate_simple_z2m_index
-    fi
+    # Generate both index files
+    generate_indexes
      
     echo ""
     # Show statistics

@@ -246,7 +246,7 @@ update_zha_ota_config()
     local ota_dir="/var/lib/homeassistant/homeassistant/zigpy_local_ota"
     mkdir -p "$ota_dir"
     
-    # Copy local_index.json
+    # Copy local_z2m_index.json
     if install -m 0644 "$DEBUG_OTA_DIR/local_index.json" "$ota_dir/local_index.json"; then
         updated=1
         echo "[DEBUG-OTA-ZHA] Successfully copied local_index.json to $ota_dir" >&2
@@ -276,7 +276,7 @@ update_zha_ota_config()
     fi
 
     # Check if OTA providers are already configured
-    if grep -qE "extra_providers.*z2m_local|index_file:.*zigpy_local_ota" "$ha_cfg"; then
+    if grep -qE "extra_providers.*zigpy_local|index_file:.*zigpy_local_ota" "$ha_cfg"; then
         echo "[DEBUG-OTA-ZHA] ZHA OTA providers already configured in $ha_cfg" >&2
         echo "$updated"
         return 0
@@ -296,7 +296,7 @@ update_zha_ota_config()
             print "  zigpy_config:"
             print "    ota:"
             print "      extra_providers:"
-            print "        - type: z2m_local"
+            print "        - type: zigpy_local"
             print "          index_file: '"$ota_dir"'/local_index.json"
             done=1
             next
@@ -313,7 +313,7 @@ update_zha_ota_config()
             echo "  zigpy_config:"
             echo "    ota:"
             echo "      extra_providers:"
-            echo "        - type: z2m_local"
+            echo "        - type: zigpy_local"
             echo "          index_file: $ota_dir/local_index.json"
         } >> "$ha_cfg"
         echo "[DEBUG-OTA-ZHA] Created new zha: section with OTA configuration" >&2
