@@ -30,7 +30,8 @@ case $BRANCH in
 	;;
 
         current)
-		KERNELBRANCH='branch:linux-5.10.y'
+		#KERNELBRANCH='branch:linux-5.10.y'
+		KERNELBRANCH='tag:v5.10.247'
 		KERNELPATCHDIR='meson64-current'
         ;;
 

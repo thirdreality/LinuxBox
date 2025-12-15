@@ -246,7 +246,7 @@ update_zha_ota_config()
     local ota_dir="/var/lib/homeassistant/homeassistant/zigpy_local_ota"
     mkdir -p "$ota_dir"
     
-    # Copy local_z2m_index.json
+    # Copy local_index.json
     if install -m 0644 "$DEBUG_OTA_DIR/local_index.json" "$ota_dir/local_index.json"; then
         updated=1
         echo "[DEBUG-OTA-ZHA] Successfully copied local_index.json to $ota_dir" >&2
