@@ -24,7 +24,7 @@ df -h /
 
 board="trhubv3"
 destination=""
-r3version="v1.14.01.16"
+r3version="v1.14.01.20"
 
 # 显示使用说明的函数
 usage() {

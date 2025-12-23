@@ -338,6 +338,15 @@ remove_music_assistant()
     apt-get purge -y thirdreality-music-assistant > /dev/null 2>&1 || true
 }
 
+remove_linuxbox_bridge()
+{
+    /usr/bin/systemctl stop linuxbox-hubv3-bridge.service > /dev/null 2>&1 || true
+    /usr/bin/systemctl disable linuxbox-hubv3-bridge.service > /dev/null 2>&1 || true
+
+    apt-get purge -y thirdreality-bridge > /dev/null 2>&1 || true
+}
+
+
 restore_serial_tty()
 {
     print_info "Restoring serial tty service"
@@ -357,36 +366,6 @@ update_zigbee2mqtt_config()
     
     print_info "Checking Zigbee2MQTT configuration file"
     
-    # Check if mqtt.server contains localhost
-    local has_localhost=0
-    local in_mqtt_section=0
-    
-    while IFS= read -r line; do
-        # Check if we're entering mqtt section
-        if [[ "$line" =~ ^mqtt: ]]; then
-            in_mqtt_section=1
-            continue
-        fi
-        
-        # Check if we're leaving mqtt section (next top-level key without indentation)
-        if [[ $in_mqtt_section -eq 1 ]] && [[ "$line" =~ ^[a-zA-Z_][a-zA-Z0-9_]*: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            break
-        fi
-        
-        # Check for server field in mqtt section
-        if [[ $in_mqtt_section -eq 1 ]] && [[ "$line" =~ ^[[:space:]]+server:[[:space:]]* ]]; then
-            if [[ "$line" =~ localhost ]]; then
-                has_localhost=1
-                break
-            fi
-        fi
-    done < "$config_file"
-    
-    if [ "$has_localhost" -eq 1 ]; then
-        print_info "MQTT server already contains localhost, skipping update"
-        return 0
-    fi
-    
     # Create backup with timestamp
     local timestamp
     timestamp=$(date +%Y%m%d%H%M%S)
@@ -398,115 +377,71 @@ update_zigbee2mqtt_config()
         return 1
     }
     
-    # Update configuration using awk
-    print_info "Updating MQTT configuration to use localhost"
+    # Update frontend.enabled to false using Python
+    print_info "Updating Zigbee2MQTT frontend settings"
     
-    local temp_file
-    temp_file=$(mktemp) || {
-        print_error "Failed to create temporary file"
-        return 1
-    }
+    /usr/bin/python3 << 'PYTHON_EOF'
+import sys
+
+config_file = "/opt/zigbee2mqtt/data/configuration.yaml"
+
+try:
+    # Read the file
+    with open(config_file, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
     
-    awk '
-    BEGIN {
-        in_mqtt = 0
-        mqtt_found = 0
-        base_topic_updated = 0
-        server_updated = 0
-        user_updated = 0
-        password_updated = 0
-    }
-    {
-        # Check if entering mqtt section
-        if (/^mqtt:/) {
-            in_mqtt = 1
-            mqtt_found = 1
-            print
-            next
-        }
+    modified = False
+    result_lines = []
+    in_frontend_section = False
+    
+    for line in lines:
+        stripped = line.lstrip()
         
-        # Check if leaving mqtt section (next top-level key)
-        if (in_mqtt && /^[a-zA-Z_][a-zA-Z0-9_]*:/ && !/^[[:space:]]/) {
-            # Add missing mqtt settings before leaving
-            if (!base_topic_updated) print "  base_topic: zigbee2mqtt"
-            if (!server_updated) print "  server: mqtt://localhost:1883"
-            if (!user_updated) print "  user: thirdreality"
-            if (!password_updated) print "  password: thirdreality"
-            in_mqtt = 0
-            print
-            next
-        }
+        # Check for frontend section
+        if line.strip() == 'frontend:':
+            in_frontend_section = True
+            result_lines.append(line)
+            continue
         
-        # Process lines in mqtt section
-        if (in_mqtt) {
-            if (/^[[:space:]]+base_topic:/) {
-                base_topic_updated = 1
-                print "  base_topic: zigbee2mqtt"
-                next
-            }
-            if (/^[[:space:]]+server:/) {
-                server_updated = 1
-                print "  server: mqtt://localhost:1883"
-                next
-            }
-            if (/^[[:space:]]+user:/) {
-                user_updated = 1
-                print "  user: thirdreality"
-                next
-            }
-            if (/^[[:space:]]+password:/) {
-                password_updated = 1
-                print "  password: thirdreality"
-                next
-            }
-            # Skip client_id field
-            if (/^[[:space:]]+client_id:/) {
-                next
-            }
-            # Keep other lines in mqtt section (comments, other settings)
-            print
-            next
-        }
+        # Check if we're leaving frontend section (next top-level key without indentation)
+        if in_frontend_section and stripped and not line.startswith(' ') and not line.startswith('\t'):
+            in_frontend_section = False
         
-        # Not in mqtt section, just print
-        print
-    }
-    END {
-        # If mqtt section was at the end, add missing settings
-        if (in_mqtt) {
-            if (!base_topic_updated) print "  base_topic: zigbee2mqtt"
-            if (!server_updated) print "  server: mqtt://localhost:1883"
-            if (!user_updated) print "  user: thirdreality"
-            if (!password_updated) print "  password: thirdreality"
-        } else if (!mqtt_found) {
-            # No mqtt section found, add it at the end
-            print "mqtt:"
-            print "  base_topic: zigbee2mqtt"
-            print "  server: mqtt://localhost:1883"
-            print "  user: thirdreality"
-            print "  password: thirdreality"
-        }
-    }
-    ' "$config_file" > "$temp_file" || {
+        # Process frontend section - only modify enabled field
+        if in_frontend_section and stripped.startswith('enabled:'):
+            # Check current value
+            current_value = stripped.split(':', 1)[1].strip().lower()
+            if current_value == 'true':
+                result_lines.append("  enabled: false\n")
+                modified = True
+            else:
+                result_lines.append(line)
+        else:
+            result_lines.append(line)
+    
+    # Only write back if we actually modified something
+    if modified:
+        with open(config_file, 'w', encoding='utf-8') as f:
+            f.writelines(result_lines)
+        print("Frontend enabled set to false", file=sys.stderr)
+    else:
+        print("Frontend already disabled, no changes needed", file=sys.stderr)
+    
+    sys.exit(0)
+
+except Exception as e:
+    print(f"Error updating configuration: {e}", file=sys.stderr)
+    sys.exit(1)
+PYTHON_EOF
+
+    if [ $? -ne 0 ]; then
         print_error "Failed to update configuration"
-        rm -f "$temp_file"
         if [ -f "$backup_file" ]; then
             print_info "Restoring from backup due to update failure"
             cp "$backup_file" "$config_file" || true
         fi
         return 1
-    }
-    
-    # Replace original file with updated version
-    mv "$temp_file" "$config_file" || {
-        print_error "Failed to replace configuration file"
-        rm -f "$temp_file"
-        if [ -f "$backup_file" ]; then
-            print_info "Restoring from backup due to update failure"
-            cp "$backup_file" "$config_file" || true
-        fi
-        return 1
-    }
+    fi
     
     print_info "Zigbee2MQTT configuration updated successfully"
 }
@@ -530,14 +465,14 @@ remove_homeassistant_core
 # remove zigbee2mqtt
 if [ "$trhub_model" == "trhubv3" ]; then
     remove_zigbee2mqtt
+    remove_linuxbox_bridge
 else
+    /usr/bin/systemctl stop linuxbox-hubv3-bridge.service > /dev/null 2>&1 || true
     /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null 2>&1 || true
-    
     update_zigbee2mqtt_config
-
-    /usr/bin/sync
-    /usr/bin/sync    
 fi
+
+/usr/bin/sync
 
 # remove openhab
 remove_openhab

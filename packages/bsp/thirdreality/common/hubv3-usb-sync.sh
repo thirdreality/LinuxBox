@@ -88,6 +88,7 @@ exclude_patterns=(
     "otbr-agent_"
 
     "zigbee-mqtt_"
+    "thirdreality-bridge_"
 
     "openhab_"
     "music-assistant_"
@@ -941,6 +942,18 @@ install_zigbee2mqtt_debs() {
     fi
 }
 
+install_thirdreality_bridge_debs() {
+    echo "Attempting to install ThirdReality Bridge debs..."
+
+    bridge_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "thirdreality-bridge_*.deb" -type f | head -n 1)
+    if [ -n "$bridge_deb_file" ]; then
+        install_deb_if_needed "$bridge_deb_file" "thirdreality-bridge"
+        apt-get install -f > /dev/null || true
+    else
+        echo "No thirdreality-bridge deb file found in $WORK_DIR" >&2
+    fi
+}
+
 install_openhab_debs() 
 {
     echo "Attempting to install OpenHAB debs..."
@@ -1424,6 +1437,9 @@ main_procedure()
 
         /usr/bin/sync
     fi
+
+    # install thirdreality-bridge
+    install_thirdreality_bridge_debs
 
     # install linux kernel image (must be before other packages, will reboot if updated)
     install_linux_image_deb    
