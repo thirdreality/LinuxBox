@@ -9,19 +9,6 @@ fi
 
 echo "Working directory: $current_dir"
 
-# 在开始构建前清理旧的缓存文件（安全）
-echo "Cleaning up old cache files before build..."
-#rm -rf ${current_dir}/cache/sources/u-boot
-#rm -rf ${current_dir}/cache/sources/linux-*
-rm -rf ${current_dir}/.tmp
-#rm -rf ${current_dir}/output
-
-
-# 显示清理后的磁盘使用情况
-echo "Disk usage after initial cleanup:"
-df -h ${current_dir}
-df -h /
-
 board="trhubv3"
 destination=""
 r3version="v1.14.01.20"
@@ -32,7 +19,7 @@ usage() {
     exit 1
 }
 
-while getopts ":b:d:r:v:" opt; do
+while getopts ":b:d:r:v:h" opt; do
     case ${opt} in
         b)
             if [[ "$OPTARG" == "trhubv3" || "$OPTARG" == "trhubv3b" || "$OPTARG" == "linuxbox" ]]; then
@@ -57,6 +44,10 @@ while getopts ":b:d:r:v:" opt; do
         r)
             r3version=$OPTARG
             ;;
+        h)
+            usage
+            exit 0
+            ;;            
         \?)
             echo "Invalid option: -$OPTARG"
             usage
@@ -72,6 +63,20 @@ if [ -z "$board" ]; then
     echo "board name required."
     usage
 fi
+
+# 在开始构建前清理旧的缓存文件（安全）
+echo "Cleaning up old cache files before build..."
+#rm -rf ${current_dir}/cache/sources/u-boot
+#rm -rf ${current_dir}/cache/sources/linux-*
+rm -rf ${current_dir}/.tmp
+#rm -rf ${current_dir}/output
+
+
+# 显示清理后的磁盘使用情况
+echo "Disk usage after initial cleanup:"
+df -h ${current_dir}
+df -h /
+
 
 # 默认用 r3version
 ver_no_v=${r3version#v}
