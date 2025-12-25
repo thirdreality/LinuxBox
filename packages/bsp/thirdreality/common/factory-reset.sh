@@ -377,7 +377,7 @@ update_zigbee2mqtt_config()
         return 1
     }
     
-    # Update frontend.enabled to false using Python
+    # Update frontend.enabled to true using Python
     print_info "Updating Zigbee2MQTT frontend settings"
     
     /usr/bin/python3 << 'PYTHON_EOF'
@@ -411,8 +411,8 @@ try:
         if in_frontend_section and stripped.startswith('enabled:'):
             # Check current value
             current_value = stripped.split(':', 1)[1].strip().lower()
-            if current_value == 'true':
-                result_lines.append("  enabled: false\n")
+            if current_value == 'false':
+                result_lines.append("  enabled: true\n")
                 modified = True
             else:
                 result_lines.append(line)
@@ -423,9 +423,9 @@ try:
     if modified:
         with open(config_file, 'w', encoding='utf-8') as f:
             f.writelines(result_lines)
-        print("Frontend enabled set to false", file=sys.stderr)
+        print("Frontend enabled set to true", file=sys.stderr)
     else:
-        print("Frontend already disabled, no changes needed", file=sys.stderr)
+        print("Frontend already enabled, no changes needed", file=sys.stderr)
     
     sys.exit(0)
 
