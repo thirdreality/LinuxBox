@@ -49,7 +49,7 @@ The compiled generated firmware is located:
 
 Here is a pre-compiled image. If you don't have time to compile the image yourself and don't mind if it's slightly outdated, you can give it a try:
 
-[linuxbox-image-5.10.245.v1.13.01.11.img](https://assets.3reality.com/product/hubv3/Armbian_22.11.0-trunk_Trhubv3_bookworm_current_5.10.245.v1.13.01.11.img)
+[linuxbox-image-5.10.247.v1.14.01.21.img](https://assets.3reality.com/product/hubv3/Armbian_22.11.0-trunk_Trhubv3_bookworm_current_5.10.247.v1.14.01.21.img)
 
 or
 [linuxbox github action](https://github.com/thirdreality/LinuxBox/actions/workflows/build-linuxbox.yml)
