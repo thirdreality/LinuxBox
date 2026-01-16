@@ -1,0 +1,151 @@
+#
+# This config generates all artefacts except for EOS targets.
+# Also, rootfs/base-files/armbian-desktop for all userspace distros and desktops that are not EOS.
+#
+common-gha-configs:
+  armbian-gha: &armbian-gha
+    runners:
+      default: "ubuntu-latest"
+      by-name:
+        kernel: [ "self-hosted", "Linux", "alfa" ]
+        uboot: [ "self-hosted", "Linux", "fast", "X64" ]
+        armbian-bsp-cli: [ "fast" ]
+      by-name-and-arch:
+        rootfs-amd64: [ "self-hosted", "fast", "X64" ]
+        rootfs-arm64: [ "self-hosted", "fast", "ARM64" ]
+        rootfs-armhf: [ "self-hosted", "fast", "X64" ]
+        rootfs-riscv64: [ "self-hosted", "fast", "X64" ]
+        rootfs-loong64: [ "self-hosted", "Linux", "X64" ]
+
+targets:
+
+  all-userspace:
+    configs: [ armbian-images ]
+    pipeline:
+      build-image: no # don't build images for this
+      only-artifacts: [ "armbian-base-files", "armbian-desktop", "rootfs" ] # only these artifacts
+      gha: *armbian-gha
+    vars: # common vars, must exist.
+      USERSPACE_ONLY: "yes" # this does nothing, but some var must exist. might as well be this.
+    items-from-inventory:
+      userspace: # creates items from userspace inventory automatically... 'eos' distributions are always skipped.
+        skip-releases: [ "focal", "sid", "oracular", "resolute", "questing" ] # do NOT include these releases
+        #only-releases: ["trixie", "bookworm", "bullseye"] # ONLY include these releases
+        #skip-desktops: [ "lxde" ] # do NOT include these desktops
+        only-desktops: ["gnome", "xfce", "cinnamon" ] # ONLY include these desktops
+        cli: yes # include normal CLI userspace
+        minimal: yes # include minimal CLI userspace
+        desktops: yes # include desktops, one per desktop_variations below; 'eos' ones are always skipped
+        desktop_variations:
+          - [ ] # empty, no appgroups, simple desktop
+          - [ 3dsupport,browsers,chat,desktop_tools,editors,email,internet,languages,multimedia,office,programming,remote_desktop ] # 3d + all
+          - [ browsers,chat,desktop_tools,editors,email,internet,languages,multimedia,office,programming,remote_desktop ] # all except 3d
+          - [ 3dsupport,browsers,email,programming,remote_desktop ] # limited desktop
+          - [ desktop_tools,internet,languages,multimedia,remote_desktop ] # limited desktop
+        arches: # wanted architectures, and their "example" BOARD and BRANCH.
+          arm64: [ { BOARD: "uefi-arm64", BRANCH: "current" } ]
+          amd64: [ { BOARD: "uefi-x86", BRANCH: "current" } ]
+
+  all-userspace-riscv64:
+    configs: [ armbian-images ]
+    pipeline:
+      build-image: no # don't build images for this
+      only-artifacts: [ "armbian-base-files", "armbian-desktop", "rootfs" ] # only these artifacts
+      gha: *armbian-gha
+    vars: # common vars, must exist.
+      USERSPACE_ONLY: "yes" # this does nothing, but some var must exist. might as well be this.
+    items-from-inventory:
+      userspace: # creates items from userspace inventory automatically... 'eos' distributions are always skipped.
+        #skip-releases: [ "sid" ] # do NOT include these releases
+        only-releases: [ "noble", "plucky", "trixie", "forky" ] # ONLY include these releases
+        #skip-desktops: [ "lxde" ] # do NOT include these desktops
+        only-desktops: [ "xfce", "gnome" ] # ONLY include these desktops
+        cli: yes # include normal CLI userspace
+        minimal: yes # include minimal CLI userspace
+        desktops: yes # include desktops, one per desktop_variations below; 'eos' ones are always skipped
+        desktop_variations:
+          - [ ] # empty, no appgroups, simple desktop
+        arches: # wanted architectures, and their "example" BOARD and BRANCH.
+          riscv64: [ { BOARD: "uefi-riscv64", BRANCH: "edge" } ]
+
+  all-userspace-loong64:
+    configs: [ armbian-images ]
+    pipeline:
+      build-image: no # don't build images for this
+      only-artifacts: [ "armbian-base-files", "armbian-desktop", "rootfs", "kernel", "uboot" ] # only these artifacts
+      gha: *armbian-gha
+    vars: # common vars, must exist.
+      USERSPACE_ONLY: "yes" # this does nothing, but some var must exist. might as well be this.
+    items-from-inventory:
+      userspace: # creates items from userspace inventory automatically... 'eos' distributions are always skipped.
+        only-releases: [ "forky", "plucky" ] # ONLY include these releases
+        only-desktops: [ "gnome" ] # ONLY include these desktops
+        cli: yes # include normal CLI userspace
+        minimal: yes # include minimal CLI userspace
+        desktops: yes # include desktops, one per desktop_variations below; 'eos' ones are always skipped
+        desktop_variations:
+          - [ ] # empty, no appgroups, simple desktop
+        arches: # wanted architectures, and their "example" BOARD and BRANCH.
+          loong64: [ { BOARD: "uefi-loong64", BRANCH: "edge" } ]
+
+  all-userspace-armhf:
+    configs: [ armbian-images ]
+    pipeline:
+      build-image: no # don't build images for this
+      only-artifacts: [ "armbian-base-files", "armbian-desktop", "rootfs" ] # only these artifacts
+      gha: *armbian-gha
+    vars: # common vars, must exist.
+      USERSPACE_ONLY: "yes" # this does nothing, but some var must exist. might as well be this.
+    items-from-inventory:
+      userspace: # creates items from userspace inventory automatically... 'eos' distributions are always skipped.
+        #only-releases: ["bookworm"] # ONLY include these releases
+        skip-releases: [ "focal", "sid", "noble", "oracular", "resolute", "questing"]
+        #skip-desktops: [ "lxde" ] # do NOT include these desktops
+        only-desktops: ["xfce"] # ONLY include these desktops
+        cli: yes # include normal CLI userspace
+        minimal: yes # include minimal CLI userspace
+        desktops: yes # include desktops, one per desktop_variations below; 'eos' ones are always skipped
+        desktop_variations:
+          - [ ] # empty, no appgroups, simple desktop
+          - [ 3dsupport,browsers,chat,desktop_tools,editors,email,internet,languages,multimedia,office,programming,remote_desktop ] # 3d + all
+          - [ browsers,chat,desktop_tools,editors,email,internet,languages,multimedia,office,programming,remote_desktop ] # all except 3d
+          - [ 3dsupport,browsers,email,programming,remote_desktop ] # limited desktop
+          - [ desktop_tools,internet,languages,multimedia,remote_desktop ] # limited desktop
+        arches: # wanted architectures, and their "example" BOARD and BRANCH.
+          armhf:
+            - { BOARD: "tinkerboard", BRANCH: "current" }
+            - { BOARD: "odroidxu4", BRANCH: "current" }
+
+  all-desktop:
+    enabled: yes
+    configs: [ armbian-images ]
+    pipeline:
+      gha: *armbian-gha
+    vars:
+      BUILD_MINIMAL: "no"
+      BUILD_DESKTOP: "yes"
+      DESKTOP_ENVIRONMENT: "xfce"
+      DESKTOP_ENVIRONMENT_CONFIG_NAME: "config_base"
+      DESKTOP_APPGROUPS_SELECTED: "none"
+      RELEASE: "noble"
+    items-from-inventory:
+      #wip: yes # includes all work-in-progress boards
+      #all: yes # includes all available BOARD and BRANCH combinations
+      #conf: yes # includes all supported boards
+      #not-eos: yes # not-eos boards, all branches
+      not-eos-with-video: yes # not-eos boards, all branches, with video out
+
+  all-cli:
+    enabled: yes
+    configs: [ armbian-images ]
+    pipeline:
+      gha: *armbian-gha
+    vars:
+      BUILD_MINIMAL: "yes"
+      BUILD_DESKTOP: "no"
+      RELEASE: "noble"
+    items-from-inventory:
+      #wip: yes # includes all work-in-progress boards
+      #all: yes # includes all available BOARD and BRANCH combinations
+      #conf: yes # includes all supported boards
+      not-eos: yes # not-eos boards, all branches

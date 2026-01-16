@@ -1,0 +1,114 @@
+name: Repository Index sync (auto)
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      forced_sync:
+        type: boolean
+        description: "Force synchronization"
+        default: false
+        
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+jobs:
+
+  Check:
+
+    name: "Check membership" # Only release manager can execute this manually
+    runs-on: fast
+    steps:
+
+      - name: "Check membership"
+        uses: armbian/actions/team-check@main
+        with:
+          ORG_MEMBERS: ${{ secrets.ORG_MEMBERS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEAM: "Release manager"
+
+  Prepare:
+    needs: Check
+    name: "Sync stable servers"
+    outputs:
+      matrix: ${{steps.json.outputs.JSON_CONTENT}}
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Get primary mirrors from database
+        id: json
+        run: |
+          echo 'JSON_CONTENT<<EOF' >> $GITHUB_OUTPUT
+          curl -H "Authorization: Token ${{ secrets.NETBOX_TOKEN }}" -H "Accept: application/json; indent=4" \
+          "${{ secrets.NETBOX_API }}/virtualization/virtual-machines/?limit=500&name__empty=false&device_role=Mirror&tag=push&tag=debs&status=failed&status=active" \
+          | jq '.results[] | .name' | grep -v null | sed "s/\"//g" | jq -cnR '[inputs | select(length>0)]' | jq >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+  Sync:
+    name: "Files"
+    runs-on: repository-sync
+    needs: Prepare
+    outputs:
+      matrix: ${{needs.Prepare.outputs.matrix}}
+    if: ${{ needs.Prepare.outputs.matrix != '[]' && needs.Prepare.outputs.matrix != '' }}
+    timeout-minutes: 180
+    strategy:
+      max-parallel: 8
+      fail-fast: false
+      matrix:
+
+        node: ${{fromJson(needs.Prepare.outputs.matrix)}}
+
+    steps:
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.KEY_UPLOAD }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS_ARMBIAN_UPLOAD }}
+          if_key_exists: replace
+
+      - name: What to sync?
+        run: |
+
+          JSON=$(curl -H "Authorization: Token ${{ secrets.NETBOX_TOKEN }}" -H "Accept: application/json; indent=4" \
+          "${{ secrets.NETBOX_API }}/virtualization/virtual-machines/?limit=500&name__empty=false&name=${{ matrix.node }}" | jq)
+          SERVER_PATH=$(echo $JSON | jq '.results[] | .custom_fields["path"]' | sed "s/\"//g")
+          SERVER_PORT=$(echo $JSON | jq '.results[] | .custom_fields["port"]' | sed "s/\"//g")
+          DOWNLOAD_PATH=$(echo $JSON | jq '.results[] | .custom_fields["download_path_debs"]' | sed "s/\"//g")
+          [[ ${DOWNLOAD_PATH} == null ]] && unset DOWNLOAD_PATH
+          REMOTE_DATE=$(wget --server-response --spider "https://${{ matrix.node }}/${DOWNLOAD_PATH:-apt}/dists/jammy/InRelease" 2>&1 | grep -i 'Last-Modified:' |sed "s/^[^:]\+: //")
+          SERVER_USERNAME=$(echo $JSON | jq '.results[] | .custom_fields["username"]' | sed "s/\"//g")
+          TARGETS=($(echo $JSON | jq '.results[] | .tags' | jq '.[].name' | grep -v null | grep -v Push | sed "s/\"//g"))
+
+          for target in "${TARGETS[@]}"; do
+              # check when was last updated
+              #echo $REMOTE_DATE
+              #stat -c%Y /outgoing/repository/public/armbian.key
+              #date --date="$REMOTE_DATE" +%s
+              DATEDIFF=$(echo `stat -c%Y /outgoing/repository/public/armbian.key` - `date --date="$REMOTE_DATE" +%s` | bc)
+              echo $DATEDIFF
+              ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${{ matrix.node }}"
+              if [[ "$target" == "debs" && "${DATEDIFF}" -gt 36000 || "${{ github.event.inputs.forced_sync }}" == "true" ]]; then 
+                  echo "Synching $target" >> $GITHUB_STEP_SUMMARY
+                  # --checksum is only if we suspect corruption on other end
+                  rsync -ar --progress -e "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=accept-new" /outgoing/repository/public/ ${SERVER_USERNAME}@${{ matrix.node }}:${SERVER_PATH}/apt
+                  # delete at the end
+                  rsync -ar --progress --delete -e "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=accept-new" /outgoing/repository/public/ ${SERVER_USERNAME}@${{ matrix.node }}:${SERVER_PATH}/apt
+              fi
+          done
+
+  dispatch:
+    name: "Refresh web and redirector index"
+    if: ${{ github.repository_owner == 'Armbian' }}
+    needs: Sync
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: "Run redirector update action"
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.DISPATCH }}
+          repository: armbian/armbian.github.io
+          event-type: "Redirector update"

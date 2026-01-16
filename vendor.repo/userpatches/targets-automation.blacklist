@@ -1,0 +1,13 @@
+# list of build targets we don't want to be added via automation
+wsl2-arm64
+wsl2-x86
+qemu-uboot-arm64
+qemu-uboot-x86
+qemu-uefi-x86
+qemu-uefi-arm64
+thinkpad-x13s
+xiaomi-elish
+oneplus-kebab
+ayn-odin2
+mekotronics-r58hd
+mekotronics-r58-4x4

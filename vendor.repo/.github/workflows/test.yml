@@ -1,0 +1,71 @@
+name: "TEST TEST TEST"
+
+on:
+  schedule:
+   - cron: '0 */8 * * *'
+  workflow_call:
+    inputs:
+      ref:                      # commit id
+        required: false
+        type: string
+      extraParamsAllBuilds:     # addional build parameter
+        required: false
+        type: string
+    secrets:
+      ORG_MEMBERS:
+        required: true
+  workflow_dispatch:
+
+env:
+
+  # For easier reuse across the multiple chunks ('armbian/build' repo)
+  BUILD_REPOSITORY: "armbian/build"
+  BUILD_REF: "${{ inputs.ref || inputs.branch || 'main' }}" # branch or tag or sha1
+
+  # For easier reuse across the multiple chunks ('armbian/os' repo)
+  USERPATCHES_REPOSITORY: "armbian/os"
+  USERPATCHES_REF: "main" # branch or tag or sha1
+  USERPATCHES_DIR: "userpatches" # folder inside USERPATCHES_REPOSITORY
+
+  # Github repository for releases. Normally its the one where we executing script
+  RELEASE_REPOSITORY: "os"
+
+  # Armbian envs. Adjust to your needs.
+  # This makes builds faster, but only if the Docker images are up-to-date with all dependencies, Python, tools, etc. Otherwise it makes it... slower.
+  DOCKER_SKIP_UPDATE: "yes" # Do not apt update/install/requirements/etc during Dockerfile build, trust that Docker images are up-to-date.
+
+  # Added to every build, even the prepare job.
+  EXTRA_PARAMS_ALL_BUILDS: "${{ inputs.extraParamsAllBuilds || 'UPLOAD_TO_OCI_ONLY=yes' }}"
+
+  # Storage deployment path
+  TARGET_PATH: "cron/"
+
+  # Version management
+  VERSION_OVERRIDE: "${{ github.event.inputs.versionOverride }}"
+  VERSION_BUMP: "${{ github.event.inputs.bumpversion || 'true' }}"
+
+  # To use GitHub CLI in a GitHub Actions workflow
+  GH_TOKEN: "${{ secrets.ACCESS_TOKEN }}"
+
+  # Added to every image build arguments.
+  EXTRA_PARAMS_IMAGE: "SHARE_LOG=yes "
+
+jobs:
+
+  # additional security check
+  team_check:
+    permissions:
+      actions: write
+    name: "Team check"
+    runs-on: [ "ubuntu-latest" ]
+    steps:
+
+      # Run repository mirroring to CDN
+      - name: "Prepare incoming"
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.DISPATCH }}
+          repository: armbian/armbian.github.io
+          event-type: "Prepare incoming"
+          client-payload: '{"pull_repository": "armbian/${{ env.RELEASE_REPOSITORY }}", "cdn_tag": "${{ env.RELEASE_REPOSITORY }}"}'
+

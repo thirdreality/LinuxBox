@@ -30,7 +30,7 @@ fi
 # mmc 0 is always mapped to device u-boot (2016.09+) was loaded from
 if test "${devtype}" = "mmc"; then part uuid mmc ${devnum}:1 partuuid; fi
 
-echo "[boot-jethub.cmd]Current fdtfile after armbianEnv: ${fdtfile}"
+echo "Current fdtfile after armbianEnv: ${fdtfile}"
 
 if test "${console}" = "serial"; then setenv consoleargs "console=ttyAML0,115200n8"; fi
 
@@ -45,25 +45,24 @@ fi
 if test -n "${serial}"; then setenv bootargs "${bootargs} serial=${serial}"; fi
 if test -n "${usid}"; then setenv bootargs "${bootargs} usid=${usid}"; fi
 
-if test "${docker_optimizations}" = "on"; then setenv bootargs "${bootargs} cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1 swapaccount=1"; fi
+if test "${docker_optimizations}" = "on"; then setenv bootargs "${bootargs} cgroup_enable=memory"; fi
 echo "Mainline bootargs: ${bootargs}"
 
-echo "Checking board setup"
-#if test "$board" = "jethub-j100"; then
-#    if test "$perev" = "02"; then
-#    # D1P + RTL8822CS
-#        echo "Applying DT kernel file for JetHub D1/P RTL8822CS device"
-#        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-2.dtb"
-#    fi;
-#    if test "$perev" = "03"; then
-#    # D1P + W155S1
-#        echo "Applying DT kernel file for JetHub D1/P W155S1 device"
-#        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-3.dtb"
-#    fi;
-#fi;
 
-echo "Applying DT kernel file for JetHub D1/P W155S1 device"
-echo "U-boot fdtfile: ${fdtfile}"
+echo "Checking board setup"
+if test "$board" = "jethub-j100"; then
+    if test "$perev" = "02"; then
+    # D1P + RTL8822CS
+        echo "Applying DT kernel file for JetHub D1/P RTL8822CS device"
+        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-2.dtb"
+    fi;
+    if test "$perev" = "03"; then
+    # D1P + W155S1
+        echo "Applying DT kernel file for JetHub D1/P W155S1 device"
+        setenv fdtfile "amlogic/meson-axg-jethome-jethub-j110-rev-3.dtb"
+    fi;
+fi;
+
 
 load ${devtype} ${devnum} ${ramdisk_addr_r} ${prefix}uInitrd
 load ${devtype} ${devnum} ${kernel_addr_r} ${prefix}Image

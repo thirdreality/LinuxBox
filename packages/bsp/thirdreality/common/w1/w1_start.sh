@@ -3,7 +3,7 @@
 # Check aml_sdio.ko is loaded or not
 if ! lsmod | grep -q "^aml_sdio"; then
     echo "Loading module: aml_sdio.ko ..."
-    insmod /usr/lib/modules/$(uname -r)/kernel/drivers/net/wireless/w1ss1/vmac/aml_sdio.ko
+    insmod /usr/lib/modules/$(uname -r)/kernel/drivers/net/wireless/w1/vmac/aml_sdio.ko
 else
     echo "Module aml_sdio.ko is already loaded."
 fi
@@ -11,7 +11,7 @@ fi
 # Check vlsicomm.ko is loaded or not
 if ! lsmod | grep -q "^vlsicomm"; then
     echo "Loading module: vlsicomm.ko ..."
-    insmod /usr/lib/modules/$(uname -r)/kernel/drivers/net/wireless/w1ss1/vmac/vlsicomm.ko
+    insmod /usr/lib/modules/$(uname -r)/kernel/drivers/net/wireless/w1/vmac/vlsicomm.ko
 else
     echo "Module vlsicomm.ko is already loaded."
 fi

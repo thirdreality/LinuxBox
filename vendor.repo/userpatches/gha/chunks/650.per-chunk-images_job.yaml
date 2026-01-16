@@ -1,0 +1,377 @@
+on: # <TEMPLATE-IGNORE>
+  workflow_dispatch:  # <TEMPLATE-IGNORE>
+jobs: # <TEMPLATE-IGNORE>
+  "TEMPLATE-JOB-NAME": # <TEMPLATE-JOB-NAME>
+    needs: [ "matrix_prep", "all-artifacts-ready" ]
+    timeout-minutes: 240
+    if: ${{ !failure() && !cancelled() && ( github.repository_owner == '[[org]]' ) && ( needs.matrix_prep.outputs.images-chunk-not-empty-[[chunk]] == 'yes' ) }} # <-- HERE: Chunk number.
+    strategy:
+      fail-fast: false # let other jobs try to complete if one fails
+      matrix: ${{ fromJSON(needs.matrix_prep.outputs.images-chunk-json-[[chunk]]) }} # <-- HERE: Chunk number.
+    name: ${{ matrix.desc || 'Empty I[[chunk]]' }} # <-- HERE: Chunk number.
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+
+      - name: Install dependencies
+        run: |
+          if [ ! -e /usr/bin/mktorrent ]; then
+            sudo apt-get update
+            sudo apt-get install -y mktorrent
+          fi
+
+      # cleaning self hosted runners
+      - name: "Runner clean ${{ needs.matrix_prep.outputs.version }}"
+        uses: armbian/actions/runner-clean@main
+
+      # cleanup the place where we will clone the userpatches repo, to avoid git going insane and cleaning everything later
+      - name: Cleanup userpatches repo
+        if: ${{ ( env.USERPATCHES_REPOSITORY != '' ) && ( env.USERPATCHES_REF != '' ) }}
+        run: rm -rf userpatches.repo
+
+      - name: Checkout build repo
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.BUILD_REPOSITORY }}
+          ref: ${{ needs.matrix_prep.outputs.build-sha1 }}
+          fetch-depth: ${{ matrix.fdepth }}
+          clean: false # true is default. it *will* delete the hosts /dev if mounted inside.
+
+      # clone the userpatches repo (`armbian/os`)
+      - name: "Checkout userpatches repo: ${{env.USERPATCHES_REPOSITORY}}#${{env.USERPATCHES_REF}}"
+        uses: actions/checkout@v6
+        if: ${{ ( env.USERPATCHES_REPOSITORY != '' ) && ( env.USERPATCHES_REF != '' ) }}
+        with:
+          repository: ${{ env.USERPATCHES_REPOSITORY }}
+          ref: ${{ env.USERPATCHES_REF }}
+          fetch-depth: ${{ matrix.fdepth }}
+          clean: false # true is default.
+          path: userpatches.repo
+
+      - name: "Put userpatches in place, and remove userpatches repo"
+        if: ${{ ( env.USERPATCHES_REPOSITORY != '' ) && ( env.USERPATCHES_REF != '' ) }}
+        run: |
+          mkdir -pv userpatches
+          rsync -av userpatches.repo/${{env.USERPATCHES_DIR}}/. userpatches/
+          rm -rf userpatches.repo
+
+      - name: "Cleanup leftover output"
+        run: |
+          rm -f userpatches/VERSION
+
+      - name: ${{matrix.desc}}
+        id: build-one-image
+        timeout-minutes: 90
+        run: |
+          # calculate loop from runner name
+          if [ -z "${ImageOS}" ]; then
+          USE_FIXED_LOOP_DEVICE=$(echo ${RUNNER_NAME} | rev | cut -d"-" -f1  | rev | sed 's/^0*//' | sed -e 's/^/\/dev\/loop/')
+          fi
+          bash ./compile.sh ${{ matrix.invocation }} REVISION="${{ needs.matrix_prep.outputs.version }}" USE_FIXED_LOOP_DEVICE="$USE_FIXED_LOOP_DEVICE" SHARE_LOG=yes MAKE_FOLDERS="archive" IMAGE_VERSION=${{ needs.matrix_prep.outputs.version }} ${{env.EXTRA_PARAMS_IMAGE}} ${{env.EXTRA_PARAMS_ALL_BUILDS}}
+
+      - name: "Logs: ${{ steps.build-one-image.outputs.logs_url }}"
+        if: always()
+        run: |
+          echo "Logs: ${{ steps.build-one-image.outputs.logs_url }}"
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.KEY_UPLOAD }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS_ARMBIAN_UPLOAD }}
+          if_key_exists: replace
+
+      - name: Check API rate limits
+        run: |
+
+          # install dependencies
+          if ! command -v "gh" > /dev/null 2>&1; then
+             sudo apt-get -y -qq install gh
+          fi
+
+          while true
+            do
+            API_CALLS_TOTAL=$(gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /rate_limit | jq -r '.rate.limit')
+            API_CALLS_LEFT=$(gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /rate_limit | jq -r '.rate.remaining')
+            PERCENT=$(( API_CALLS_LEFT * 100 / API_CALLS_TOTAL ))
+            if (( $PERCENT > 20 )); then
+                echo "API rate in good shape $PERCENT % free"
+                exit 0
+            fi
+            echo "API rate lower then 20%, sleping 10m"
+            sleep 10m
+          done
+
+          # show current api rate
+          curl -s -H "Accept: application/vnd.github.v3+json" -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" https://api.github.com/rate_limit
+
+      - name: Import GPG key
+        env:
+          GPG_KEY1: ${{ secrets.GPG_KEY1 }}
+        if: env.GPG_KEY1 != null
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_KEY1 }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE1 }}
+
+      - name: Sign
+        env:
+          GPG_PASSPHRASE1: ${{ secrets.GPG_PASSPHRASE1 }}
+        if: env.GPG_PASSPHRASE1 != null
+        run: |
+
+          for extension in zip xz qcow2; do
+            if ls -l output/images/*/archive/*.$extension &>/dev/null; then
+              echo ${{ secrets.GPG_PASSPHRASE1 }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/images/*/archive/*.$extension
+            fi
+          done
+
+      # Download the artifacts (output/info) produced by the prepare-matrix job.
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: build-info-json
+          path: output/info
+
+      - name: Generate torrent
+        timeout-minutes: 3
+        run: |
+
+          set -euo pipefail
+
+          # Build tracker list (ignore empty/whitespace-only lines)
+          TRACKERS=$(
+            grep -v '^[ 	]*$' output/info/best-torrent-servers.txt \
+              | sort -R \
+              | sed 's/^/ --announce=/'
+          )
+
+          # Find BOARD and FILE (first zip/xz/qcow2 in output/images/*/archive/)
+          BOARD=""
+          FILE=""
+          first_match=""
+
+          for ext in zip xz qcow2; do
+            if ls output/images/*/archive/*."$ext" >/dev/null 2>&1; then
+              first_match=$(ls -1 output/images/*/archive/*."$ext" | head -n1)
+              # first_match = output/images/BOARD/archive/file.ext
+              BOARD=$(basename "$(dirname "$(dirname "$first_match")")")   # -> BOARD
+              FILE=$(basename "$first_match")
+              break
+            fi
+          done
+
+          # Safety check
+          if [ -z "$BOARD" ] || [ -z "$FILE" ]; then
+            echo "No torrent source file found (zip/xz/qcow2) in output/images/*/archive" >&2
+            exit 1
+          fi
+
+          # Nightly / stable logic (templated)
+          RELEASE_REPOSITORY="${{ env.RELEASE_REPOSITORY }}"
+          nightlybuild="${{ github.event.inputs.nightlybuild }}"
+          nightlybuild_default="[[nightlybuildDefaults]]"
+          effective_nightlybuild="${nightlybuild:-$nightlybuild_default}"
+
+          WEBSEEDS=""
+
+          if [ "$effective_nightlybuild" = "no" ] && [ "$RELEASE_REPOSITORY" != "distribution" ]; then
+            ##################################################################
+            # STABLE RELEASES
+            # Use download mirrors (servers-download.jq)
+            # URL: https://<host><download_path_images>/<BOARD>/archive/<FILE>
+            # download_path_images is already normalized & defaults to /dl in JSON.
+            ##################################################################
+            WEBSEEDS=$(
+              jq -r --arg board "$BOARD" --arg file "$FILE" '
+                .[]
+                | "https://\(.host)\(.download_path_images)/\($board)/archive/\($file)"
+              ' output/info/servers-download.jq | paste -sd, -
+            )
+          else
+            ##################################################################
+            # NIGHTLY BUILDS
+            # Use cache mirrors (servers-cache.jq) + GitHub as extra webseed
+            # Path is FIXED: https://SERVER/cache/[[release_repo]]/<version>/<FILE>
+            ##################################################################
+            WEBSEEDS=$(
+              jq -r \
+                --arg repo "[[release_repo]]" \
+                --arg ver "${{ needs.matrix_prep.outputs.version }}" \
+                --arg file "$FILE" '
+                  .[]
+                  | "https://\(.host)/cache/\($repo)/\($ver)/\($file)"
+                ' output/info/servers-cache.jq | paste -sd, -
+            )
+
+            # Append GitHub webseed
+            if [ -n "$WEBSEEDS" ]; then
+              WEBSEEDS+=","
+            fi
+            WEBSEEDS+="https://github.com/armbian/[[release_repo]]/releases/download/${{ needs.matrix_prep.outputs.version }}/${FILE}"
+          fi
+
+          echo "WEBSEEDS: $WEBSEEDS"
+
+          # Go to the archive directory that contains FILE
+          cd "$(dirname "$first_match")" || exit 1
+
+          mktorrent \
+            --comment="Armbian torrent for ${FILE}" \
+            --verbose \
+            ${TRACKERS} \
+            --web-seed="${WEBSEEDS}" \
+            "${FILE}"
+
+          # drop .txt helper files
+          rm -f *.txt
+
+      - name: "Prepare release artifacts (exclude .asc, .sha, .torrent)"
+        run: |
+          # Start from a clean directory
+          rm -rf output/release
+          mkdir -p output/release
+
+          # Copy wanted artifacts from output/images, preserving folder structure
+          # e.g. output/images/BOARDNAME/archive/Armbian_*.img -> output/release/output/images/BOARDNAME/archive/...
+          find output/images -type f -name 'Armbian_*.*' \
+            ! -name '*.asc' \
+            ! -name '*.sha' \
+            ! -name '*.torrent' \
+            -exec cp --parents {} output/release/ \;
+
+          # debug
+          tree output/images
+          echo "# debug"
+          tree output/release
+
+      - name: "Upload artefacts except .asc, .sha and .torrent"
+        timeout-minutes: 60
+        if: ${{ ( github.event.inputs.nightlybuild || [[nightlybuildDefaults]] ) == 'yes' || env.RELEASE_REPOSITORY == 'community' || env.RELEASE_REPOSITORY == 'distribution' }}
+        #if: ${{ env.RELEASE_REPOSITORY == 'os' || env.RELEASE_REPOSITORY == 'community' || env.RELEASE_REPOSITORY == 'distribution' }}
+        uses: ncipollo/release-action@v1
+        with:
+          repo: "${{ env.RELEASE_REPOSITORY }}"
+          tag: "${{ needs.matrix_prep.outputs.version }}"
+          artifacts: "output/release/output/images/*/*/Armbian_*.*"
+          omitBody: true
+          replacesArtifacts: true
+          omitName: true
+          makeLatest: false
+          omitPrereleaseDuringUpdate: true
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          token: "${{ env.GH_TOKEN }}"
+
+      - name: "Upload to servers"
+        run: |
+
+          # debug
+          echo "=== servers-cache.jq ==="
+          jq . output/info/servers-cache.jq || cat output/info/servers-cache.jq
+          echo "=== servers-upload.jq ==="
+          jq . output/info/servers-upload.jq || cat output/info/servers-upload.jq
+
+          max_retries=3
+
+          sync_from_json() {
+              local json_file=$1
+              local mode=$2          # "cache" or "upload"
+
+              echo "== Processing ${json_file} (mode: ${mode}) =="
+
+              # Iterate over JSON array elements
+              while IFS= read -r server; do
+                  # JSON structure (same for all files):
+                  # {
+                  #   "host": "...",
+                  #   "upload_path": "...",
+                  #   "download_path_archive": "...",
+                  #   "download_path_images": "...",
+                  #   "download_path_debs": "...",
+                  #   "port": 22,
+                  #   "username": "mirror"
+                  # }
+
+                  SERVER_URL=$(jq -r '.host // empty' <<<"$server")
+                  SERVER_PATH=$(jq -r '.upload_path // ""' <<<"$server")
+                  SERVER_PORT=$(jq -r '.port // 22' <<<"$server")
+                  SERVER_USERNAME=$(jq -r '.username // "mirror"' <<<"$server")
+
+                  # skip empty host
+                  [ -z "$SERVER_URL" ] && continue
+
+                  echo "Processing: $SERVER_URL:$SERVER_PORT (upload_path: $SERVER_PATH)"
+
+                  # Clean known_hosts entry (host:port form)
+                  ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "[${SERVER_URL}]:${SERVER_PORT}" 2>/dev/null || true
+
+                  # Select rsync filters + remote subdir
+                  if [ "$mode" = "cache" ]; then
+                      # only.sha, .torrent .asc
+                      RSYNC_FILTER=(
+                          --include='*/'
+                          --include='*.sha'
+                          --include='*.asc'
+                          --include='*.torrent'
+                          --exclude='*'
+                      )
+                      REMOTE_SUBDIR="cache/artifacts/"
+                  else
+                      # everything
+                      RSYNC_FILTER=(
+                          --include='*/'
+                          --include='*'
+                      )
+                      REMOTE_SUBDIR="incoming/${GITHUB_ACTOR}/"
+                  fi
+
+                  # Retry loop
+                  for attempt in $(seq 1 "$max_retries"); do
+                      echo "[$SERVER_URL] rsync attempt ${attempt}/${max_retries}..."
+
+                      if rsync --progress \
+                          -e "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=accept-new" \
+                          -rvP \
+                          "${RSYNC_FILTER[@]}" \
+                          output/images/ \
+                          "${SERVER_USERNAME}@${SERVER_URL}:${SERVER_PATH}/${REMOTE_SUBDIR}"
+                      then
+                          echo "[$SERVER_URL] rsync successful."
+                          break
+                      fi
+
+                      if [ "$attempt" -eq "$max_retries" ]; then
+                          echo "[$SERVER_URL] rsync FAILED after ${max_retries} attempts."
+                          exit 1
+                      fi
+
+                      echo "[$SERVER_URL] rsync failed. Retrying in 10 seconds..."
+                      sleep 10
+                  done
+
+              done < <(jq -c '.[]' "$json_file")
+          }
+
+          nightlybuild="${{ github.event.inputs.nightlybuild }}"
+          nightlybuild_default="[[nightlybuildDefaults]]"
+          RELEASE_REPOSITORY="${{ env.RELEASE_REPOSITORY }}"
+
+          effective_nightlybuild="${nightlybuild:-$nightlybuild_default}"
+
+          if [ "$effective_nightlybuild" = "yes" ] || \
+            [ "$RELEASE_REPOSITORY" = "community" ] || \
+            [ "$RELEASE_REPOSITORY" = "distribution" ]; then
+              # Upload to cache servers: only .xz/.sha/.torrent
+              sync_from_json output/info/servers-cache.jq cache
+          fi
+
+          if [ "$effective_nightlybuild" = "no" ] && \
+            [ "$RELEASE_REPOSITORY" = "os" ]; then
+              # Upload to servers: everything except .xz/.sha/.torrent
+              sync_from_json output/info/servers-upload.jq upload
+          fi
+
+      # cleaning self hosted runners
+      - name: "Runner clean ${{ needs.matrix_prep.outputs.version }}"
+        if: always()
+        uses: armbian/actions/runner-clean@main

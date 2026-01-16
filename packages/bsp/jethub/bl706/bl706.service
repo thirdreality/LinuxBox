@@ -1,9 +1,0 @@
-[Unit]
-Description=BL706
-After=amlogicw1.target
-
-[Service]
-ExecStart=/usr/lib/firmware/bl706/bl706_func.sh start
-
-[Install]
-WantedBy=multi-user.target

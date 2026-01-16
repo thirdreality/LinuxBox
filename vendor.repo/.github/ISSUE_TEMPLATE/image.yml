@@ -1,0 +1,15 @@
+name: Armbian OS Image rebuild request
+description: Suggest image rebuild where current support is better that images currently provided on download pages
+title: "Please ..."
+labels: ["feature"]
+assignees: "igorpecovnik"
+body:
+  - type: textarea
+    id: image
+    attributes:
+      label: "Which board images would you like us to rebuilt?"
+      description: "[Standard support hardware images only from here](https://www.armbian.com/download/?device_support=Standard%20support)"
+      placeholder: Tell us which one!
+      value: "Please remake bananapim3 images!"
+    validations:
+      required: true

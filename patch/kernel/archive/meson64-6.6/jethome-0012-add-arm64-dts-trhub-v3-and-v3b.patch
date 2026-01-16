@@ -1,0 +1,188 @@
+From 9b4d4c8ac179a1d13deb8265b64b6641d5a1cac2 Mon Sep 17 00:00:00 2001
+From: "guoping.liu" <guoping.liu@3reality.com>
+Date: Fri, 16 Jan 2026 10:13:22 +0800
+Subject: [PATCH] add arm64 dts trhub-v3 and v3b
+
+---
+ arch/arm64/boot/dts/amlogic/Makefile          |  2 +
+ .../meson-axg-thirdreality-trhub-v3.dts       | 73 ++++++++++++++++++
+ .../meson-axg-thirdreality-trhub-v3b.dts      | 74 +++++++++++++++++++
+ 3 files changed, 149 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts
+ create mode 100644 arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
+
+diff --git a/arch/arm64/boot/dts/amlogic/Makefile b/arch/arm64/boot/dts/amlogic/Makefile
+index 6539f0c21906..164eac98ecb1 100644
+--- a/arch/arm64/boot/dts/amlogic/Makefile
++++ b/arch/arm64/boot/dts/amlogic/Makefile
+@@ -6,6 +6,8 @@
+ dtb-$(CONFIG_ARCH_MESON) += meson-axg-jethome-jethub-j100.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-axg-jethome-jethub-j110-rev-2.dtb
+ dtb-$(CONFIG_ARCH_MESON) += meson-axg-jethome-jethub-j110-rev-3.dtb
++dtb-$(CONFIG_ARCH_MESON) += meson-axg-thirdreality-trhub-v3.dtb
++dtb-$(CONFIG_ARCH_MESON) += meson-axg-thirdreality-trhub-v3b.dtb
+ # dtb-$(CONFIG_ARCH_MESON) += meson-axg-s400.dtb
+ # dtb-$(CONFIG_ARCH_MESON) += meson-g12a-radxa-zero.dtb
+ # dtb-$(CONFIG_ARCH_MESON) += meson-g12a-sei510.dtb
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts
+new file mode 100644
+index 000000000000..6845922b9cf4
+--- /dev/null
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts
+@@ -0,0 +1,73 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2022 Vyacheslav Bocharov <adeep@lexina.in>
++ * Copyright (c) 2022 JetHome
++ * Author: Vyacheslav Bocharov <adeep@lexina.in>
++ */
++
++/dts-v1/;
++
++#include "meson-axg-jethome-jethub-j1xx.dtsi"
++
++/ {
++	compatible = "ThirdReality,trhub-v3", "amlogic,a113d", "amlogic,meson-axg";
++	model = "ThirdReality TRHub-V3";
++
++	/* 2048MB RAM */
++	memory@0 {
++		device_type = "memory";
++		reg = <0x0 0x0 0x0 0x80000000>;
++	};
++
++	/* Amlogic Bluetooth controller */
++	aml_bt: aml_bt {
++		compatible = "amlogic, aml-bt";
++		status = "okay";
++	};
++
++	aml_wifi: aml_wifi {
++		compatible = "amlogic, aml-wifi";
++		status = "okay";
++		irq_trigger_type = "IRQF_TRIGGER_LOW";
++		//dhd_static_buf; /* if use bcm wifi, config dhd_static_buf */
++		//pinctrl-0 = <&pwm_e_pins>;
++		//pinctrl-names = "default";
++		pwm_config = <&wifi_pwm_conf>;
++		//pwm_config = <&sdio_pwrseq>;
++	};
++
++	
++	wifi_pwm_conf:wifi_pwm_conf{
++		pwm_channel1_conf {
++			pwms = <&pwm_AO_cd 0 30541 0>;
++			duty-cycle = <15270>;
++			times = <10>;
++		};
++		
++		pwm_channel2_conf {
++			pwms = <&pwm_AO_cd 2 30500 0>;
++			duty-cycle = <15250>;
++			times = <12>;
++		};
++	};
++};
++
++/* wifi module */
++&sd_emmc_b {
++	broken-cd;/* cd-gpios = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_LOW>;*/
++};
++
++
++&aml_wifi{
++	status = "okay";
++	interrupt-gpios = <&gpio  GPIOX_6  GPIO_ACTIVE_HIGH>;
++	power_on-gpios = <&gpio   GPIOX_7  GPIO_ACTIVE_HIGH>;
++	//power_on_2-gpios= <&gpio  GPIOX_16 GPIO_ACTIVE_HIGH>;
++};
++
++&aml_bt {
++	status = "okay";
++	reset-gpios = <&gpio    GPIOX_21 GPIO_ACTIVE_HIGH>;
++	btwakeup-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
++	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
++};
+diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
+new file mode 100644
+index 000000000000..12a20432e0d9
+--- /dev/null
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
+@@ -0,0 +1,74 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2022 Vyacheslav Bocharov <adeep@lexina.in>
++ * Copyright (c) 2022 JetHome
++ * Author: Vyacheslav Bocharov <adeep@lexina.in>
++ */
++
++/dts-v1/;
++
++#include "meson-axg-jethome-jethub-j1xx.dtsi"
++
++/ {
++	compatible = "ThirdReality,trhub-v3b", "amlogic,a113d", "amlogic,meson-axg";
++	model = "ThirdReality TRHub-V3b";
++
++
++	/* 2048MB RAM */
++	memory@0 {
++		device_type = "memory";
++		reg = <0x0 0x0 0x0 0x80000000>;
++	};
++
++	/* Amlogic Bluetooth controller */
++	aml_bt: aml_bt {
++		compatible = "amlogic, aml-bt";
++		status = "okay";
++	};
++
++	aml_wifi: aml_wifi {
++		compatible = "amlogic, aml-wifi";
++		status = "okay";
++		irq_trigger_type = "IRQF_TRIGGER_LOW";
++		//dhd_static_buf; /* if use bcm wifi, config dhd_static_buf */
++		//pinctrl-0 = <&pwm_e_pins>;
++		//pinctrl-names = "default";
++		pwm_config = <&wifi_pwm_conf>;
++		//pwm_config = <&sdio_pwrseq>;
++	};
++
++	
++	wifi_pwm_conf:wifi_pwm_conf{
++		pwm_channel1_conf {
++			pwms = <&pwm_AO_cd 0 30541 0>;
++			duty-cycle = <15270>;
++			times = <10>;
++		};
++		
++		pwm_channel2_conf {
++			pwms = <&pwm_AO_cd 2 30500 0>;
++			duty-cycle = <15250>;
++			times = <12>;
++		};
++	};
++};
++
++/* wifi module */
++&sd_emmc_b {
++	broken-cd;/* cd-gpios = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_LOW>;*/
++};
++
++
++&aml_wifi{
++	status = "okay";
++	interrupt-gpios = <&gpio  GPIOX_6  GPIO_ACTIVE_HIGH>;
++	power_on-gpios = <&gpio   GPIOX_7  GPIO_ACTIVE_HIGH>;
++	//power_on_2-gpios= <&gpio  GPIOX_16 GPIO_ACTIVE_HIGH>;
++};
++
++&aml_bt {
++	status = "okay";
++	reset-gpios = <&gpio    GPIOX_21 GPIO_ACTIVE_HIGH>;
++	btwakeup-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
++	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
++};
+-- 
+2.39.5
+

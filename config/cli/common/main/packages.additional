@@ -37,6 +37,7 @@ libpam-systemd
 libproc-processtable-perl
 libwrap0-dev
 mc
+net-tools
 nfs-common
 ntfs-3g
 pciutils
@@ -55,5 +56,6 @@ unattended-upgrades
 unicode-data
 unzip
 vnstat
+vim
 wget
 wireless-regdb

@@ -1,0 +1,254 @@
+#
+# Armbian release template for automated generation. DO NOT EDIT .yaml files. Edit .template
+#
+
+common-gha-configs:
+  armbian-gha: &armbian-gha
+    runners:
+      default: "ubuntu-latest" # or a ["tag", "list"]
+      by-name:
+        kernel: [ "self-hosted", "Linux", "alfa" ]
+        uboot: [ "self-hosted", "Linux", "fast", "X64" ]
+        armbian-bsp-cli: [ "fast" ]
+      by-name-and-arch:
+        rootfs-armhf: [ "self-hosted", "Linux", "X64" , "fast" ]
+        rootfs-arm64: [ "self-hosted", "Linux", "ARM64" , "fast" ]
+        rootfs-amd64: [ "self-hosted", "Linux", "X64", "fast" ]
+        rootfs-riscv64: [ "self-hosted", "Linux", "X64", "fast" ]
+        image-arm64: [ "images" ]
+        #image-armhf: [ "ubuntu-24.04-arm" ]
+        image-armhf: [ "images", "X64" ]
+        image-riscv64: [ "images", "X64" ]
+        image-amd64: [ "images", "X64" ]
+
+lists:
+
+  # automated lists start
+  # automated lists stop
+
+targets:
+
+  # debian stable cli minimal
+  minimal-cli-stable-debian:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: trixie
+      BUILD_MINIMAL: "yes"
+      BUILD_DESKTOP: "no"
+    items:
+      - *community-maintained-headless
+      - *community-maintained-fast-hdmi
+      - *community-maintained-slow-hdmi
+
+  # debian stable cli
+  full-cli-stable-debian:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: trixie
+      BUILD_MINIMAL: "no"
+      BUILD_DESKTOP: "no"
+    items:
+      - { BOARD: aml-s9xx-box, BRANCH: current }
+      - { BOARD: tanix-tx6, BRANCH: current }
+
+  # debian stable cli
+  full-cli-stable-debian:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: bookworm
+      BUILD_MINIMAL: "no"
+      BUILD_DESKTOP: "no"
+    items:
+      - { BOARD: tanix-tx6, BRANCH: current }
+
+  # debian stable xfce
+  xfce-desktop-stable-debian:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: trixie
+      BUILD_MINIMAL: "no"
+      DESKTOP_ENVIRONMENT: "xfce"
+      BUILD_DESKTOP: "yes"
+      DESKTOP_ENVIRONMENT_CONFIG_NAME: "config_base"
+      DESKTOP_APPGROUPS_SELECTED: "desktop_tools,internet,languages,multimedia,remote_desktop"
+    items:
+      - { BOARD: aml-s9xx-box, BRANCH: current }
+
+  # debian stable gnome
+  gnome-desktop-stable-debian:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: trixie
+      BUILD_MINIMAL: "no"
+      DESKTOP_ENVIRONMENT: "gnome"
+      BUILD_DESKTOP: "yes"
+      DESKTOP_ENVIRONMENT_CONFIG_NAME: "config_base"
+      DESKTOP_APPGROUPS_SELECTED: "browsers,chat,desktop_tools,editors,email,internet,languages,multimedia,office,programming,remote_desktop"
+    items:
+      - { BOARD: aml-s9xx-box, BRANCH: current }
+
+  # ubuntu stable cli
+  full-cli-stable-ubuntu:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: noble
+      BUILD_MINIMAL: "no"
+      BUILD_DESKTOP: "no"
+    items:
+      - { BOARD: aml-s9xx-box, BRANCH: current }
+
+  # ubuntu stable cli minimal
+  minimal-cli-stable-ubuntu:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: noble
+      BUILD_MINIMAL: "yes"
+      BUILD_DESKTOP: "no"
+    items:
+      - *community-maintained-riscv64
+      - { BOARD: aml-s9xx-box, BRANCH: current }
+
+  # ubuntu unstable cli
+  full-cli-unstable-ubuntu:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: plucky
+      BUILD_MINIMAL: "no"
+      BUILD_DESKTOP: "no"
+    items:
+      - { BOARD: aml-s9xx-box, BRANCH: edge }
+
+  # ubuntu stable xfce
+  xfce-desktop-stable-ubuntu:
+    enabled: no
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: noble
+      BUILD_MINIMAL: "no"
+      DESKTOP_ENVIRONMENT: "xfce"
+      BUILD_DESKTOP: "yes"
+      DESKTOP_ENVIRONMENT_CONFIG_NAME: "config_base"
+      DESKTOP_APPGROUPS_SELECTED: ""
+    items:
+      - *community-maintained-slow-hdmi
+      - *community-maintained-riscv64
+      - { BOARD: aml-s9xx-box, BRANCH: current }
+
+  # ubuntu stable gnome
+  gnome-desktop-stable-ubuntu:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: noble
+      BUILD_MINIMAL: "no"
+      DESKTOP_ENVIRONMENT: "gnome"
+      BUILD_DESKTOP: "yes"
+      DESKTOP_ENVIRONMENT_CONFIG_NAME: "config_base"
+      DESKTOP_APPGROUPS_SELECTED: "browsers,chat,desktop_tools,editors,email,internet,languages,multimedia,office,programming,remote_desktop"
+    items:
+      - *community-maintained-fast-hdmi
+      - { BOARD: ayn-odin2, BRANCH: sm8550}
+      - { BOARD: xpressreal-t3, BRANCH: vendor}
+
+  # ubuntu unstable xfce
+  xfce-desktop-unstable-ubuntu:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: plucky
+      BUILD_MINIMAL: "no"
+      DESKTOP_ENVIRONMENT: "xfce"
+      BUILD_DESKTOP: "yes"
+      DESKTOP_ENVIRONMENT_CONFIG_NAME: "config_base"
+      DESKTOP_APPGROUPS_SELECTED: "desktop_tools,internet,languages,multimedia,remote_desktop"
+    items:
+      - { BOARD: aml-s9xx-box, BRANCH: edge }
+
+  # ubuntu unstable gnome
+  gnome-desktop-unstable-ubuntu:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: plucky
+      BUILD_MINIMAL: "no"
+      DESKTOP_ENVIRONMENT: "gnome"
+      BUILD_DESKTOP: "yes"
+      DESKTOP_ENVIRONMENT_CONFIG_NAME: "config_base"
+      DESKTOP_APPGROUPS_SELECTED: "browsers,chat,desktop_tools,editors,email,internet,languages,multimedia,office,programming,remote_desktop"
+    items:
+      - { BOARD: aml-s9xx-box, BRANCH: edge }
+
+  # ubuntu stable Cinnamon
+  cinnamon-desktop-stable-ubuntu:
+    enabled: yes
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "yes"
+    vars:
+      RELEASE: noble
+      BUILD_MINIMAL: "no"
+      DESKTOP_ENVIRONMENT: "cinnamon"
+      BUILD_DESKTOP: "yes"
+      DESKTOP_ENVIRONMENT_CONFIG_NAME: "config_base"
+      DESKTOP_APPGROUPS_SELECTED: "browsers,chat,desktop_tools,editors,email,internet,languages,multimedia,office,programming,remote_desktop"
+    items:
+      - { BOARD: aml-s9xx-box, BRANCH: current }
+
+  # automated section
+  automated-section:
+    enabled: no
+    configs: [ armbian-community ]
+    pipeline:
+      gha: *armbian-gha
+      build-image: "no"
+    vars:
+      RELEASE: jammy
+      BUILD_MINIMAL: "yes"
+      BUILD_DESKTOP: "no"
+    items:
+  # end of automated-section:
