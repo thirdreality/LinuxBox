@@ -17,6 +17,22 @@ else
 fi
 
 # Function to check and bring down a network interface
+bring_up_interface() {
+    local iface="$1"
+    if ip a show "$iface" &>/dev/null; then
+        if ip link show "$iface" | grep -q "state UP"; then
+            echo "Interface $iface is down, bringing it up..."
+            ifconfig "$iface" up
+        else
+            echo "Interface $iface exists and is already up."
+        fi
+    else
+        echo "Interface $iface does not exist."
+    fi
+}
+
+
+# Function to check and bring down a network interface
 bring_down_interface() {
     local iface="$1"
     if ip a show "$iface" &>/dev/null; then
@@ -30,6 +46,9 @@ bring_down_interface() {
         echo "Interface $iface does not exist."
     fi
 }
+
+# Check and bring up wlan1
+bring_up_interface "wlan0"
 
 # Check and bring down wlan1
 bring_down_interface "wlan1"

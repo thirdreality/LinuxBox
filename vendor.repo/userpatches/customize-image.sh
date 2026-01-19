@@ -90,14 +90,45 @@ InstallForHubV3() {
 	#echo "vlsicomm" | sudo tee -a /etc/modules
 	#echo "sdio_bt" | sudo tee -a /etc/modules
 
+	# Configure NetworkManager to only manage wlan0
 	config_file="/etc/NetworkManager/NetworkManager.conf"
-	content_to_add="
-[keyfile]
-unmanaged-devices=interface-name:*,except:interface-name:wlan0
-"
-
+	
 	if [[ -f "$config_file" ]]; then
-		echo "$content_to_add" | sudo tee -a "$config_file" > /dev/null
+		echo "Configuring NetworkManager ..."
+		
+		# Check and add [main] section configurations
+		if ! grep -q "^\[main\]" "$config_file"; then
+			echo -e "\n[main]" | sudo tee -a "$config_file" > /dev/null
+		fi
+		
+		# Add dns=default if not present
+		if ! grep -q "^dns=default" "$config_file"; then
+			sudo sed -i '/^\[main\]/a dns=default' "$config_file"
+		fi
+		
+		# Add rc-manager=file if not present
+		if ! grep -q "^rc-manager=file" "$config_file"; then
+			sudo sed -i '/^\[main\]/a rc-manager=file' "$config_file"
+		fi
+		
+		# Check and configure [ifupdown] section
+		if ! grep -q "^\[ifupdown\]" "$config_file"; then
+			echo -e "\n[ifupdown]" | sudo tee -a "$config_file" > /dev/null
+			echo "managed=true" | sudo tee -a "$config_file" > /dev/null
+		else
+			# Change managed=false to managed=true if exists
+			sudo sed -i '/^\[ifupdown\]/,/^\[/ s/^managed=false/managed=true/' "$config_file"
+		fi
+		
+		# Check and add [keyfile] section configurations
+		if ! grep -q "^\[keyfile\]" "$config_file"; then
+			echo -e "\n[keyfile]" | sudo tee -a "$config_file" > /dev/null
+		fi
+		
+		# Add unmanaged-devices if not present
+		if ! grep -q "^unmanaged-devices=interface-name:\*,except:interface-name:wlan0" "$config_file"; then
+			sudo sed -i '/^\[keyfile\]/a unmanaged-devices=interface-name:*,except:interface-name:wlan0' "$config_file"
+		fi
 	else
 		echo "File $config_file does not exist. Exiting script."
 	fi
