@@ -1,5 +1,0 @@
-0000000000000000000000000000000000000000 54dcffe8f5af904d932815bfc2c376a1c88fd09f guoping.liu <guoping.liu@3reality.com> 1768455828 +0800	commit (initial): Initial commit
-54dcffe8f5af904d932815bfc2c376a1c88fd09f eadda5503208fd1b165a9a6cabbee51a22e8ed3d guoping.liu <guoping.liu@3reality.com> 1768463602 +0800	commit: add support for thirdreality linuxbox dev edition
-eadda5503208fd1b165a9a6cabbee51a22e8ed3d 5090e62f0c1d900ccc7527bc38cb43937a069563 guoping.liu <guoping.liu@3reality.com> 1768546036 +0800	commit: update uboot and add support for hubv3/hubv3b
-5090e62f0c1d900ccc7527bc38cb43937a069563 17a4dcfacb3cab67c2f7209e88e3862c1c96b05a guoping.liu <guoping.liu@3reality.com> 1768555635 +0800	commit: update kernel to linux-6.6.120, rename output image name
-17a4dcfacb3cab67c2f7209e88e3862c1c96b05a c09b640a0a811d00ffbb339de78c45f55085f28f guoping.liu <guoping.liu@3reality.com> 1768557548 +0800	commit: update compile script and setting
