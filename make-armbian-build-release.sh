@@ -215,7 +215,7 @@ case ${board} in
 esac
 
 # Construct new filename: thirdreality_hubv3_armbian_bookworm_current_24.11_v2.14.01.21.img
-NEW_IMG_NAME="thirdreality_${BOARD_NAME}_armbian_${RELEASE}_${BRANCH}_${REVISION}_${r3version}.img"
+NEW_IMG_NAME="thirdreality_${BOARD_NAME}_armbian_${REVISION}_${RELEASE}_6.6.120_${r3version}.img"
 NEW_IMG_PATH="${IMG_DIR}/${NEW_IMG_NAME}"
 
 # Rename the image file
