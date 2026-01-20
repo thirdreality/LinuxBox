@@ -160,8 +160,8 @@ fi
 
 export KERNEL_REUSE_LOCAL=yes
 
-./compile.sh 'BETA=no' 'BOARD=trhubv3' 'HOST=linuxbox' 'BRANCH=current' 'BUILD_DESKTOP=no' 'BUILD_MINIMAL=no' 'RELEASE=bookworm' \
-    'R3VERSION_ID=$r3_version_id' 'R3VERSION=$r3version' 'REVISION=24.11' REVISION="24.11"  IMAGE_VERSION=24.11 \
+./compile.sh BETA=no BOARD=${board} HOST=linuxbox BRANCH=current BUILD_DESKTOP=no BUILD_MINIMAL=no RELEASE=bookworm \
+    R3VERSION_ID=$r3_version_id R3VERSION=$r3version REVISION=24.11 REVISION="24.11"  IMAGE_VERSION=24.11 \
     linuxbox-images USE_FIXED_LOOP_DEVICE="$USE_FIXED_LOOP_DEVICE" \
     MAKE_FOLDERS="archive" SHOW_DEBIAN=yes SHARE_LOG=no ALLOW_ROOT=yes KERNEL_GIT=shallow \
     UPLOAD_TO_OCI_ONLY=no NETWORKING_STACK="network-manager" EXTRAWIFI=no  \
@@ -191,7 +191,7 @@ UBOOT=$(find output/usr/lib -name u-boot.nosd.bin | head -n 1)
 print_info "UBOOT: ${UBOOT}"
 
 print_info "Start convert image ..."
-EVALCMD='BETA=no BOARD=trhubv3 BRANCH=current BUILD_DESKTOP=no BUILD_MINIMAL=no RELEASE=bookworm EXTRAWIFI=no REVISION=24.11'
+EVALCMD='BETA=no BOARD=${board} BRANCH=current BUILD_DESKTOP=no BUILD_MINIMAL=no RELEASE=bookworm EXTRAWIFI=no REVISION=24.11'
 eval "$EVALCMD"
 
 # Rename image file before conversion
