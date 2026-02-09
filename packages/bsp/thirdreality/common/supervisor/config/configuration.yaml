@@ -1,0 +1,193 @@
+# LinuxBox Supervisor Configuration File
+# Default location: /var/lib/hubv3-supervisor/configuration.yaml
+# This configuration is used by the C-based supervisor to manage system behavior
+
+version: 1
+
+
+# ============================================================================
+# System Information Configuration
+# ============================================================================
+system_info:
+  # Release information files
+  release_files:
+    t3r: "/etc/t3r-release"
+    armbian: "/etc/armbian-release"
+  
+  # Device name prefixes based on board type
+  device_prefixes:
+    trhubv3: "3RHUB-"
+    trhubv3b: "3RCARE-"
+    default: "3RHUB-"
+  
+
+# ============================================================================
+# Software Package Configuration
+# ============================================================================
+# Defines software packages to query and their version mapping keys
+
+software_packages:
+  # Home Assistant packages
+  - package: "thirdreality-hacore-config"
+    key: "config"
+    
+  - package: "thirdreality-python3"
+    key: "python3"
+    
+  - package: "thirdreality-hacore"
+    key: "hacore"
+    required: true
+    
+  - package: "thirdreality-otbr-agent"
+    key: "otbr-agent"
+    
+  - package: "thirdreality-zigbee-mqtt"
+    key: "zigbee-mqtt"
+    required: true
+    
+  - package: "thirdreality-music-assistant"
+    key: "music-assistant"
+    
+  # OpenHAB packages
+  - package: "thirdreality-openhab"
+    key: "openhab"
+    
+  # System packages
+  - package: "thirdreality-board-firmware"
+    key: "board-firmware"
+    
+  - package: "thirdreality-zwave"
+    key: "zwave"
+    
+  - package: "thirdreality-enocean"
+    key: "enocean"
+    
+  - package: "thirdreality-bridge"
+    key: "thirdreality-bridge"
+    
+  - package: "linuxbox-supervisor"
+    key: "linuxbox-supervisor"
+    
+  - package: "linux-image-current-meson64"
+    key: "linux-image"
+
+# Software reporting groups (for system info display)
+software_report_packages:
+  homeassistant:
+    - "thirdreality-hacore-config"
+    - "thirdreality-python3"
+    - "thirdreality-hacore"
+    - "thirdreality-otbr-agent"
+    - "thirdreality-zigbee-mqtt"
+    - "thirdreality-music-assistant"
+  openhab:
+    - "thirdreality-openhab"
+
+# Software configuration directories
+# These directories contain software data and configuration files
+software_config_directories:
+  - source: "/var/lib/thread"
+    mapped_name: "thread_data"
+    
+  - source: "/var/lib/homeassistant"
+    mapped_name: "homeassistant_data"
+    
+  - source: "/opt/zigbee2mqtt/data"
+    mapped_name: "zigbee2mqtt_data"
+    
+  - source: "/etc/mosquitto"
+    mapped_name: "mosquitto_config"
+
+
+# Services to manage during backup/restore
+# These services will be stopped before backup/restore and restarted after
+managed_services:
+  - "home-assistant.service"
+  - "matter-server.service"
+  - "otbr-agent.service"
+  - "zigbee2mqtt.service"
+  - "mosquitto.service"
+
+# ============================================================================
+# Backup and Restore Configuration
+# ============================================================================
+backup_restore:
+  # Storage mode: 'internal' or 'external'
+  storage_mode: "external"
+  path: "/mnt/R3Backup"
+  #storage_mode: "internal"
+  # path: "/lib/thirdreality/backup"
+
+  # Restore record directory
+  restore_record_dir: "/usr/lib/thirdreality/conf"
+  
+  # Maximum number of backups to keep (0 = unlimited)
+  max_backups: 5
+  
+  # Exclude patterns for backup (fnmatch style)
+  # These files/directories will be skipped during backup
+  exclude_patterns:
+    # Log files
+    - "*.log"
+    - "*.log.*"
+    
+    # Temporary files
+    - "*.tmp"
+    - "*.cache"
+    
+    # Cache directories
+    - "cache/"
+    - "logs/"
+    - "log/"
+    - "temp/"
+    - "tmp/"
+    
+    # Python cache
+    - "__pycache__/"
+    - "*.pyc"
+    
+    # Process files
+    - "*.pid"
+    - "*.sock"
+    
+    # Database temporary files
+    - "*.db-wal"
+    - "*.db-shm"
+    
+    # Backup files
+    - "*.backup"
+    - "*.bak"
+  
+  # Database cleanup settings
+  database_cleanup:
+    # Database path in backup (relative to mapped_name)
+    homeassistant_db_path: "homeassistant_data/homeassistant/home-assistant_v2.db"
+
+    # Home Assistant database cleanup threshold (bytes)
+    homeassistant_db_threshold: 104857600  # 100MB
+
+    # Tables to purge during cleanup
+    purge_tables:
+      - "events"
+      - "states"
+      - "statistics"
+      - "statistics_short_term"
+
+# ============================================================================
+# BLE Provisioning Configuration
+# ============================================================================
+ble:
+  # 配网超时时间（秒）
+  # 客户端断连后会重新计时
+  provisioning_timeout: 300
+  
+  # BlueZ adapter 名称
+  adapter: "hci0"
+
+# ============================================================================
+# Zigbee2MQTT Configuration(zigbee mode switch)
+# ============================================================================
+zigbee2mqtt:
+  data_path: "/opt/zigbee2mqtt/data"
+  config_file: "configuration.yaml"
+  default_template: "/lib/thirdreality/conf/configuration_blz.yaml.default"

@@ -1,0 +1,31 @@
+version: 4
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://localhost:1883
+  user: thirdreality
+  password: thirdreality
+serial:
+  port: /dev/ttyAML3
+  adapter: blz
+  baudrate: 2000000
+advanced:
+  log_level: warning
+  last_seen: ISO_8601
+  channel: 15
+  network_key: GENERATE
+  pan_id: GENERATE
+  ext_pan_id: GENERATE
+
+frontend:
+  enabled: true
+  port: 8099
+  host: 0.0.0.0
+ota:
+  update_check_interval: 1440
+homeassistant:
+  enabled: true
+  discovery_topic: 'homeassistant'
+  status_topic: 'homeassistant/status'
+  experimental_event_entities: false
+  legacy_action_sensor: false
+

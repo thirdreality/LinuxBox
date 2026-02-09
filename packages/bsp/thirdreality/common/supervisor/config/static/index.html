@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="6" width="28" height="20" rx="3" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="8" cy="16" r="2" fill="currentColor"/>
+                    <circle cx="16" cy="16" r="2" fill="currentColor"/>
+                    <circle cx="24" cy="16" r="2" fill="currentColor"/>
+                    <line x1="8" y1="22" x2="24" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <span class="logo-text" data-i18n="app.title">Third Reality</span>
+            </div>
+            <div class="header-actions">
+                <!-- Language Selector -->
+                <div class="lang-selector">
+                    <button class="lang-btn" id="langBtn" title="Language">
+                        <svg class="lang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        <span class="lang-text" id="currentLangText">EN</span>
+                        <svg class="lang-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </button>
+                    <div class="lang-dropdown" id="langDropdown">
+                        <button class="lang-option" data-lang="en">
+                            <span class="lang-flag">🇺🇸</span>
+                            <span>English</span>
+                        </button>
+                        <button class="lang-option" data-lang="zh-CN">
+                            <span class="lang-flag">🇨🇳</span>
+                            <span>简体中文</span>
+                        </button>
+                        <button class="lang-option" data-lang="zh-TW">
+                            <span class="lang-flag">🇹🇼</span>
+                            <span>繁體中文</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Connection Status -->
+                <div class="header-status">
+                    <span class="status-indicator" id="connectionStatus"></span>
+                    <span class="status-text" id="connectionText" data-i18n="status.connecting">Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="system">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                <span data-i18n="tab.system">System</span>
+            </button>
+            <button class="tab-btn" data-tab="setting">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                <span data-i18n="tab.setting">Setting</span>
+            </button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="tab-content">
+            <!-- System Tab -->
+            <section class="tab-panel active" id="system-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title" data-i18n="panel.system.title">System Information</h2>
+                    <button class="refresh-btn" id="refreshSystemBtn" data-i18n-title="btn.refresh" title="Refresh">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 4v6h-6"/>
+                            <path d="M1 20v-6h6"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="info-card" id="systemInfoCard">
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <span data-i18n="loading">Loading...</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Setting Tab -->
+            <section class="tab-panel" id="setting-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title" data-i18n="panel.setting.title">Software Update</h2>
+                    <button class="refresh-btn" id="refreshOtaBtn" data-i18n-title="btn.checkUpdate" title="Check Update">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 4v6h-6"/>
+                            <path d="M1 20v-6h6"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- OTA Section -->
+                <div class="setting-group">
+                    <div class="group-header">
+                        <svg class="group-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <h3 class="group-title" data-i18n="ota.title">OTA Update</h3>
+                    </div>
+                    
+                    <div class="ota-container" id="otaContainer">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <span data-i18n="loading.checkingUpdate">Checking for updates...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Control Section -->
+                <div class="setting-group">
+                    <div class="group-header">
+                        <svg class="group-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                        </svg>
+                        <h3 class="group-title" data-i18n="system.control.title">System Control</h3>
+                    </div>
+                    
+                    <div class="control-container">
+                        <div class="control-item">
+                            <div class="control-info">
+                                <span class="control-label" data-i18n="system.restart.label">Restart Device</span>
+                                <span class="control-desc" data-i18n="system.restart.desc">Restart the LinuxBox device</span>
+                            </div>
+                            <button class="action-btn danger" id="restartBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M23 4v6h-6"/>
+                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                                </svg>
+                                <span data-i18n="system.restart.btn">Restart</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Toast Notification -->
+        <div class="toast-container" id="toastContainer"></div>
+    </div>
+
+    <script src="/static/js/i18n.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
