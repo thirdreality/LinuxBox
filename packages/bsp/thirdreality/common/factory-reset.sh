@@ -446,7 +446,7 @@ wait_for_dpkg_lock
 remove_homeassistant_core
 
 # remove zigbee2mqtt
-if [ "$trhub_model" == "trhubv3" ]; then
+if [ "$trhub_model" == "trhubv3" ] || [ "$trhub_model" == "trhubv3a" ]; then
     remove_zigbee2mqtt
     remove_linuxbox_bridge
 else
@@ -463,7 +463,7 @@ remove_openhab
 remove_music_assistant
 
 print_info "Purging remaining thirdreality packages (start)"
-if [ "$trhub_model" == "trhubv3" ]; then
+if [ "$trhub_model" == "trhubv3" ] || [ "$trhub_model" == "trhubv3a" ]; then
     debs=$(dpkg --list | awk '/^ii/ && $2 ~ /^thirdreality-/{print $2}')
     if [ -n "$debs" ]; then
         print_info "Found thirdreality packages: $debs"

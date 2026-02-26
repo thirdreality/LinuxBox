@@ -120,6 +120,16 @@ function install_distribution_agnostic() {
 			HOME_URL="https://3reality.com/"
 			SUPPORT_URL="Support@3reality.com"
 			EOF
+		elif [[ $BOARD == trhubv3a ]]; then
+			cat <<-EOF > "${SDCARD}/etc/t3r-release"
+			PRETTY_NAME="ThirdReality TRHub-V3A"
+			NAME="LinuxBox/HubV3A"
+			MODLE="3RHUB-V3A"
+			VERSION_ID="${R3VERSION_ID}"
+			VERSION="${R3VERSION}"
+			HOME_URL="https://3reality.com/"
+			SUPPORT_URL="Support@3reality.com"
+			EOF
 		else
 			display_alert "Warning" "Board $BOARD does not have t3r-release configuration" "wrn"
 		fi

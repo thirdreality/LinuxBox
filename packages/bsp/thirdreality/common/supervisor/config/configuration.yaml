@@ -18,6 +18,7 @@ system_info:
   device_prefixes:
     trhubv3: "3RHUB-"
     trhubv3b: "3RCARE-"
+    trhubv3a: "3RHUB-"
     default: "3RHUB-"
   
 

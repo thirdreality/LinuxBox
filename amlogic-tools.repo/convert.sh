@@ -19,7 +19,10 @@ if [[ "$2" == "v3" || "$2" == "trhubv3" ]]; then
   CNAME="j100" 
 elif [[ "$2" == "v3b" || "$2" == "trhubv3b" ]]; then
   DTS="meson-axg-thirdreality-trhub-v3b.dts"
-  CNAME="j100"    
+  CNAME="j100"
+elif [[ "$2" == "v3a" || "$2" == "trhubv3a" ]]; then
+  DTS="meson-axg-thirdreality-trhub-v3a.dts"
+  CNAME="j100"
 elif [[ "$2" == "h1" || "$2" == "j80" ]]; then
   DTS="meson-gxl-s905w-jethome-jethub-j80.dts"
   CNAME="j80"

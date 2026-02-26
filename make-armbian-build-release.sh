@@ -27,7 +27,7 @@ check_command() {
 # Directories setup
 current_dir=$(pwd)
 print_info "Working directory is '$current_dir'"
-echo "Usage: $0 [-b board:trhubv3|trhubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
+echo "Usage: $0 [-b board:trhubv3|trhubv3b|trhubv3a|linuxbox] -d [cn|us|kr] -r [revision]"
 
 
 board="trhubv3"
@@ -35,14 +35,14 @@ destination=""
 r3version="v2.14.01.21"
 
 usage() {
-    echo "Usage: $0 [-b board:trhubv3|trhubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
+    echo "Usage: $0 [-b board:trhubv3|trhubv3b|trhubv3a|linuxbox] -d [cn|us|kr] -r [revision]"
     exit 1
 }
 
 while getopts ":b:d:r:v:h" opt; do
     case ${opt} in
         b)
-            if [[ "$OPTARG" == "trhubv3" || "$OPTARG" == "trhubv3b" || "$OPTARG" == "linuxbox" ]]; then
+            if [[ "$OPTARG" == "trhubv3" || "$OPTARG" == "trhubv3b" || "$OPTARG" == "trhubv3a" || "$OPTARG" == "linuxbox" ]]; then
                 board=$OPTARG
             else
                 echo "Invalid board type: $OPTARG"
@@ -209,6 +209,9 @@ case ${board} in
   trhubv3b)
     BOARD_NAME="hubv3b"
     ;;
+  trhubv3a)
+    BOARD_NAME="hubv3a"
+    ;;
   *)
     BOARD_NAME="${board}"
     ;;
@@ -235,6 +238,10 @@ case ${BOARD} in
   trhubv3b)
     ./convert.sh ../${IMG} v3b armbian compress output/usr/lib/linux*/u-boot.nosd.bin
     SUPPORTED="V3,V3B"
+    ;;
+  trhubv3a)
+    ./convert.sh ../${IMG} v3a armbian compress output/usr/lib/linux*/u-boot.nosd.bin
+    SUPPORTED="V3,V3A,V3B"
     ;;
   jethubj100)
     ./convert.sh ../${IMG} d1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin
