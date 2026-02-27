@@ -27,7 +27,7 @@ check_command() {
 # Directories setup
 current_dir=$(pwd)
 print_info "Working directory is '$current_dir'"
-echo "Usage: $0 [-b board:trhubv3|trhubv3b|trhubv3a|linuxbox] -d [cn|us|kr] -r [revision]"
+echo "Usage: $0 [-b board:trhubv3|trhubv3a|trhubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
 
 
 board="trhubv3"
@@ -35,7 +35,7 @@ destination=""
 r3version="v2.14.01.21"
 
 usage() {
-    echo "Usage: $0 [-b board:trhubv3|trhubv3b|trhubv3a|linuxbox] -d [cn|us|kr] -r [revision]"
+    echo "Usage: $0 [-b board:trhubv3|trhubv3a|trhubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
     exit 1
 }
 
