@@ -178,7 +178,18 @@ check_command "zip" "zip"
 
 # Find output files
 UBOOTDEB=$(find output | grep linux-u-boot | head -n 1)
-IMG=$(find output | grep -e  ".*images.*Armbian.*\.img$" | grep -v "\.img\." | head -n 1)
+#
+# Find the generated OS image.
+# NOTE: After changing branding (e.g. `VENDOR`), the filename may no longer contain "Armbian",
+# so we must not rely on that substring when locating the .img artifact.
+IMG=$(find output -type f -path "*/images/*/archive/*.img" | grep -v "\.img\." | head -n 1)
+if [ -z "${IMG}" ]; then
+  IMG=$(find output -type f -path "*/images/*" -name "*.img" | grep -v "\.img\." | head -n 1)
+fi
+if [ -z "${IMG}" ]; then
+  print_error "Cannot locate built .img under output/images/* (check branding / output artifacts)."
+  exit 1
+fi
 
 print_info "Uboot.deb: ${UBOOTDEB}"
 print_info "Image: ${IMG}"

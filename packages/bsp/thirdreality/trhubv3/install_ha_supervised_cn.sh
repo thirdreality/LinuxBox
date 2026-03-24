@@ -68,24 +68,18 @@ check_and_install_tools() {
 	EOF
 
     apt-get update -y || { print_error "Failed to update package list"; }
-    DEBIAN_FRONTEND=noninteractive APT_LISTCHANGES_FRONTEND=none apt install apparmor bluez  cifs-utils curl dbus \
-        jq libglib2.0-bin lsb-release network-manager \
-        nfs-common systemd-journal-remote systemd-resolved udisks2 \
+    DEBIAN_FRONTEND=noninteractive APT_LISTCHANGES_FRONTEND=none apt install apparmor bluez cifs-utils curl dbus \
+        iproute2 jq libglib2.0-bin lsb-release network-manager \
+        nfs-common systemd-journal-remote systemd-resolved systemd-timesyncd udisks2 \
         wget -y || { print_error "Failed to install necessary tools."; }
 }
 
 check_and_install_docker() {
 
-    print_info "Check CGROUP config..."
-    if grep -q "extraargs=systemd.unified_cgroup_hierarchy=false" /boot/armbianEnv.txt; then
-        print_info "... Already modified: /boot/armbianEnv.txt"
-    else
-        print_info "... Modifying /boot/armbianEnv.txt"
-        echo "extraargs=systemd.unified_cgroup_hierarchy=false" >> /boot/armbianEnv.txt
-    fi
-
     if [ -x "$(command -v docker)" ]; then
         print_info "Docker already installed"
+        systemctl reset-failed docker 2>/dev/null || true
+        systemctl start docker 2>/dev/null || true
     else
         print_info "Installing docker..."
         curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh --mirror Aliyun
@@ -152,7 +146,8 @@ EOF
 
     # Restart Docker to apply the changes
     echo "Restarting Docker daemon..."
-    sudo systemctl restart docker
+    systemctl reset-failed docker 2>/dev/null || true
+    systemctl restart docker
 
     # Check the status of Docker service
     if systemctl is-active --quiet docker; then
@@ -163,14 +158,14 @@ EOF
 }
 
 check_and_install_os_agent(){
-    # os-agent   deb: amd64 https://github.com/home-assistant/os-agent/releases/download/1.6.0/os-agent_1.6.0_linux_x86_64.deb
-	# os-agent   deb: arm64 https://github.com/home-assistant/os-agent/releases/download/1.6.0/os-agent_1.6.0_linux_aarch64.deb
-	# os-agent   deb: armhf https://github.com/home-assistant/os-agent/releases/download/1.6.0/os-agent_1.6.0_linux_armv7.deb
+    # os-agent   deb: amd64 https://github.com/home-assistant/os-agent/releases/download/1.8.1/os-agent_1.8.1_linux_x86_64.deb
+	# os-agent   deb: arm64 https://github.com/home-assistant/os-agent/releases/download/1.8.1/os-agent_1.8.1_linux_aarch64.deb
+	# os-agent   deb: armhf https://github.com/home-assistant/os-agent/releases/download/1.8.1/os-agent_1.8.1_linux_armv7.deb
 
-    # https://github.com/home-assistant/os-agent/releases/download/1.7.2/os-agent_1.7.2_linux_aarch64.deb
+    # https://github.com/home-assistant/os-agent/releases/download/1.8.1/os-agent_1.8.1_linux_aarch64.deb
 
     HA_OS_AGENT_ARCH="aarch64"
-	HA_OS_AGENT_VERSION="1.7.2"
+	HA_OS_AGENT_VERSION="1.8.1"
 	HA_OS_AGENT_FILENAME="os-agent_${HA_OS_AGENT_VERSION}_linux_${HA_OS_AGENT_ARCH}.deb"
 	HA_OS_AGENT_URL="https://github.com/home-assistant/os-agent/releases/download/${HA_OS_AGENT_VERSION}/${HA_OS_AGENT_FILENAME}"
 
@@ -193,10 +188,9 @@ check_and_install_os_agent(){
 
 check_and_install_supervised()
 {
-    # https://github.com/home-assistant/supervised-installer/releases/download/2.0.0/homeassistant-supervised.deb
-    # https://github.com/home-assistant/supervised-installer/releases/download/3.0.0/homeassistant-supervised.deb
+    # https://github.com/home-assistant/supervised-installer/releases/download/4.0.1/homeassistant-supervised.deb
 
-    HA_SUPERVISED_VERSION="3.0.0"
+    HA_SUPERVISED_VERSION="4.0.1"
 	HA_SUPERVISED_FILENAME="homeassistant-supervised.deb"
 	HA_SUPERVISED_URL="https://github.com/home-assistant/supervised-installer/releases/download/${HA_SUPERVISED_VERSION}/homeassistant-supervised.deb"
 
@@ -216,8 +210,10 @@ check_and_install_supervised()
 
     if [ -f "/tmp/${HA_SUPERVISED_FILENAME}" ]; then
         print_info "install supervised ..."
-        #apt install "/tmp/${HA_SUPERVISED_FILENAME}"
-        MACHINE=${MACHINE} dpkg -i "/tmp/${HA_SUPERVISED_FILENAME}"
+
+        # BYPASS_OS_CHECK: supervised-installer only officially supports Debian 13 (trixie),
+        # but works on bookworm (Armbian/Debian 12) with this bypass flag.
+        MACHINE=${MACHINE} BYPASS_OS_CHECK=true dpkg -i "/tmp/${HA_SUPERVISED_FILENAME}"
 
         print_info "remove supervised deb..."
         rm -rf "/tmp/${HA_SUPERVISED_FILENAME}"
@@ -392,4 +388,5 @@ esac
 
 current_time=$(date +"%H:%M:%S")
 echo "Current Time: $current_time"
+
 
