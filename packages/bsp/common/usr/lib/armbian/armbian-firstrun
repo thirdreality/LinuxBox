@@ -60,6 +60,8 @@ case "$1" in
 	# get rid of purple background color in newt apps whiptail, partimage, debconf ... Reverting to Debian look.
 	[[ -f /etc/newt/palette ]] && sed -e 's/magenta/blue/g' -i /etc/newt/palette
 
+	chmod +x /etc/update-motd.d/*
+
 	# randomize mac in armbianEnv.txt
 	# if [[ -f /boot/armbianEnv.txt ]]; then
 	# 	#get_random_mac

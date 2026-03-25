@@ -91,7 +91,8 @@ if systemctl is-active --quiet service hostapd && [ -f /etc/hostapd/hostapd.conf
 fi
 
 # Display software vendor logo
-echo -e "\e[1;91m$(figlet -f small " $VENDOR")\e[0m";
+echo -e "\e[1;91m$(figlet -f big -k " $VENDOR")\e[0m";
+
 
 # Display version, board, and kernel version
 [[ $VERSION == *trunk* ]] && VERSION=$(echo -e $VERSION | cut -d"." -f1-2 | sed "s/\$/ rolling/")
