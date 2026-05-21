@@ -9,7 +9,7 @@ Before=home-assistant.service zigbee2mqtt.service otbr-agent.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/supervisor --daemon
+ExecStart=/usr/local/bin/supervisor --daemon --html /usr/share/hubv3-supervisor/static
 
 # Pre-start preparation
 # 1. Ensure log directory exists

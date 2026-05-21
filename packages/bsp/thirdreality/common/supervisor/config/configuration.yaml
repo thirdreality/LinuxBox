@@ -6,6 +6,50 @@ version: 1
 
 
 # ============================================================================
+# Hardware Configuration (GPIO Pins)
+# ============================================================================
+# If this section is not present, default values will be used
+# Customize this for different board variants
+
+hardware:
+  # LED GPIO Configuration
+  led:
+    red:
+      chip: "gpiochip1"
+      line: 3
+    green:
+      chip: "gpiochip0"
+      line: 4
+    blue:
+      chip: "gpiochip0"
+      line: 5
+  
+  # Button GPIO Configuration
+  # HubV3 / HubV3B: chip="gpiochip0", line=26
+  # HubV3A:         chip="gpiochip1", line=11
+  button:
+    chip: "gpiochip1"
+    line: 11
+
+  # Zigbee Module GPIO Configuration (BL702 reset/boot pins)
+  # HubV3/HubV3B defaults: reset_line=1, boot_line=3 (GPIOZ_1/GPIOZ_3)
+  # HubV3A values:  reset_line=43, boot_line=42 (GPIOA_17/GPIOA_16)
+  # chip: GPIO chip number (integer, e.g., 0 for gpiochip0)
+  zigbee:
+    chip: 0
+    reset_line: 1
+    boot_line: 3
+
+  # Thread Module GPIO Configuration
+  # HubV3/HubV3B defaults: reset_line=27, boot_line=29 (GPIOA_1/GPIOA_3)
+  # HubV3A values:  reset_line=2,  boot_line=4
+  thread:
+    chip: 0
+    reset_line: 27
+    boot_line: 29
+
+
+# ============================================================================
 # System Information Configuration
 # ============================================================================
 system_info:
@@ -15,11 +59,11 @@ system_info:
     armbian: "/etc/armbian-release"
   
   # Device name prefixes based on board type
+  # trhubv3 (exact match only) -> prefix_trhubv3
+  # trhubv3a, trhubv3b, and all other board types -> default
   device_prefixes:
     trhubv3: "3RHUB-"
-    trhubv3b: "3RCARE-"
-    trhubv3a: "3RHUB-"
-    default: "3RHUB-"
+    default: "3RCARE-"
   
 
 # ============================================================================

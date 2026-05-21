@@ -13,8 +13,8 @@ on:
         default: "us"
       revision:
         description: "Revision (optional)"
-          required: true
-          default: "v1.14.01.21"
+        required: true
+        default: "v1.14.01.30"
 
 jobs:
   build-linuxbox:
@@ -180,8 +180,6 @@ jobs:
 
       - name: Build firmware
         working-directory: /mnt/linuxbox
-        env:
-          NO_APT_CACHER: yes
         run: |
           set -e
           
@@ -211,7 +209,7 @@ jobs:
           if ! ./compile.sh hubv3-images BOARD=${{ github.event.inputs.board }} BRANCH=current RELEASE=bookworm R3VERSION=$r3version R3VERSION_ID=$r3_version_id \
             BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
             COMPRESS_OUTPUTIMAGE=sha,gpg,img INSTALL_HEADERS=no WIREGUARD=no \
-            UBOOT_MIRROR=github NO_APT_CACHER=yes \
+            UBOOT_MIRROR=github MANAGE_ACNG=no \
             DOWNLOAD_MIRROR=$destination; then
             echo ""
             echo "=== Build failed. Checking logs and disk space ==="
