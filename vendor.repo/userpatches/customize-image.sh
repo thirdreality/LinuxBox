@@ -84,6 +84,32 @@ InstallForHubV3() {
 	echo "InstallForHubV3 ..."
 	apt-get autoremove -y
 	apt-get clean
+
+	# Install Node.js 24.x from NodeSource
+	echo "Installing Node.js 24.x from NodeSource ..."
+	apt-get install -y curl gnupg
+	mkdir -p /usr/share/keyrings
+	rm -f /usr/share/keyrings/nodesource.gpg
+	rm -f /etc/apt/sources.list.d/nodesource.sources
+	curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
+	chmod 644 /usr/share/keyrings/nodesource.gpg
+	cat > /etc/apt/sources.list.d/nodesource.sources <<-EOF
+	Types: deb
+	URIs: https://deb.nodesource.com/node_24.x
+	Suites: nodistro
+	Components: main
+	Architectures: arm64
+	Signed-By: /usr/share/keyrings/nodesource.gpg
+	EOF
+	# Pin NodeSource packages to higher priority
+	cat > /etc/apt/preferences.d/nodejs <<-EOF
+	Package: nodejs
+	Pin: origin deb.nodesource.com
+	Pin-Priority: 600
+	EOF
+	apt-get update -y
+	apt-get install -y nodejs
+	echo "Node.js installed: $(node --version)"
 	
 	#kernel modules to load at boot time
 	# echo "aml_sdio" | sudo tee -a /etc/modules

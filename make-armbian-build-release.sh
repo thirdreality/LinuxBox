@@ -32,7 +32,7 @@ echo "Usage: $0 [-b board:trhubv3|trhubv3a|trhubv3b|linuxbox] -d [cn|us|kr] -r [
 
 board="trhubv3"
 destination=""
-r3version="v2.14.01.30"
+r3version="v2.14.01.32"
 
 usage() {
     echo "Usage: $0 [-b board:trhubv3|trhubv3a|trhubv3b|linuxbox] -d [cn|us|kr] -r [revision]"

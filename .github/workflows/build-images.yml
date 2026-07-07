@@ -55,7 +55,7 @@ on:
       revision:
         description: "Revision (optional)"
         required: false
-        default: "v1.13.01.12"
+        default: "v2.14.01.32"
 
       advanced:
         description: 'Single board (grep -w tinkerboard |)'
