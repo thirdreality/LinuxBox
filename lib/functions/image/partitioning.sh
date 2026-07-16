@@ -78,7 +78,7 @@ function prepare_partitions() {
 	mkfs[xfs]=xfs
 	# mkfs[nfs] is empty
 
-	mountopts[ext4]=',commit=120,errors=remount-ro' # EXT4 default: 5 (https://www.man7.org/linux/man-pages/man5/ext4.5.html)
+	mountopts[ext4]=',commit=30,errors=remount-ro' # EXT4 default: 5 (https://www.man7.org/linux/man-pages/man5/ext4.5.html)
 	# mountopts[ext2] is empty
 	# mountopts[fat] is empty
 	# mountopts[f2fs] is empty
