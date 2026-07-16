@@ -17,6 +17,18 @@ setenv rootfstype "ext4"
 setenv docker_optimizations "on"
 setenv prefix "boot/"
 
+# Auto-detect where the boot files live so this script works with both
+# layouts:
+#   - single partition: kernel/DTB/initrd are under boot/ on the rootfs
+#   - separate /boot partition: they live at the boot partition's root
+# distro-boot sets ${devnum} to the partition boot.scr was found on.
+if test -e ${devtype} ${devnum} ${prefix}Image; then
+	echo "Boot files under '${prefix}' (single-partition layout)"
+else
+	setenv prefix ""
+	echo "Boot files at partition root (separate /boot partition)"
+fi
+
 # Show what uboot default fdtfile is
 echo "U-boot default fdtfile: ${fdtfile}"
 echo "[HubV3.cmd]Current variant: ${variant}"

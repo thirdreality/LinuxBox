@@ -1,7 +1,14 @@
 / {
 	partitions: partitions {
-		parts = <1>;
-		part-0 = <&rootfs>;
+		parts = <2>;
+		part-0 = <&boot>;
+		part-1 = <&rootfs>;
+		boot: boot {
+			pname = "boot";
+			/* 128 MiB - MUST match BOOTSIZE in config/sources/families/trhub.conf */
+			size = <0x0 0x8000000>;
+			mask = <4>;
+		};
 		rootfs: rootfs {
 			pname = "rootfs";
 			size = <0xffffffff 0xffffffff>;
