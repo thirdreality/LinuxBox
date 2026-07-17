@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -e 
+# Do not use set -e to avoid aborting the whole script when a single command fails
+# set -e
 
 SCRIPT="HubV3"
 
@@ -9,6 +10,7 @@ SYSCTL_ACCEPT_RA_FILE="/etc/sysctl.d/60-otbr-accept-ra.conf"
 SYSCTL_IP_FORWARD_FILE="/etc/sysctl.d/60-otbr-ip-forward.conf"
 RESTORE_APT_SERVICES="${RESTORE_APT_SERVICES:-0}"
 DPKG_LOCK_MAX_WAIT="${DPKG_LOCK_MAX_WAIT:-30}"
+
 DPKG_LOCK_FILES=(
     "/var/lib/dpkg/lock-frontend"
     "/var/lib/dpkg/lock"
@@ -17,9 +19,17 @@ DPKG_LOCK_FILES=(
 )
 DPKG_READY=0
 
-function print_info() { echo -e "\e[1;34m[${SCRIPT}] INFO:\e[0m $1"; }
-function print_error() { echo -e "\e[1;31m[${SCRIPT}] ERROR:\e[0m $1"; }
-function print_request() {  echo -n -e "\e[1;34m[${SCRIPT}] INFO:\e[0m $1"; }
+function _ts() { date '+%Y-%m-%d %H:%M:%S'; }
+function print_info()  { echo -e "\e[1;34m[$( _ts )] [${SCRIPT}] INFO:\e[0m $1"; }
+function print_error() { echo -e "\e[1;31m[$( _ts )] [${SCRIPT}] ERROR:\e[0m $1"; }
+function print_request() { echo -n -e "\e[1;34m[$( _ts )] [${SCRIPT}] INFO:\e[0m $1"; }
+
+# Helper: check whether a systemd service unit exists on this system.
+# Returns 0 if the unit is known, non-zero otherwise.
+service_exists() {
+    local unit="$1"
+    systemctl list-unit-files "$unit" >/dev/null 2>&1 || systemctl status "$unit" >/dev/null 2>&1
+}
 
 repositories_to_remove=(
     "ghcr.io/home-assistant/odroid-n2-homeassistant"
@@ -35,7 +45,7 @@ repositories_to_remove=(
 
 error_handler() {
     local lineno=$1
-    echo "Error occurred at line $lineno"
+    print_error "Error occurred at line $lineno (continuing anyway)"
 }
 
 trap 'error_handler $LINENO' ERR
@@ -51,7 +61,6 @@ APT_AUTO_TIMERS=(
     "apt-daily-upgrade.timer"
 )
 
-
 get_trhub_model() {
   if [ -f /etc/armbian-release ]; then
     local board=$(grep "^BOARD=" /etc/armbian-release | cut -d'=' -f2)
@@ -65,14 +74,14 @@ get_trhub_model() {
   fi
 }
 
-
 function disable_apt_auto_services() {
-    print_info "Disabling apt automatic update services"
+    print_info "Disabling apt automatic update services (start)"
     for unit in "${APT_AUTO_SERVICES[@]}" "${APT_AUTO_TIMERS[@]}"; do
         systemctl stop "$unit" >/dev/null 2>&1 || true
         systemctl disable "$unit" >/dev/null 2>&1 || true
         systemctl mask "$unit" >/dev/null 2>&1 || true
     done
+    print_info "Disabling apt automatic update services (done)"
 }
 
 function restore_apt_auto_services() {
@@ -80,7 +89,8 @@ function restore_apt_auto_services() {
     for unit in "${APT_AUTO_SERVICES[@]}" "${APT_AUTO_TIMERS[@]}"; do
         systemctl unmask "$unit" >/dev/null 2>&1 || true
         systemctl enable "$unit" >/dev/null 2>&1 || true
-        systemctl start "$unit" >/dev/null 2>&1 || true
+        # 不启动服务，因为马上就要 reboot 了
+        # systemctl start "$unit" >/dev/null 2>&1 || true
     done
 }
 
@@ -146,7 +156,8 @@ function wait_for_dpkg_lock() {
         return 0
     fi
 
-    print_info "Ensuring dpkg is idle"
+    print_info "Ensuring dpkg is idle (start)"
+    log_dpkg_lock_holders
     terminate_package_processes
 
     local locks_found=0
@@ -159,16 +170,22 @@ function wait_for_dpkg_lock() {
     done
 
     if [ "$locks_found" -eq 1 ]; then
-        print_info "Repairing dpkg state"
+        print_info "Repairing dpkg state (dpkg --configure -a only; skip apt-get -f install when no network)"
         dpkg --configure -a >/dev/null 2>&1 || true
-        DEBIAN_FRONTEND=noninteractive apt-get -f install -y >/dev/null 2>&1 || true
     fi
 
+    print_info "Ensuring dpkg is idle (done)"
     DPKG_READY=1
 }
 
 function _remove_otbr_agent()
 {
+    # Fast path: if otbr-agent is not installed at all, skip the rest.
+    if ! service_exists "otbr-agent.service" && ! command -v otbr-agent >/dev/null 2>&1; then
+        print_info "otbr-agent not present; skipping _remove_otbr_agent"
+        return 0
+    fi
+
     /usr/bin/systemctl stop otbr-web > /dev/null 2>&1 || true
     /usr/bin/systemctl stop otbr-agent > /dev/null 2>&1 || true
 
@@ -189,7 +206,7 @@ function _remove_otbr_agent()
     test ! -f ${SYSCTL_ACCEPT_RA_FILE} || rm -v ${SYSCTL_ACCEPT_RA_FILE} > /dev/null 2>&1 || true
     test ! -f ${SYSCTL_IP_FORWARD_FILE} || rm -v ${SYSCTL_IP_FORWARD_FILE} > /dev/null 2>&1 || true
 
-    sed -i.bak '/88\s\+openthread/d' /etc/iproute2/rt_tables
+    sed -i.bak '/88\s\+openthread/d' /etc/iproute2/rt_tables || true
 
     test ! -f /lib/libnss_mdns.so.2 || rm -rf /lib/libnss_mdns.so.2 > /dev/null 2>&1 || true
     test ! -f /usr/lib/libdns_sd.so || rm -rf /usr/lib/libdns_sd.so > /dev/null 2>&1 || true
@@ -206,10 +223,16 @@ function _remove_otbr_agent()
 
 remove_homeassistant_core()
 {
-    /usr/bin/systemctl stop home-assistant > /dev/null 2>&1 || true
-    /usr/bin/systemctl stop home-assistant > /dev/null 2>&1 || true
+    if ! service_exists "home-assistant.service"; then
+        print_info "home-assistant.service not found; skipping remove_homeassistant_core"
+        return 0
+    fi
 
-    /usr/bin/systemctl disable matter-server > /dev/null 2>&1 || true
+    print_info "remove_homeassistant_core (start)"
+    /usr/bin/systemctl stop home-assistant > /dev/null 2>&1 || true
+    /usr/bin/systemctl stop matter-server > /dev/null 2>&1 || true
+
+    /usr/bin/systemctl disable home-assistant > /dev/null 2>&1 || true
     /usr/bin/systemctl disable matter-server > /dev/null 2>&1|| true
 
     dpkg --configure -a > /dev/null 2>&1 || true
@@ -219,16 +242,22 @@ remove_homeassistant_core()
     apt-get purge -y thirdreality-python3.13 > /dev/null 2>&1 || true
     apt-get purge -y thirdreality-python3 > /dev/null 2>&1 || true
     apt-get purge -y thirdreality-otbr-agent  > /dev/null 2>&1 || true    
-    #apt-get purge -y thirdreality-zigbee-mqtt  > /dev/null || true
 
-    apt-get autoremove -y >/dev/null || true
-    systemctl daemon-reload
+    apt-get autoremove -y >/dev/null 2>&1 || true
+    systemctl daemon-reload || true
 
     _remove_otbr_agent
+    print_info "remove_homeassistant_core (done)"
 }
 
 remove_zigbee2mqtt()
 {
+    if ! service_exists "zigbee2mqtt.service"; then
+        print_info "zigbee2mqtt.service not found; skipping remove_zigbee2mqtt"
+        return 0
+    fi
+
+    print_info "remove_zigbee2mqtt (start)"
     /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null 2>&1|| true
     /usr/bin/systemctl disable zigbee2mqtt.service > /dev/null 2>&1 || true
 
@@ -236,7 +265,7 @@ remove_zigbee2mqtt()
     # enabled by default. The device reboots at the end of factory reset, so
     # leaving it enabled lets it start automatically on the next boot.
 
-    dpkg --configure -a > /dev/null || true
+    dpkg --configure -a > /dev/null 2>&1 || true
 
     apt-get purge -y thirdreality-zigbee-mqtt > /dev/null 2>&1 || true
 
@@ -249,10 +278,17 @@ remove_zigbee2mqtt()
     systemctl daemon-reload || true
 
     rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
+    print_info "remove_zigbee2mqtt (done)"
 }
 
 remove_openhab()
 {
+    if ! service_exists "openhab.service"; then
+        print_info "openhab.service not found; skipping remove_openhab"
+        return 0
+    fi
+
+    print_info "remove_openhab (start)"
     /usr/bin/systemctl stop openhab.service > /dev/null 2>&1 || true
     /usr/bin/systemctl disable openhab.service > /dev/null 2>&1 || true
 
@@ -260,100 +296,51 @@ remove_openhab()
     apt-get purge -y openjdk-17-jre* > /dev/null 2>&1 || true
 
     rm -rf /usr/share/keyrings/openhab.gpg > /dev/null 2>&1 || true
-    rm -rf /etc/apt/sources.list.d/openhab.list > /dev/null || true
-    rm -rf /var/log/openhab > /dev/null || true
+    rm -rf /etc/apt/sources.list.d/openhab.list > /dev/null 2>&1 || true
+    rm -rf /var/log/openhab > /dev/null 2>&1 || true
 
-    apt-get autoremove -y >/dev/null || true
-    systemctl daemon-reload
+    apt-get autoremove -y >/dev/null 2>&1 || true
+    systemctl daemon-reload || true
+    print_info "remove_openhab (done)"
 }
-
-# remove_homeassistant_supervised()
-# {
-#     if [ -f /usr/sbin/hassio-supervisor ]; then    
-#         systemctl stop haos-agent > /dev/null 2>&1
-#         systemctl stop hassio-apparmor > /dev/null 2>&1
-#         systemctl stop hassio-supervisor > /dev/null 2>&1
-#         apt-get purge -y homeassistant-supervised\* > /dev/null 2>&1 || true
-#         dpkg -r homeassistant-supervised > /dev/null 2>&1 || true
-#         dpkg -r os-agent > /dev/null 2>&1 || true
-
-#         dpkg -r thirdreality-hassio-config > /dev/null 2>&1 || true
-
-#         # Stop and kill containers and images.
-#         for repo in "${repositories_to_remove[@]}"; do
-#             images=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^$repo" || true)
-#             if [ ! -z "$images" ]; then
-#                 for image in $images; do
-#                     containers=$(docker ps -a -q --filter ancestor="$image")
-#                     if [ -n "$containers" ]; then
-#                         print_info "Stopping containers based on image: $image"
-#                         docker stop $containers
-#                         docker rm $containers
-#                     fi
-                        
-#                     print_info "Removing image: $image"
-#                     docker rmi "$image"
-#                 done
-#             fi
-#         done
-
-#         print_info "Selected containers stopped and images removed successfully."
-
-#         sleep 5
-#         docker system prune -a -f > /dev/null 2>&1
-
-#         if [ -f "/etc/hassio.json" ]; then
-#             rm -rf /etc/hassio.json
-#         fi
-            
-#         if [ -e "/var/lib/homeassistant" ]; then
-#             rm -rf /var/lib/homeassistant
-#         fi
-
-#         if [ -d "/usr/share/hassio" ]; then
-#             rm -rf /usr/share/hassio
-#         fi
-
-#         print_info "Remove old Home Assistant done"
-#     else
-#         print_error "Home Assistant Supervised is not found."
-#     fi
-# }
-
-# remove_zigpy_tools()
-# {
-#     if [ -e "/usr/local/thirdreality/zigpy_tools/bin/activate" ]; then
-#         dpkg -r thirdreality-zigpy-tools > /dev/null 2>&1 || true
-
-#         print_info "Remove old thirdreality zigpy-tools done"
-#     fi
-# }
-
 
 remove_music_assistant()
 {
+    if ! service_exists "music-assistant.service"; then
+        print_info "music-assistant.service not found; skipping remove_music_assistant"
+        return 0
+    fi
+
+    print_info "remove_music_assistant (start)"
     /usr/bin/systemctl stop music-assistant.service > /dev/null 2>&1 || true
     /usr/bin/systemctl disable music-assistant.service > /dev/null 2>&1 || true
 
     apt-get purge -y thirdreality-music-assistant > /dev/null 2>&1 || true
+    print_info "remove_music_assistant (done)"
 }
 
 remove_linuxbox_bridge()
 {
+    if ! service_exists "linuxbox-hubv3-bridge.service"; then
+        print_info "linuxbox-hubv3-bridge.service not found; skipping remove_linuxbox_bridge"
+        return 0
+    fi
+
+    print_info "remove_linuxbox_bridge (start)"
     /usr/bin/systemctl stop linuxbox-hubv3-bridge.service > /dev/null 2>&1 || true
     /usr/bin/systemctl disable linuxbox-hubv3-bridge.service > /dev/null 2>&1 || true
 
     apt-get purge -y thirdreality-bridge > /dev/null 2>&1 || true
+    print_info "remove_linuxbox_bridge (done)"
 }
-
 
 restore_serial_tty()
 {
-    print_info "Restoring serial tty service"
+    print_info "Restoring serial tty service (start)"
     systemctl unmask serial-getty@ttyAML0.service >/dev/null 2>&1 || true
     systemctl enable serial-getty@ttyAML0.service >/dev/null 2>&1 || true
     systemctl start serial-getty@ttyAML0.service >/dev/null 2>&1 || true
-    print_info "Serial tty service restored"
+    print_info "Restoring serial tty service (done)"
 }
 
 update_zigbee2mqtt_config()
@@ -366,7 +353,6 @@ update_zigbee2mqtt_config()
     
     print_info "Checking Zigbee2MQTT configuration file"
     
-    # Create backup with timestamp
     local timestamp
     timestamp=$(date +%Y%m%d%H%M%S)
     local backup_file="/opt/zigbee2mqtt/data/configuration_${timestamp}.yaml"
@@ -377,7 +363,6 @@ update_zigbee2mqtt_config()
         return 1
     }
     
-    # Update frontend.enabled to true using Python
     print_info "Updating Zigbee2MQTT frontend settings"
     
     /usr/bin/python3 << 'PYTHON_EOF'
@@ -386,7 +371,6 @@ import sys
 config_file = "/opt/zigbee2mqtt/data/configuration.yaml"
 
 try:
-    # Read the file
     with open(config_file, 'r', encoding='utf-8') as f:
         lines = f.readlines()
     
@@ -397,19 +381,15 @@ try:
     for line in lines:
         stripped = line.lstrip()
         
-        # Check for frontend section
         if line.strip() == 'frontend:':
             in_frontend_section = True
             result_lines.append(line)
             continue
         
-        # Check if we're leaving frontend section (next top-level key without indentation)
         if in_frontend_section and stripped and not line.startswith(' ') and not line.startswith('\t'):
             in_frontend_section = False
         
-        # Process frontend section - only modify enabled field
         if in_frontend_section and stripped.startswith('enabled:'):
-            # Check current value
             current_value = stripped.split(':', 1)[1].strip().lower()
             if current_value == 'false':
                 result_lines.append("  enabled: true\n")
@@ -419,7 +399,6 @@ try:
         else:
             result_lines.append(line)
     
-    # Only write back if we actually modified something
     if modified:
         with open(config_file, 'w', encoding='utf-8') as f:
             f.writelines(result_lines)
@@ -446,14 +425,19 @@ PYTHON_EOF
     print_info "Zigbee2MQTT configuration updated successfully"
 }
 
-echo "System is start to perform factory reset actions. " | wall
+# ========== 主流程开始 ==========
 
+print_info "=== Factory reset script started ==="
+echo "System is starting to perform factory reset actions." | wall
+
+# 设置 LED 为 factory reset 状态
 if [ -e "/usr/local/bin/supervisor" ]; then
-    /usr/local/bin/supervisor led factory_reset
+    /usr/local/bin/supervisor led clear || true
+    /usr/local/bin/supervisor led factory_reset || true
 fi
 
 trhub_model=$(get_trhub_model)
-echo "TRHub model: $trhub_model"
+print_info "TRHub model: $trhub_model"
 
 # Stop and disable automatic apt services to avoid lock contention
 disable_apt_auto_services
@@ -463,7 +447,7 @@ wait_for_dpkg_lock
 remove_homeassistant_core
 
 # remove zigbee2mqtt
-if [ "$trhub_model" == "trhubv3" ]; then
+if [ "$trhub_model" == "trhubv3" ] || [ "$trhub_model" == "trhubv3a" ]; then
     remove_zigbee2mqtt
     remove_linuxbox_bridge
 else
@@ -477,65 +461,76 @@ fi
 # remove openhab
 remove_openhab
 
-# remove_homeassistant_supervised
-# remove_zigpy_tools
-
 remove_music_assistant
 
-# Query and remove all packages matching "thirdreality", leaving room for future upgrades
-if [ "$trhub_model" == "trhubv3" ]; then
+print_info "Purging remaining thirdreality packages (start)"
+if [ "$trhub_model" == "trhubv3" ] || [ "$trhub_model" == "trhubv3a" ]; then
     debs=$(dpkg --list | awk '/^ii/ && $2 ~ /^thirdreality-/{print $2}')
     if [ -n "$debs" ]; then
         print_info "Found thirdreality packages: $debs"
-        echo "$debs" | xargs -r apt-get remove -y
+        echo "$debs" | xargs -r apt-get remove -y || true
     else
         print_info "No thirdreality packages found"
     fi
 fi
+print_info "Purging remaining thirdreality packages (done)"
 
+print_info "Removing hassio/homeassistant/thread and thirdreality paths (start)"
 rm -rf /usr/share/hassio > /dev/null 2>&1 || true
 rm -rf /var/lib/homeassistant > /dev/null 2>&1 || true
 rm -rf /var/lib/thread  > /dev/null 2>&1 || true
 rm -rf /lib/thirdreality/conf/*  > /dev/null 2>&1 || true
 rm -rf /lib/thirdreality/backup/*  > /dev/null 2>&1 || true
 rm -rf /lib/thirdreality/archives/* > /dev/null 2>&1 || true
-
 rm -rf /usr/lib/firmware/bl706/bflb_iot > /dev/null 2>&1 || true
+print_info "Removing hassio/homeassistant/thread and thirdreality paths (done)"
 
 /usr/bin/sync
-
 sleep 0.5
 
+print_info "Removing NetworkManager connections (start)"
 if [ -e "/usr/bin/nmcli" ]; then
     nmcli -t -f UUID con show | xargs -I {} nmcli con delete uuid {} 2>/dev/null || true
 fi
+print_info "Removing NetworkManager connections (done)"
 
 # reset wifi connection information
 if [ -e "/etc/wpa_supplicant/wpa_supplicant-nl80211-wlan0.conf" ]; then
-    rm -rf /etc/wpa_supplicant/wpa_supplicant-nl80211-wlan0.conf
+    rm -rf /etc/wpa_supplicant/wpa_supplicant-nl80211-wlan0.conf || true
 fi
-
-#/usr/sbin/dhclient -r wlan0
-#systemctl enable setupwifi.service
 
 /usr/bin/systemctl daemon-reload || true
 
-mkdir -p /var/lib/homeassistant/homeassistant
-mkdir -p /var/lib/homeassistant/matter_server
+mkdir -p /var/lib/homeassistant/homeassistant || true
+mkdir -p /var/lib/homeassistant/matter_server || true
 
 # Restore serial tty service
 restore_serial_tty
 
-if [ -e "/usr/local/bin/supervisor" ]; then
-    /usr/local/bin/supervisor led white
-fi
-
-echo "Factory reset completed. Rebooting now..."  | wall
-
+# Restore apt-related services (do not actively start units)
 restore_apt_auto_services
 
+# Set LED to white (indicates reboot is about to happen)
+if [ -e "/usr/local/bin/supervisor" ]; then
+    /usr/local/bin/supervisor led white || true
+fi
+
+print_info "=== Factory reset script finished, rebooting ==="
+echo "Factory reset completed. Rebooting now..."  | wall
+
 /usr/bin/sync
-sleep 2
+sleep 1
 /usr/bin/sync
 
-/usr/sbin/reboot
+# Force reboot even if previous commands failed
+print_info "Executing reboot command..."
+/usr/sbin/reboot -f || /sbin/reboot -f || reboot -f
+
+# If all commands above fail, try using systemctl as a fallback
+sleep 1
+systemctl reboot -f || true
+
+# Last-resort fallback using SysRq trigger
+sleep 1
+echo b > /proc/sysrq-trigger 2>/dev/null || true
+
