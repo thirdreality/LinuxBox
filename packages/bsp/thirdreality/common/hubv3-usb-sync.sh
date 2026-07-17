@@ -23,6 +23,16 @@ CONFIG_DIR="/var/lib/homeassistant"
 
 set -e
 
+# Prevent concurrent runs: udev can trigger this script multiple times when the
+# USB drive is inserted or bounces during mount. Take an exclusive, non-blocking
+# lock on fd 9 so only one instance runs at a time; extra triggers exit quietly.
+LOCKFILE="/run/hubv3-usb-sync.lock"
+exec 9>"$LOCKFILE"
+if ! flock -n 9; then
+    echo "Another hubv3-usb-sync instance is already running; exiting."
+    exit 0
+fi
+
 # Ensure lock file is removed when script exits,
 # and perform additional error handling
 
@@ -698,8 +708,18 @@ install_extra_debs() {
         done
 
         if [ "$exclude" = false ]; then
-            echo "[EXTRA]Installing: $deb_file"
-            dpkg -i "$deb_file"
+            # Use version comparison so re-runs (e.g. the udev coldplug replay
+            # after a kernel-update reboot while the USB drive is still inserted)
+            # do NOT reinstall same-version packages. Fall back to a plain dpkg -i
+            # (guarded for set -e) only when the package name can't be read.
+            local pkg
+            pkg=$(dpkg-deb -f "$deb_file" Package 2>/dev/null || true)
+            if [ -n "$pkg" ]; then
+                install_deb_if_needed "$deb_file" "$pkg"
+            else
+                echo "[EXTRA]Installing (no package name): $deb_file"
+                dpkg -i "$deb_file" || echo "[EXTRA]Warning: failed to install $deb_file (continuing)" >&2
+            fi
             installed=0
         fi
     done
@@ -841,8 +861,9 @@ install_board_flash_debs() {
                         deb_thread_version="${BASH_REMATCH[2]}"
                         echo "Deb zigbee version: $deb_zigbee_version, thread version: $deb_thread_version"
                         
-                        # Check if either zigbee or thread version is greater than system version
-                        if [ "$deb_zigbee_version" -gt "$system_zigbee_version" ] || [ "$deb_thread_version" -gt "$system_thread_version" ]; then
+                        # Check if either zigbee or thread version is greater than system version.
+                        # Force base-10 (10#) so values like 08/09 are not misparsed as octal.
+                        if [ "$((10#$deb_zigbee_version))" -gt "$((10#$system_zigbee_version))" ] || [ "$((10#$deb_thread_version))" -gt "$((10#$system_thread_version))" ]; then
                             echo "Either zigbee or thread version is newer. Installing: $board_firmware_deb_file"
                             dpkg_install "$board_firmware_deb_file" "thirdreality-board-firmware"
                             if [ -f /var/lib/thirdreality/led.conf ]; then
@@ -981,6 +1002,31 @@ install_zwave_debs()
     echo "Attempting to install Z-Wave debs..."
 }
 
+# /boot is mounted read-only on trhub images to protect the boot partition from
+# corruption. Kernel package installation must write vmlinuz/initrd/dtb to /boot,
+# so temporarily remount it read-write around the dpkg operation and restore the
+# read-only state afterwards. On single-partition images (where /boot is not a
+# separate mountpoint) these are no-ops.
+BOOT_REMOUNTED_RW=0
+boot_remount_rw() {
+    if mountpoint -q /boot && findmnt -no OPTIONS /boot 2>/dev/null | grep -qw ro; then
+        echo "[BOOT] Remounting /boot read-write for kernel update..."
+        if mount -o remount,rw /boot 2>/dev/null; then
+            BOOT_REMOUNTED_RW=1
+        else
+            echo "[BOOT][WARN] Failed to remount /boot read-write" >&2
+        fi
+    fi
+}
+boot_restore_ro() {
+    if [ "$BOOT_REMOUNTED_RW" = "1" ]; then
+        echo "[BOOT] Restoring /boot read-only..."
+        /usr/bin/sync
+        mount -o remount,ro /boot 2>/dev/null || true
+        BOOT_REMOUNTED_RW=0
+    fi
+}
+
 install_linux_image_deb() {
     if [ ! -d "$WORK_DIR" ]; then
         return 0
@@ -997,7 +1043,10 @@ install_linux_image_deb() {
         # Get deb version number
         deb_version=$(dpkg-deb --info "${linux_image_deb_file}" | grep Version | awk '{print $2}')
         echo "Linux-image deb version: $deb_version"
-        
+
+        # /boot is read-only by default; make it writable for the kernel install.
+        boot_remount_rw
+
         local need_reboot=false
         
         # Check if already installed
@@ -1043,11 +1092,17 @@ install_linux_image_deb() {
                 sleep 1
             done
             
+            # Restore /boot to read-only before rebooting.
+            boot_restore_ro
+
             echo "Filesystem sync completed. Rebooting system in 3 seconds..."
             sleep 3
             /sbin/reboot
             exit 0
         fi
+
+        # No reboot (up-to-date or install failed): restore /boot read-only.
+        boot_restore_ro
     else
         echo "No linux-image deb file found in $WORK_DIR"
     fi
@@ -1441,8 +1496,11 @@ main_procedure()
     # install thirdreality-bridge
     install_thirdreality_bridge_debs
 
-    # install linux kernel image (must be before other packages, will reboot if updated)
-    install_linux_image_deb    
+    # install linux kernel image LAST: all other packages are installed first so
+    # they are in place before a possible reboot. If the kernel is updated, this
+    # remounts /boot read-write, installs it, restores read-only, then reboots at
+    # the very end of the sync process.
+    install_linux_image_deb
 }
 
 
