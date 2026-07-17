@@ -480,7 +480,9 @@ prepare_partitions()
 	mkfs[xfs]=xfs
 	# mkfs[nfs] is empty
 
-	mountopts[ext4]=',commit=600,errors=remount-ro'
+	# commit reduced from 600 to 30s to limit ext4 metadata damage on sudden
+	# power loss / eMMC glitches on trhub devices (boot button shares an eMMC data line).
+	mountopts[ext4]=',commit=30,errors=remount-ro'
 	# mountopts[ext2] is empty
 	# mountopts[fat] is empty
 	# mountopts[f2fs] is empty

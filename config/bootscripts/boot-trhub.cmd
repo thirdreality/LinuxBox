@@ -17,6 +17,18 @@ setenv rootfstype "ext4"
 setenv docker_optimizations "on"
 setenv prefix "boot/"
 
+# Auto-detect where the boot files live so this script works with both
+# layouts:
+#   - single partition: kernel/DTB/initrd are under boot/ on the rootfs
+#   - separate /boot partition: they live at the boot partition's root
+# distro-boot sets ${devnum} to the partition boot.scr was found on.
+if test -e ${devtype} ${devnum} ${prefix}Image; then
+	echo "Boot files under '${prefix}' (single-partition layout)"
+else
+	setenv prefix ""
+	echo "Boot files at partition root (separate /boot partition)"
+fi
+
 # Show what uboot default fdtfile is
 echo "U-boot default fdtfile: ${fdtfile}"
 echo "[HubV3.cmd]Current variant: ${variant}"
@@ -35,7 +47,7 @@ echo "Current fdtfile after armbianEnv: ${fdtfile}"
 
 if test "${console}" = "serial"; then setenv consoleargs "console=ttyAML0,115200n8"; fi
 
-setenv bootargs "root=${rootdev} rootwait rootflags=data=writeback rootfstype=${rootfstype} ${consoleargs} no_console_suspend consoleblank=0 coherent_pool=2M loglevel=${verbosity} fsck.fix=yes fsck.repair=yes net.ifnames=0 ${extraargs} ${extraboardargs}"
+setenv bootargs "root=${rootdev} rootwait rootflags=data=ordered rootfstype=${rootfstype} ${consoleargs} no_console_suspend consoleblank=0 coherent_pool=2M loglevel=${verbosity} fsck.fix=yes fsck.repair=yes net.ifnames=0 ${extraargs} ${extraboardargs}"
 
 if test -n "${board_name}"; then setenv bootargs "${bootargs} board=${board}"; fi
 
