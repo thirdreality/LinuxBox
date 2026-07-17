@@ -230,25 +230,25 @@ remove_homeassistant_core()
 remove_zigbee2mqtt()
 {
     /usr/bin/systemctl stop zigbee2mqtt.service > /dev/null 2>&1|| true
-    /usr/bin/systemctl stop mosquitto.service > /dev/null 2>&1 || true
-
     /usr/bin/systemctl disable zigbee2mqtt.service > /dev/null 2>&1 || true
-    /usr/bin/systemctl disable mosquitto.service > /dev/null 2>&1|| true
+
+    # Do NOT stop/disable mosquitto: it is a pre-installed base component and is
+    # enabled by default. The device reboots at the end of factory reset, so
+    # leaving it enabled lets it start automatically on the next boot.
 
     dpkg --configure -a > /dev/null || true
 
     apt-get purge -y thirdreality-zigbee-mqtt > /dev/null 2>&1 || true
-    apt-get purge -y nodejs libsystemd-dev  > /dev/null 2>&1 || true
-    apt-get purge -y mosquitto mosquitto-clients > /dev/null 2>&1 || true
-    apt-get purge -y libmosquitto1 libdlt2 > /dev/null 2>&1 || true
+
+    # NOTE: nodejs and mosquitto are now pre-installed base components of the
+    # factory image (nodejs is also required by the openthread web UI, and
+    # mosquitto is the shipped MQTT broker), so factory reset must NOT remove
+    # them. Only the zigbee2mqtt application and its data are removed here.
 
     apt-get autoremove -y >/dev/null 2>&1 || true
-    systemctl daemon-reload
-    userdel mosquitto > /dev/null 2>&1 || true
+    systemctl daemon-reload || true
 
     rm -rf /opt/zigbee2mqtt > /dev/null 2>&1 || true
-
-    rm -rf /etc/mosquitto > /dev/null 2>&1 || true
 }
 
 remove_openhab()
