@@ -11,7 +11,7 @@ echo "Working directory: $current_dir"
 
 board="trhubv3"
 destination=""
-r3version="v1.14.01.24"
+r3version="v1.14.01.40"
 
 # 显示使用说明的函数
 usage() {
@@ -113,7 +113,10 @@ fi
 rm -rf $current_dir/output/images
 mkdir -p $current_dir/output/images
 
-#export NO_APT_CACHER=yes
+# Disable apt-cacher-ng: on this build host acng isn't running, so apt would
+# fail trying to reach the localhost:3142 proxy. NO_APT_CACHER=yes makes the
+# framework install packages directly from the mirrors.
+export NO_APT_CACHER=yes
 
 $(pwd)/compile.sh hubv3-images BOARD=${board} BRANCH=current RELEASE=bookworm R3VERSION=${r3version} R3VERSION_ID=${r3_version_id} \
         BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
