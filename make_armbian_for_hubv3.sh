@@ -113,10 +113,10 @@ fi
 rm -rf $current_dir/output/images
 mkdir -p $current_dir/output/images
 
-# Disable apt-cacher-ng: on this build host acng isn't running, so apt would
-# fail trying to reach the localhost:3142 proxy. NO_APT_CACHER=yes makes the
-# framework install packages directly from the mirrors.
-export NO_APT_CACHER=yes
+# Build uses apt-cacher-ng (localhost:3142) to cache/proxy package downloads,
+# which also avoids chroot DNS issues (systemd-resolved rewrites resolv.conf).
+# The acng service must be running on the host: `systemctl start apt-cacher-ng`.
+#export NO_APT_CACHER=yes
 
 $(pwd)/compile.sh hubv3-images BOARD=${board} BRANCH=current RELEASE=bookworm R3VERSION=${r3version} R3VERSION_ID=${r3_version_id} \
         BUILD_MINIMAL=no BUILD_DESKTOP=no KERNEL_ONLY=no KERNEL_CONFIGURE=no \
