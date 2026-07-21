@@ -1,0 +1,131 @@
+name: Build HubV3 Image
+
+# Manually build a ThirdReality HubV3 / LinuxBox image (5.10.x, hubv3 branch)
+# on a GitHub-hosted runner and publish the resulting .img as a build artifact.
+#
+# Trigger: Actions tab -> "Build HubV3 Image" -> Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        type: choice
+        description: "Target board"
+        options:
+          - trhubv3
+          - trhubv3b
+          - linuxbox
+        default: trhubv3
+      dist:
+        type: choice
+        description: "Distribution locale"
+        options:
+          - us
+          - cn
+          - kr
+        default: us
+      revision:
+        description: "Revision override (optional, e.g. v1.14.01.40). Leave empty to use the script default."
+        required: false
+        default: ''
+
+jobs:
+  build:
+    name: Build ${{ github.event.inputs.board }} image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: hubv3
+
+      - name: Free up disk space
+        run: |
+          echo "=== Initial disk usage ==="
+          df -h
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc /usr/local/.ghcup || true
+          sudo rm -rf /opt/hostedtoolcache/* || true
+          sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' '^llvm-.*' 'php.*' \
+            '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox \
+            powershell mono-devel libgl1-mesa-dri || true
+          docker rmi $(docker image ls -aq) >/dev/null 2>&1 || true
+          docker system prune -a -f || true
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile /swapfile || true
+          sudo rm -rf /mnt/linuxbox /mnt/output
+          echo "=== Disk usage after cleanup ==="
+          df -h
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates \
+            gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils \
+            binfmt-support qemu-user-static \
+            bc bison flex libssl-dev libncurses5-dev libncursesw5-dev \
+            device-tree-compiler u-boot-tools swig libpython3-dev \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            ccache ntpdate imagemagick pixz
+          sudo apt-get autoremove -y || true
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* || true
+          sudo rm -rf /var/cache/apt/archives/* || true
+
+      - name: Setup QEMU for ARM emulation
+        run: |
+          sudo systemctl restart systemd-binfmt.service || true
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes || true
+          ls -la /proc/sys/fs/binfmt_misc/ || true
+          cat /proc/sys/fs/binfmt_misc/qemu-aarch64 || echo "qemu-aarch64 not registered"
+
+      - name: Setup output directory symlink
+        run: |
+          sudo mkdir -p /mnt/output
+          sudo chown -R $USER:$USER /mnt/output
+          ln -s /mnt/output ${{ github.workspace }}/output
+          ls -lah ${{ github.workspace }}/
+
+      - name: Make script executable
+        run: chmod +x make_armbian_for_hubv3.sh
+
+      - name: Clean build cache
+        run: |
+          sudo rm -rf cache/sources/u-boot/*/build 2>/dev/null || true
+          sudo rm -rf cache/sources/u-boot/*/.config 2>/dev/null || true
+          sudo rm -rf cache/sources/u-boot/*/include/config 2>/dev/null || true
+          sudo rm -rf cache/sources/u-boot/*/include/generated 2>/dev/null || true
+          sudo rm -rf cache/sources/linux-*/build 2>/dev/null || true
+          sudo chown -R $USER:$USER cache/ 2>/dev/null || true
+
+      - name: Build firmware
+        env:
+          NO_APT_CACHER: yes
+        run: |
+          if [ -n "${{ github.event.inputs.revision }}" ]; then
+            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
+          else
+            ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }}
+          fi
+
+      - name: List output files
+        run: |
+          ls -lah output/ || echo "output/ not found"
+          ls -lah output/images/ || echo "output/images/ not found"
+          find output -name "*.img" -type f 2>/dev/null || echo "No .img files found in output/"
+          df -h
+
+      - name: Upload image as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hubv3-${{ github.event.inputs.board }}-image${{ github.event.inputs.revision && format('-{0}', github.event.inputs.revision) || '' }}
+          path: |
+            output/images/*.img
+            output/images/*.xz
+          if-no-files-found: warn
+
+      - name: Clean up after upload
+        run: |
+          sudo rm -rf /mnt/output /mnt/linuxbox
+          df -h
