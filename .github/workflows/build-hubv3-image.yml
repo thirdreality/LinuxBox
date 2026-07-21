@@ -1,7 +1,9 @@
 name: Build HubV3 Image
 
 # Manually build a ThirdReality HubV3 / LinuxBox image (5.10.x, hubv3 branch)
-# on a GitHub-hosted runner and publish the resulting .img as a build artifact.
+# inside a Debian bookworm container. Running in bookworm matches the known
+# working local build environment (same qemu-user-static, same toolchain),
+# which avoids the qemu-version issues seen on the ubuntu-latest host.
 #
 # Trigger: Actions tab -> "Build HubV3 Image" -> Run workflow.
 
@@ -33,92 +35,74 @@ jobs:
   build:
     name: Build ${{ github.event.inputs.board }} image
     runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+      # privileged is required for chroot/mount/loop used by Armbian
+      # debootstrap-ng and image assembly.
+      options: --privileged
+
     steps:
+      - name: Install build prerequisites
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git sudo bash coreutils findutils \
+            uuid-runtime acl dialog psmisc uuid curl gawk wget gnupg lsb-release \
+            gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils zstd \
+            binfmt-support qemu-user-static \
+            bc bison flex libssl-dev libncurses-dev \
+            device-tree-compiler u-boot-tools swig libpython3-dev \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            ccache imagemagick pixz file rsync kmod \
+            fdisk parted dosfstools e2fsprogs kpartx udev \
+            apt-cacher-ng iproute2
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: hubv3
 
-      - name: Free up disk space
+      - name: Register qemu-aarch64 binfmt
         run: |
-          echo "=== Initial disk usage ==="
-          df -h
-          sudo rm -rf /usr/local/lib/android || true
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /opt/ghc /usr/local/.ghcup || true
-          sudo rm -rf /opt/hostedtoolcache/* || true
-          sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' '^llvm-.*' 'php.*' \
-            '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox \
-            powershell mono-devel libgl1-mesa-dri || true
-          docker rmi $(docker image ls -aq) >/dev/null 2>&1 || true
-          docker system prune -a -f || true
-          sudo swapoff -a || true
-          sudo rm -f /mnt/swapfile /swapfile || true
-          sudo rm -rf /mnt/linuxbox /mnt/output
-          echo "=== Disk usage after cleanup ==="
-          df -h
-
-      - name: Install dependencies
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates \
-            gcc build-essential python3 python3-dev python3-venv python3-pip pv xz-utils patchutils \
-            binfmt-support qemu-user-static \
-            bc bison flex libssl-dev libncurses5-dev libncursesw5-dev \
-            device-tree-compiler u-boot-tools swig libpython3-dev \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            ccache ntpdate imagemagick pixz apt-cacher-ng
-          sudo apt-get autoremove -y || true
-          sudo apt-get clean || true
-          sudo rm -rf /var/lib/apt/lists/* || true
-          sudo rm -rf /var/cache/apt/archives/* || true
+          # binfmt_misc is a kernel-global fs; in a privileged container we can
+          # (re)mount it and enable the aarch64 handler so chroot postinst
+          # scripts execute under qemu-aarch64-static.
+          mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc 2>/dev/null || true
+          update-binfmts --enable qemu-aarch64 2>/dev/null || true
+          if [ -e /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
+            echo "qemu-aarch64 binfmt registered:"
+            cat /proc/sys/fs/binfmt_misc/qemu-aarch64 || true
+          else
+            echo "WARNING: qemu-aarch64 binfmt not registered; chroot exec may fail"
+          fi
 
       - name: Start apt-cacher-ng (package proxy for chroot apt)
         run: |
-          # The 5.10.x build proxies chroot apt through apt-cacher-ng on
-          # localhost:3142. This mirrors the working local build config and
-          # also sidesteps chroot DNS issues (chroot only talks to localhost;
-          # acng resolves and fetches from the Debian mirrors).
-          sudo systemctl enable --now apt-cacher-ng 2>/dev/null || sudo systemctl start apt-cacher-ng
-          sleep 2
-          if sudo ss -ltn | grep -q ':3142'; then
-            echo "apt-cacher-ng listening on 3142"
+          # No systemd in the container: start via the sysv init script, then
+          # fall back to launching the daemon directly.
+          service apt-cacher-ng start 2>/dev/null || \
+            /usr/sbin/apt-cacher-ng -c /etc/apt-cacher-ng ForeGround=0 || true
+          sleep 3
+          if ss -ltn 2>/dev/null | grep -q ':3142' || curl -fsS http://localhost:3142/acng-report.html >/dev/null 2>&1; then
+            echo "apt-cacher-ng is up on 3142"
           else
-            echo "ERROR: apt-cacher-ng not listening on 3142"
-            sudo systemctl status apt-cacher-ng --no-pager || true
+            echo "ERROR: apt-cacher-ng not reachable on 3142"
+            cat /var/log/apt-cacher-ng/*.log 2>/dev/null || true
             exit 1
           fi
 
-      - name: Setup QEMU for ARM emulation
+      - name: Show environment
         run: |
-          sudo systemctl restart systemd-binfmt.service || true
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes || true
-          ls -la /proc/sys/fs/binfmt_misc/ || true
-          cat /proc/sys/fs/binfmt_misc/qemu-aarch64 || echo "qemu-aarch64 not registered"
-
-      - name: Setup output directory symlink
-        run: |
-          sudo mkdir -p /mnt/output
-          sudo chown -R $USER:$USER /mnt/output
-          ln -s /mnt/output ${{ github.workspace }}/output
-          ls -lah ${{ github.workspace }}/
-
-      - name: Make script executable
-        run: chmod +x make_armbian_for_hubv3.sh
-
-      - name: Clean build cache
-        run: |
-          sudo rm -rf cache/sources/u-boot/*/build 2>/dev/null || true
-          sudo rm -rf cache/sources/u-boot/*/.config 2>/dev/null || true
-          sudo rm -rf cache/sources/u-boot/*/include/config 2>/dev/null || true
-          sudo rm -rf cache/sources/u-boot/*/include/generated 2>/dev/null || true
-          sudo rm -rf cache/sources/linux-*/build 2>/dev/null || true
-          sudo chown -R $USER:$USER cache/ 2>/dev/null || true
+          echo "== os =="; head -2 /etc/os-release
+          echo "== qemu =="; qemu-aarch64-static --version | head -1 || true
+          echo "== disk =="; df -h /
+          echo "== workspace =="; pwd; ls -la
 
       - name: Build firmware
         run: |
+          chmod +x make_armbian_for_hubv3.sh
           if [ -n "${{ github.event.inputs.revision }}" ]; then
             ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
           else
@@ -126,11 +110,12 @@ jobs:
           fi
 
       - name: List output files
+        if: always()
         run: |
           ls -lah output/ || echo "output/ not found"
           ls -lah output/images/ || echo "output/images/ not found"
           find output -name "*.img" -type f 2>/dev/null || echo "No .img files found in output/"
-          df -h
+          df -h /
 
       - name: Upload image as artifact
         uses: actions/upload-artifact@v4
@@ -141,7 +126,20 @@ jobs:
             output/images/*.xz
           if-no-files-found: warn
 
-      - name: Clean up after upload
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hubv3-build-logs
+          path: |
+            output/debug/**
+          if-no-files-found: warn
+
+      - name: Verify image was produced
         run: |
-          sudo rm -rf /mnt/output /mnt/linuxbox
-          df -h
+          if ! find output/images -maxdepth 1 -type f -name '*.img' | grep -q .; then
+            echo "ERROR: build finished but no .img was produced (see hubv3-build-logs artifact)."
+            exit 1
+          fi
+          echo "Image(s) produced:"
+          find output/images -maxdepth 1 -type f -name '*.img'
