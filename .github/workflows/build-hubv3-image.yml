@@ -59,6 +59,8 @@ jobs:
           df -h
 
       - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
           sudo apt-get install -y uuid-runtime systemd acl sudo git dialog psmisc uuid curl gawk ca-certificates \
@@ -67,11 +69,27 @@ jobs:
             bc bison flex libssl-dev libncurses5-dev libncursesw5-dev \
             device-tree-compiler u-boot-tools swig libpython3-dev \
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            ccache ntpdate imagemagick pixz
+            ccache ntpdate imagemagick pixz apt-cacher-ng
           sudo apt-get autoremove -y || true
           sudo apt-get clean || true
           sudo rm -rf /var/lib/apt/lists/* || true
           sudo rm -rf /var/cache/apt/archives/* || true
+
+      - name: Start apt-cacher-ng (package proxy for chroot apt)
+        run: |
+          # The 5.10.x build proxies chroot apt through apt-cacher-ng on
+          # localhost:3142. This mirrors the working local build config and
+          # also sidesteps chroot DNS issues (chroot only talks to localhost;
+          # acng resolves and fetches from the Debian mirrors).
+          sudo systemctl enable --now apt-cacher-ng 2>/dev/null || sudo systemctl start apt-cacher-ng
+          sleep 2
+          if sudo ss -ltn | grep -q ':3142'; then
+            echo "apt-cacher-ng listening on 3142"
+          else
+            echo "ERROR: apt-cacher-ng not listening on 3142"
+            sudo systemctl status apt-cacher-ng --no-pager || true
+            exit 1
+          fi
 
       - name: Setup QEMU for ARM emulation
         run: |
@@ -100,8 +118,6 @@ jobs:
           sudo chown -R $USER:$USER cache/ 2>/dev/null || true
 
       - name: Build firmware
-        env:
-          NO_APT_CACHER: yes
         run: |
           if [ -n "${{ github.event.inputs.revision }}" ]; then
             ./make_armbian_for_hubv3.sh -b ${{ github.event.inputs.board }} -d ${{ github.event.inputs.dist }} -r ${{ github.event.inputs.revision }}
