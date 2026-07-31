@@ -86,8 +86,13 @@ InstallForHubV3() {
 	apt-get clean
 	
 	#kernel modules to load at boot time
-	echo "aml_sdio" | sudo tee -a /etc/modules
-	echo "vlsicomm" | sudo tee -a /etc/modules
+	# WiFi modules (aml_sdio + vlsicomm) are loaded later by amlogicw1.service
+	# (w1_start.sh), not preloaded via /etc/modules at boot. Early load races
+	# the SDIO power-on/probe and can hang on a cold-boot timing failure, so
+	# these are intentionally left commented (aligns with dropping the board
+	# conf MODULES_CURRENT override).
+	#echo "aml_sdio" | sudo tee -a /etc/modules
+	#echo "vlsicomm" | sudo tee -a /etc/modules
 	#echo "sdio_bt" | sudo tee -a /etc/modules
 
 	config_file="/etc/NetworkManager/NetworkManager.conf"

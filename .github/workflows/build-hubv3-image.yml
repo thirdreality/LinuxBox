@@ -100,6 +100,23 @@ jobs:
           echo "== disk =="; df -h /
           echo "== workspace =="; pwd; ls -la
 
+      - name: Start udev (create loop partition nodes in container)
+        run: |
+          # Armbian builds the image with `losetup` + `partprobe` (no -P). In a
+          # container the /dev/loopXpY partition nodes are not auto-created, so
+          # image assembly dies with "check_loop_device: /dev/loop0p2 does not
+          # exist". Running udevd makes those nodes appear after partprobe.
+          # NOTE: we deliberately do NOT install the systemd package: if
+          # systemd-detect-virt existed, the framework would auto-enable
+          # NO_APT_CACHER and disable our working apt-cacher-ng proxy.
+          /lib/systemd/systemd-udevd --daemon 2>/dev/null \
+            || /usr/lib/systemd/systemd-udevd --daemon 2>/dev/null \
+            || (command -v udevd >/dev/null && udevd --daemon) 2>/dev/null \
+            || true
+          udevadm trigger 2>/dev/null || true
+          udevadm settle 2>/dev/null || true
+          echo "udev started (best-effort); loop nodes will be created on partprobe"
+
       - name: Build firmware
         run: |
           chmod +x make_armbian_for_hubv3.sh
