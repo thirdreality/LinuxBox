@@ -46,6 +46,8 @@ const elements = {
     langDropdown: document.getElementById('langDropdown'),
     currentLangText: document.getElementById('currentLangText'),
     restartBtn: document.getElementById('restartBtn'),
+    accessoryContainer: document.getElementById('accessoryContainer'),
+    refreshAccessoryBtn: document.getElementById('refreshAccessoryBtn'),
 };
 
 // ============================================
@@ -222,7 +224,10 @@ function updateConnectionStatus(connected, messageKey = '') {
         state.connectionState = 'failed';
     }
     // If connected is undefined/null, keep current state (for language switch)
-    
+
+    // Header connection badge was removed; keep this function null-safe.
+    if (!elements.connectionStatus || !elements.connectionText) return;
+
     // Update indicator class
     const indicatorClass = state.connectionState === 'connected' ? 'online' : 
                           state.connectionState === 'failed' ? 'offline' : '';
@@ -262,6 +267,9 @@ function initTabs() {
             // Load data if needed
             if (tab === 'setting' && !state.versionInfo) {
                 loadOtaInfo();
+            }
+            if (tab === 'accessory') {
+                loadAccessory();
             }
         });
     });
@@ -1019,6 +1027,17 @@ function initEventListeners() {
     if (elements.restartBtn) {
         elements.restartBtn.addEventListener('click', handleRestart);
     }
+
+    // Accessory refresh button
+    if (elements.refreshAccessoryBtn) {
+        elements.refreshAccessoryBtn.addEventListener('click', loadAccessory);
+    }
+
+    // Connect to Home Assistant button
+    const connectHaBtn = document.getElementById('connectHaBtn');
+    if (connectHaBtn) {
+        connectHaBtn.addEventListener('click', handleConnectHa);
+    }
     
     // Auto refresh system info periodically
     setInterval(() => {
@@ -1026,6 +1045,271 @@ function initEventListeners() {
             loadSystemInfo();
         }
     }, CONFIG.REFRESH_INTERVAL);
+}
+
+// ============================================
+// USB Accessory (NightLight / Clock / Motion Sensor)
+// ============================================
+
+// Preset colors (name matches backend COLOR_PRESETS; hex for the swatch)
+const ACC_COLORS = [
+    { name: 'red',    hex: '#e53935' },
+    { name: 'orange', hex: '#fb8c00' },
+    { name: 'yellow', hex: '#fdd835' },
+    { name: 'green',  hex: '#43a047' },
+    { name: 'cyan',   hex: '#00acc1' },
+    { name: 'blue',   hex: '#1e88e5' },
+    { name: 'purple', hex: '#8e24aa' },
+    { name: 'pink',   hex: '#ec407a' },
+    { name: 'white',  hex: '#f5f5f5' },
+    { name: 'warm',   hex: '#ffd7a0' },
+];
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// Signed POST to /api/ama/control. Returns backend success boolean.
+async function amaControl(action, value) {
+    const params = { action, value: String(value) };
+    const sig = generateSignature(params);
+    const body = `action=${encodeURIComponent(action)}&value=${encodeURIComponent(String(value))}&_sig=${sig}`;
+    try {
+        const resp = await fetch(`${CONFIG.API_BASE}/api/ama/control`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body,
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error('backend returned failure');
+        return true;
+    } catch (e) {
+        console.error('amaControl failed:', action, value, e);
+        showToast(t('toast.amaFail'), 'error');
+        return false;
+    }
+}
+
+// Connect Home Assistant to the local MQTT broker: verifies HA/mosquitto,
+// enables/starts mosquitto, writes the MQTT config entry, then restarts HA.
+async function handleConnectHa() {
+    const btn = document.getElementById('connectHaBtn');
+    if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+    showToast(t('toast.haConnecting'), 'info');
+    try {
+        const params = { action: 'connect' };
+        const sig = generateSignature(params);
+        const body = `action=connect&_sig=${sig}`;
+        const resp = await fetch(`${CONFIG.API_BASE}/api/ha/connect`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body,
+        });
+        const result = await resp.json();
+        if (result.success) {
+            showToast(t('toast.haConnected'), 'success', 8000);
+            setTimeout(loadHaStatus, 1500);  // 刷新连接状态（HA 重启中，稍后再看 HA 层）
+        } else {
+            throw new Error(result.error || 'failed');
+        }
+    } catch (e) {
+        console.error('connect HA failed:', e);
+        showToast(t('toast.haConnectFail', { error: e.message }), 'error', 8000);
+    } finally {
+        if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+    }
+}
+
+// Two-layer connection status: bridge<->MQTT and MQTT<->Home Assistant.
+async function loadHaStatus() {
+    const mqttBadge = document.getElementById('haMqttBadge');
+    const haBadge = document.getElementById('haHaBadge');
+    if (!mqttBadge || !haBadge) return;
+    const setBadge = (el, ok) => {
+        el.textContent = ok ? t('acc.connected') : t('acc.disconnected');
+        el.className = `badge ${ok ? 'success' : 'warning'}`;
+    };
+    try {
+        const resp = await fetch(`${CONFIG.API_BASE}/api/ha/status`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const s = await resp.json();
+        setBadge(mqttBadge, !!s.mqtt_connected);
+        setBadge(haBadge, !!s.ha_mqtt_connected);
+    } catch (e) {
+        setBadge(mqttBadge, false);
+        setBadge(haBadge, false);
+    }
+}
+
+async function loadAccessory() {
+    loadHaStatus();
+    const c = elements.accessoryContainer;
+    if (!c) return;
+    c.innerHTML = `<div class="loading-state"><div class="spinner"></div><span>${t('loading')}</span></div>`;
+    try {
+        const resp = await fetch(`${CONFIG.API_BASE}/api/ama/device`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        renderAccessory(data);
+    } catch (e) {
+        console.error('loadAccessory failed:', e);
+        c.innerHTML = `<div class="empty-state">${t('acc.none')}</div>`;
+    }
+}
+
+function accRow(label, controlHtml) {
+    return `<div class="info-row"><div class="info-label">${label}</div>` +
+           `<div class="info-value">${controlHtml}</div></div>`;
+}
+
+function renderAccessory(data) {
+    const c = elements.accessoryContainer;
+    if (!c) return;
+    const type = data && data.type;
+
+    if (!type || type === 'none') {
+        c.innerHTML = `<div class="empty-state">${t('acc.none')}</div>`;
+        return;
+    }
+
+    const st = data.state || {};
+    let html = '<div class="info-table">';
+    // Device meta
+    html += accRow(t('acc.model'), `<span class="mono">${escapeHtml(data.model || '-')}</span>`);
+    html += accRow(t('acc.serial'), `<span class="mono">${escapeHtml(data.serial || '-')}</span>`);
+    html += accRow(t('acc.firmware'), `<span class="mono">${escapeHtml(data.firmware || '-')}</span>`);
+
+    if (type === 'motion') {
+        const det = st.detection;
+        const label = det === 'DETECTED' ? t('acc.detected')
+                    : det === 'NOT_DETECTED' ? t('acc.notDetected') : t('acc.unknown');
+        const cls = det === 'DETECTED' ? 'warning' : 'success';
+        html += accRow(t('acc.motion'), `<span class="badge ${cls}">${label}</span>`);
+        const sens = st.sensitivity === 'high' ? 'high' : st.sensitivity === 'low' ? 'low' : '';
+        html += accRow(t('acc.sensitivity'),
+            `<select id="accSens" class="acc-select">
+                <option value="high"${sens==='high'?' selected':''}>${t('acc.high')}</option>
+                <option value="low"${sens==='low'?' selected':''}>${t('acc.low')}</option>
+             </select>`);
+    } else if (type === 'clock') {
+        const on = st.power === 'ON';
+        const bri = (typeof st.brightness === 'number') ? st.brightness : 50;
+        const tf = st.timemode === '12h' ? '12' : '24';
+        const als = st.als === 'ON';
+        const tz = data.timezone || '+00:00';
+        html += accRow(t('acc.power'),
+            `<button class="acc-btn" data-power="on">${t('acc.on')}</button>
+             <button class="acc-btn" data-power="off">${t('acc.off')}</button>`);
+        html += accRow(t('acc.brightness'),
+            `<input type="range" id="accBri" min="0" max="100" value="${bri}">
+             <span id="accBriVal" class="mono">${bri}</span>`);
+        html += accRow(t('acc.timeformat'),
+            `<select id="accTf" class="acc-select">
+                <option value="24"${tf==='24'?' selected':''}>24h</option>
+                <option value="12"${tf==='12'?' selected':''}>12h</option>
+             </select>`);
+        html += accRow(t('acc.autobrightness'),
+            `<select id="accAls" class="acc-select">
+                <option value="on"${als?' selected':''}>${t('acc.on')}</option>
+                <option value="off"${!als?' selected':''}>${t('acc.off')}</option>
+             </select>`);
+        html += accRow(t('acc.timezone'),
+            `<input type="text" id="accTz" class="acc-input" value="${escapeHtml(tz)}" placeholder="+08:00" pattern="[+-][0-9]{2}:[0-9]{2}">
+             <button class="acc-btn" id="accTzApply">${t('acc.apply')}</button>`);
+        html += accRow(t('acc.synctime'),
+            `<button class="acc-btn" id="accSync">${t('acc.sync')}</button>`);
+    } else if (type === 'nightlight') {
+        const on = st.power === 'ON';
+        const bri = (typeof st.brightness === 'number') ? st.brightness : 50;
+        const als = st.als === 'ON';
+        html += accRow(t('acc.power'),
+            `<button class="acc-btn" data-power="on">${t('acc.on')}</button>
+             <button class="acc-btn" data-power="off">${t('acc.off')}</button>`);
+        html += accRow(t('acc.color'),
+            `<div class="acc-colors">` +
+            ACC_COLORS.map(col =>
+                `<button class="acc-swatch" data-color="${col.name}" title="${col.name}" style="background:${col.hex}"></button>`
+            ).join('') + `</div>`);
+        html += accRow(t('acc.brightness'),
+            `<input type="range" id="accBri" min="0" max="100" value="${bri}">
+             <span id="accBriVal" class="mono">${bri}</span>`);
+        html += accRow(t('acc.autobrightness'),
+            `<select id="accAls" class="acc-select">
+                <option value="on"${als?' selected':''}>${t('acc.on')}</option>
+                <option value="off"${!als?' selected':''}>${t('acc.off')}</option>
+             </select>`);
+    }
+    html += '</div>';
+    c.innerHTML = html;
+    wireAccessoryControls(type);
+}
+
+function wireAccessoryControls(type) {
+    const c = elements.accessoryContainer;
+    const powerAction = type === 'clock' ? 'clock_power' : 'nl_power';
+    const briAction   = type === 'clock' ? 'clock_brightness' : 'nl_brightness';
+    const alsAction   = type === 'clock' ? 'clock_als' : 'nl_als';
+
+    // Power on/off (clock + nightlight)
+    c.querySelectorAll('[data-power]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (await amaControl(powerAction, btn.dataset.power)) showToast(t('toast.amaOk'), 'success');
+        });
+    });
+
+    // Brightness slider
+    const bri = c.querySelector('#accBri');
+    const briVal = c.querySelector('#accBriVal');
+    if (bri) {
+        bri.addEventListener('input', () => { if (briVal) briVal.textContent = bri.value; });
+        bri.addEventListener('change', async () => {
+            if (await amaControl(briAction, bri.value)) showToast(t('toast.amaOk'), 'success');
+        });
+    }
+
+    // Auto brightness (ALS)
+    const als = c.querySelector('#accAls');
+    if (als) als.addEventListener('change', async () => {
+        if (await amaControl(alsAction, als.value)) showToast(t('toast.amaOk'), 'success');
+    });
+
+    // NightLight color swatches
+    c.querySelectorAll('[data-color]').forEach(sw => {
+        sw.addEventListener('click', async () => {
+            if (await amaControl('nl_color', sw.dataset.color)) showToast(t('toast.amaOk'), 'success');
+        });
+    });
+
+    // Clock: time format
+    const tf = c.querySelector('#accTf');
+    if (tf) tf.addEventListener('change', async () => {
+        if (await amaControl('clock_timemode', tf.value)) showToast(t('toast.amaOk'), 'success');
+    });
+
+    // Clock: sync time
+    const sync = c.querySelector('#accSync');
+    if (sync) sync.addEventListener('click', async () => {
+        if (await amaControl('clock_synctime', '1')) showToast(t('toast.amaOk'), 'success');
+    });
+
+    // Clock: timezone apply (parse +HH:MM -> minutes)
+    const tzApply = c.querySelector('#accTzApply');
+    if (tzApply) tzApply.addEventListener('click', async () => {
+        const tz = (c.querySelector('#accTz').value || '').trim();
+        const m = tz.match(/^([+-])(\d{2}):(\d{2})$/);
+        if (!m) { showToast(t('toast.amaFail'), 'error'); return; }
+        let mins = parseInt(m[2], 10) * 60 + parseInt(m[3], 10);
+        if (m[1] === '-') mins = -mins;
+        if (await amaControl('clock_timezone', mins)) showToast(t('toast.amaOk'), 'success');
+    });
+
+    // Motion: sensitivity
+    const sens = c.querySelector('#accSens');
+    if (sens) sens.addEventListener('change', async () => {
+        if (await amaControl('pir_sensitivity', sens.value)) showToast(t('toast.amaOk'), 'success');
+    });
 }
 
 // ============================================

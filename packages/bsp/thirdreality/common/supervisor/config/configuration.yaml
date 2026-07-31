@@ -53,6 +53,11 @@ hardware:
 # System Information Configuration
 # ============================================================================
 system_info:
+  # Timezone as a UTC offset "+HH:MM" / "-HH:MM" (default "+00:00" = UTC).
+  # Supervisor-managed and decoupled from the OS timezone. Used e.g. to sync
+  # time to a USB Clock accessory. Set via: POST /api/timezone  (offset=<minutes>)
+  timezone: "+00:00"
+
   # Release information files
   release_files:
     t3r: "/etc/t3r-release"

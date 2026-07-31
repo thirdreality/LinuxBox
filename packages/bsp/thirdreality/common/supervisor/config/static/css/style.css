@@ -1041,3 +1041,70 @@ body {
     color: #ffffff;
 }
 
+
+/* ============================================
+   USB Accessory controls
+   ============================================ */
+.mono {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.9em;
+}
+
+.acc-btn {
+    padding: 6px 14px;
+    margin-right: 6px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #fff;
+    color: #344054;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.15s, border-color 0.15s;
+}
+.acc-btn:hover { background: #f2f4f7; border-color: #98a2b3; }
+.acc-btn:active { background: #e4e7ec; }
+
+.acc-select,
+.acc-input {
+    padding: 6px 10px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #fff;
+    color: #344054;
+    font-size: 0.9em;
+    min-width: 90px;
+}
+.acc-input { width: 110px; margin-right: 6px; }
+
+.acc-select:focus,
+.acc-input:focus { outline: none; border-color: #2e90fa; }
+
+input[type="range"]#accBri {
+    vertical-align: middle;
+    width: 200px;
+    margin-right: 10px;
+}
+
+.acc-colors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.acc-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.15);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+.acc-swatch:hover { transform: scale(1.12); box-shadow: 0 0 0 2px rgba(46,144,250,0.4); }
+.acc-swatch:active { transform: scale(0.95); }
+
+
+/* HA/MQTT status block: the divider is the top edge of the MQTT row,
+   using the same color as the inter-row separators (no floating gap). */
+#haStatusContainer {
+    border-top: 1px solid var(--border-color);
+}

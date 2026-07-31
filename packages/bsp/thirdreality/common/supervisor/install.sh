@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BINARY_NAME="supervisor"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/var/lib/hubv3-supervisor"
+STATIC_DIR="/usr/share/hubv3-supervisor/static"
 LOG_DIR="/var/log"
 DBUS_SYSTEM_DIR="/usr/share/dbus-1/system-services"
 DBUS_CONF_DIR="/etc/dbus-1/system.d"
@@ -45,6 +46,30 @@ if systemctl is-active --quiet supervisor.service; then
     echo "  Stopping supervisor..."
     systemctl stop supervisor.service || true
 fi
+
+# Fallback: kill any supervisor process not managed by systemd
+# (e.g. started manually or via build.sh). These would keep /dev/ttyACMx and
+# the D-Bus name held, causing the new instance to fail.
+if pgrep -x "${BINARY_NAME}" > /dev/null; then
+    echo "  Found running ${BINARY_NAME} process(es), terminating..."
+    pkill -TERM -x "${BINARY_NAME}" || true
+    # Wait up to 3s for graceful exit
+    for _ in $(seq 1 30); do
+        pgrep -x "${BINARY_NAME}" > /dev/null || break
+        sleep 0.1
+    done
+    # Force kill if still alive
+    if pgrep -x "${BINARY_NAME}" > /dev/null; then
+        echo "  Process still running, force killing..."
+        pkill -9 -x "${BINARY_NAME}" || true
+        sleep 0.5
+    fi
+fi
+
+# Remove stale PID file if present
+if [ -f "/var/run/supervisor.pid" ]; then
+    rm -f "/var/run/supervisor.pid"
+fi
 echo -e "${GREEN}✓${NC} Service stopped"
 
 # 3. Backup old installation
@@ -71,6 +96,7 @@ echo -e "${GREEN}✓${NC} Binary installed to: ${INSTALL_DIR}/${BINARY_NAME}"
 # 5. Create required directories and copy config (overwrite)
 echo -e "${YELLOW}[5/9]${NC} Creating directories and copying config..."
 mkdir -p "${CONFIG_DIR}"
+mkdir -p "${STATIC_DIR}"
 mkdir -p "${LOG_DIR}"
 
 CONFIG_SRC="${SCRIPT_DIR}/config"
@@ -79,25 +105,48 @@ if [ ! -d "${CONFIG_SRC}" ]; then
     exit 1
 fi
 
-# Copy configuration.yaml
+# Copy configuration.yaml — DO NOT clobber an existing deployed config.
+# The running config may hold user settings (e.g. timezone set from HA), so on
+# upgrade we preserve it and only drop a reference copy as configuration.yaml.default.
 if [ -f "${CONFIG_SRC}/configuration.yaml" ]; then
-    cp -f "${CONFIG_SRC}/configuration.yaml" "${CONFIG_DIR}/"
-    echo "  Copied: configuration.yaml"
+    if [ -f "${CONFIG_DIR}/configuration.yaml" ]; then
+        cp -f "${CONFIG_SRC}/configuration.yaml" "${CONFIG_DIR}/configuration.yaml.default"
+        echo "  Preserved existing configuration.yaml (ref: configuration.yaml.default)"
+    else
+        cp -f "${CONFIG_SRC}/configuration.yaml" "${CONFIG_DIR}/"
+        echo "  Copied: configuration.yaml -> ${CONFIG_DIR}/"
+    fi
 fi
 
 # Copy conf/ (e.g. zigbee2mqtt)
 if [ -d "${CONFIG_SRC}/conf" ]; then
     cp -rf "${CONFIG_SRC}/conf" "${CONFIG_DIR}/"
-    echo "  Copied: conf/"
+    echo "  Copied: conf/ -> ${CONFIG_DIR}/"
 fi
 
-# Copy static/ (web UI)
+# Copy static/ (web UI) to /usr/share/hubv3-supervisor/static
 if [ -d "${CONFIG_SRC}/static" ]; then
-    cp -rf "${CONFIG_SRC}/static" "${CONFIG_DIR}/"
-    echo "  Copied: static/"
+    cp -rf "${CONFIG_SRC}/static/." "${STATIC_DIR}/"
+    echo "  Copied: static/ -> ${STATIC_DIR}/"
 fi
 
 echo -e "${GREEN}✓${NC} Config directory synced (${CONFIG_DIR})"
+echo -e "${GREEN}✓${NC} Static files installed (${STATIC_DIR})"
+
+# 6. Install udev rules
+echo -e "${YELLOW}[6/9]${NC} Installing udev rules..."
+UDEV_RULES_DIR="/etc/udev/rules.d"
+mkdir -p "${UDEV_RULES_DIR}"
+
+if [ -f "${SCRIPT_DIR}/config/udev/33-ama-usb.rules" ]; then
+    install -m 644 "${SCRIPT_DIR}/config/udev/33-ama-usb.rules" "${UDEV_RULES_DIR}/"
+    echo "  Installed: ${UDEV_RULES_DIR}/33-ama-usb.rules"
+    udevadm control --reload-rules || true
+    udevadm trigger || true
+else
+    echo -e "${YELLOW}  Warning: udev rules file not found, skipping${NC}"
+fi
+echo -e "${GREEN}✓${NC} udev rules installed"
 
 # 7. Install D-Bus policy
 echo -e "${YELLOW}[7/9]${NC} Installing D-Bus policy..."
