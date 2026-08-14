@@ -200,6 +200,40 @@ InstallForHubV3() {
 	mkdir -p /var/lib/homeassistant/homeassistant
 	mkdir -p /var/lib/homeassistant/matter_server
 
+	# Configure the mosquitto MQTT broker (used by zigbee2mqtt and Home Assistant).
+	# Baked into the image so the broker is authenticated and auto-starts on the
+	# first boot, independent of the zigbee2mqtt package install timing. Without a
+	# passwd file the strict config (allow_anonymous false) would fail to start.
+	echo "Configuring mosquitto ..."
+	MOSQUITTO_DIR="/etc/mosquitto"
+	mkdir -p "$MOSQUITTO_DIR"
+	if command -v mosquitto_passwd >/dev/null 2>&1; then
+		# Default credentials: thirdreality / thirdreality
+		mosquitto_passwd -b -c "$MOSQUITTO_DIR/passwd" thirdreality thirdreality
+		chown mosquitto:mosquitto "$MOSQUITTO_DIR/passwd" 2>/dev/null || true
+		chmod 0600 "$MOSQUITTO_DIR/passwd" 2>/dev/null || true
+	else
+		echo "WARNING: mosquitto_passwd not found, skipping password setup"
+	fi
+	cat > "$MOSQUITTO_DIR/mosquitto.conf" <<'MOSQ_EOF'
+per_listener_settings true
+
+pid_file /run/mosquitto/mosquitto.pid
+
+persistence true
+persistence_location /var/lib/mosquitto/
+
+log_dest file /var/log/mosquitto/mosquitto.log
+
+include_dir /etc/mosquitto/conf.d
+
+allow_anonymous false
+listener 1883
+password_file /etc/mosquitto/passwd
+MOSQ_EOF
+	# Ensure the broker starts on boot
+	systemctl enable mosquitto.service 2>/dev/null || true
+
 	rm -rf /var/lib/apt/lists/*
 	rm -rf /usr/lib/firmware/qcom
 	rm -rf /usr/lib/firmware/{aic8800,ap6210,ap6212,ap6275p,ath10k,ath11k,ath12k,mediatek,novatek,rtw88,rtw89}
