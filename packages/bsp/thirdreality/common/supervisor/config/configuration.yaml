@@ -28,8 +28,8 @@ hardware:
   # HubV3 / HubV3B: chip="gpiochip0", line=26
   # HubV3A:         chip="gpiochip1", line=11
   button:
-    chip: "gpiochip1"
-    line: 11
+    chip: "gpiochip0"
+    line: 26
 
   # Zigbee Module GPIO Configuration (BL702 reset/boot pins)
   # HubV3/HubV3B defaults: reset_line=1, boot_line=3 (GPIOZ_1/GPIOZ_3)

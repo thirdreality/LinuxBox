@@ -20,11 +20,29 @@ hardware:
     chip: "gpiochip1"
     line: 11
 
+  # Zigbee Module GPIO Configuration (BL702 reset/boot pins) — HubV3A values
+  # GPIOA_17 / GPIOA_16
+  zigbee:
+    chip: 0
+    reset_line: 43
+    boot_line: 42
+
+  # Thread Module GPIO Configuration — HubV3A values
+  thread:
+    chip: 0
+    reset_line: 2
+    boot_line: 4
+
 
 # ============================================================================
 # System Information Configuration
 # ============================================================================
 system_info:
+  # Timezone as a UTC offset "+HH:MM" / "-HH:MM" (default "+00:00" = UTC).
+  # Supervisor-managed and decoupled from the OS timezone. Used e.g. to sync
+  # time to a USB Clock accessory. Set via: POST /api/timezone  (offset=<minutes>)
+  timezone: "+00:00"
+
   # Release information files
   release_files:
     t3r: "/etc/t3r-release"
