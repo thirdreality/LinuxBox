@@ -540,7 +540,7 @@ new file mode 100644
 index 000000000000..7ca5a64dc215
 --- /dev/null
 +++ b/drivers/bluetooth/aml_bt/sdio_driver_bt/bt_hal_plateform.c
-@@ -0,0 +1,670 @@
+@@ -0,0 +1,686 @@
 +#include "bt_hal_plateform.h"
 +#include <linux/proc_fs.h>
 +#include <linux/seq_file.h>
@@ -903,10 +903,17 @@ index 000000000000..7ca5a64dc215
 +
 +    //if (!strcmp(chip_name, "aml_w1"))
 +    {
++        int wcnt = 0;
++        if (wifi_in_insmod)
++            PRINT("waiting WIFI insmod to finish...\n");
 +        while (wifi_in_insmod)
 +        {
-+            PRINT("WIFI in insmod\n");
 +            msleep(10);
++            if ((wcnt++) > 500)
++            {
++                PRINT("WIFI insmod wait timeout, give up BT init\n");
++                return -1;
++            }
 +        }
 +    }
 +
@@ -1163,10 +1170,19 @@ index 000000000000..7ca5a64dc215
 +        printk("\n");
 +        printk("\n");
 +        PRINT("++++++sdio bt driver rmmod start.++++++\n");
-+        while (wifi_in_insmod)
 +        {
-+            PRINT("WIFI in insmod\n");
-+            msleep(10);
++            int wcnt = 0;
++            if (wifi_in_insmod)
++                PRINT("waiting WIFI insmod to finish...\n");
++            while (wifi_in_insmod)
++            {
++                msleep(10);
++                if ((wcnt++) > 500)
++                {
++                    PRINT("WIFI insmod wait timeout, continue rmmod\n");
++                    break;
++                }
++            }
 +        }
 +        config_bt_pmu_reg(BT_PWR_OFF);
 +        set_wifi_bt_sdio_driver_bit(UNREGISTER_BT_SDIO, BT_BIT);
