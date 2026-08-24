@@ -29,7 +29,7 @@ new file mode 100644
 index 000000000000..6845922b9cf4
 --- /dev/null
 +++ b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,91 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
 + * Copyright (c) 2022 Vyacheslav Bocharov <adeep@lexina.in>
@@ -103,12 +103,30 @@ index 000000000000..6845922b9cf4
 +	btwakeup-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
 +	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
 +};
++
++/*
++ * i2c1 and spicc1 come from the JetHub j1xx dtsi, but neither exists on this
++ * board. Per the schematic the pins they would need are wired as UARTs, or
++ * not wired at all:
++ *   GPIOZ_8/GPIOZ_9   = DB_TXD1/DB_RXD1 -> uart_AO_B (ttyAML3, Zigbee)
++ *   GPIOX_16/GPIOX_17 = DB_TXD2/DB_RXD2 -> uart_B    (ttyAML6, Thread)
++ *   GPIOX_18/GPIOX_19 = not connected (SPI1 MISO/CLK would need these)
++ * There is consequently no pcf8563 RTC on the i2c1 bus. Disable both nodes so
++ * they stop losing a pinctrl fight against the UARTs on every boot.
++ */
++&i2c1 {
++	status = "disabled";
++};
++
++&spicc1 {
++	status = "disabled";
++};
 diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
 new file mode 100644
 index 000000000000..12a20432e0d9
 --- /dev/null
 +++ b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,92 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
 + * Copyright (c) 2022 Vyacheslav Bocharov <adeep@lexina.in>
@@ -182,6 +200,24 @@ index 000000000000..12a20432e0d9
 +	reset-gpios = <&gpio    GPIOX_21 GPIO_ACTIVE_HIGH>;
 +	btwakeup-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
 +	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
++};
++
++/*
++ * i2c1 and spicc1 come from the JetHub j1xx dtsi, but neither exists on this
++ * board. Per the schematic the pins they would need are wired as UARTs, or
++ * not wired at all:
++ *   GPIOZ_8/GPIOZ_9   = DB_TXD1/DB_RXD1 -> uart_AO_B (ttyAML3, Zigbee)
++ *   GPIOX_16/GPIOX_17 = DB_TXD2/DB_RXD2 -> uart_B    (ttyAML6, Thread)
++ *   GPIOX_18/GPIOX_19 = not connected (SPI1 MISO/CLK would need these)
++ * There is consequently no pcf8563 RTC on the i2c1 bus. Disable both nodes so
++ * they stop losing a pinctrl fight against the UARTs on every boot.
++ */
++&i2c1 {
++	status = "disabled";
++};
++
++&spicc1 {
++	status = "disabled";
 +};
 -- 
 2.39.5
