@@ -99,6 +99,7 @@ exclude_patterns=(
 
     "zigbee-mqtt_"
     "thirdreality-bridge_"
+    "matter2mqtt_"
 
     "openhab_"
     "music-assistant_"
@@ -963,6 +964,43 @@ install_zigbee2mqtt_debs() {
     fi
 }
 
+install_matter2mqtt_debs() {
+    echo "Attempting to install Matter2MQTT debs..."
+
+    # Match both naming schemes ("matter2mqtt_*.deb" and
+    # "thirdreality-matter2mqtt_*.deb"). The exclude_patterns entry above uses
+    # the same "matter2mqtt_" substring, so the file can never fall through to
+    # install_extra_debs and bypass the conflict check below.
+    matter2mqtt_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "*matter2mqtt_*.deb" -type f | head -n 1)
+    if [ -z "$matter2mqtt_deb_file" ]; then
+        echo "No matter2mqtt deb file found in $WORK_DIR" >&2
+        return 0
+    fi
+
+    # matter2mqtt and the native matter server (hacore) are conflicting stacks,
+    # like zigbee2mqtt vs ZHA. When a hacore deb is present on the same USB
+    # drive, hacore wins and the matter2mqtt deb is treated as if absent.
+    # (Its postinst additionally refuses to enable itself while
+    # matter-server.service is enabled on the system.)
+    hacore_deb_file=$(find "$WORK_DIR" -maxdepth 1 -name "hacore_*.deb" -type f | head -n 1)
+    if [ -n "$hacore_deb_file" ]; then
+        echo "[MATTER2MQTT] hacore deb present on USB; skipping matter2mqtt installation"
+        return 0
+    fi
+
+    # Read the real package name out of the deb (same approach as
+    # install_extra_debs) so the version comparison in install_deb_if_needed
+    # works no matter how the file is named.
+    local matter2mqtt_pkg
+    matter2mqtt_pkg=$(dpkg-deb -f "$matter2mqtt_deb_file" Package 2>/dev/null || true)
+    [ -z "$matter2mqtt_pkg" ] && matter2mqtt_pkg="thirdreality-matter2mqtt"
+
+    install_deb_if_needed "$matter2mqtt_deb_file" "$matter2mqtt_pkg"
+    apt-get install -f > /dev/null || true
+
+    return 0
+}
+
 install_thirdreality_bridge_debs() {
     echo "Attempting to install ThirdReality Bridge debs..."
 
@@ -1385,6 +1423,10 @@ main_procedure()
 
         # install zigbee2mqtt
         install_zigbee2mqtt_debs
+
+        # install matter2mqtt (after zigbee2mqtt: the mosquitto broker it
+        # connects to is set up by the zigbee-mqtt package)
+        install_matter2mqtt_debs
 
         # install openhab
         install_openhab_debs
