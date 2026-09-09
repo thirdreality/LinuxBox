@@ -80,6 +80,12 @@ software_packages:
     key: "zigbee-mqtt"
     required: true
     
+  # matter2mqtt: alternative Matter stack. Mutually exclusive at runtime with
+  # matter-server (which ships with thirdreality-hacore); matter2mqtt has the
+  # lower priority and disables itself when matter-server is enabled.
+  - package: "thirdreality-matter2mqtt"
+    key: "matter2mqtt"
+
   - package: "thirdreality-music-assistant"
     key: "music-assistant"
     
@@ -133,6 +139,12 @@ software_config_directories:
   - source: "/etc/mosquitto"
     mapped_name: "mosquitto_config"
 
+  # Matter fabric credentials and commissioned-node storage. Must be part of
+  # backup/restore, otherwise every Matter device has to be re-commissioned
+  # after a restore.
+  - source: "/var/lib/matter2mqtt"
+    mapped_name: "matter2mqtt_data"
+
 
 # Services to manage during backup/restore
 # These services will be stopped before backup/restore and restarted after
@@ -142,6 +154,10 @@ managed_services:
   - "otbr-agent.service"
   - "zigbee2mqtt.service"
   - "mosquitto.service"
+  # matter2mqtt stack (only one of matter-server / matter2mqtt runs at a time;
+  # stopping an inactive unit is a no-op, so listing both is safe)
+  - "matter2mqtt.service"
+  - "matter-ble-proxy.service"
 
 # ============================================================================
 # Backup and Restore Configuration
