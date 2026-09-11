@@ -992,17 +992,14 @@ install_matter2mqtt_debs() {
         return 0
     fi
 
-    # matter2mqtt and the native matter server (hacore) are conflicting stacks,
-    # like zigbee2mqtt vs ZHA. When a hacore deb is present on the same USB
-    # drive, hacore wins and the matter2mqtt deb is treated as if absent.
-    # (Its postinst additionally refuses to enable itself while
-    # matter-server.service is enabled on the system.)
-    hacore_deb_file=$(find_latest_deb "hacore_*.deb")
-    if [ -n "$hacore_deb_file" ]; then
-        echo "[MATTER2MQTT] hacore deb present on USB; skipping matter2mqtt installation"
-        return 0
-    fi
-
+    # matter2mqtt and the native matter server (hacore) are conflicting stacks at RUNTIME
+    # (both bind port 5580 and drive the same BLE adapter), but they may be installed side by
+    # side, so the deb is installed even when a hacore deb sits on the same USB drive. The
+    # arbitration lives in the package itself: its preinst leaves the native stack alone
+    # (no stop, no disable, and notably no removal of /srv/homeassistant or /srv/matter_server)
+    # and its postinst keeps matter2mqtt.service / matter-ble-proxy.service stopped and
+    # un-enabled for as long as home-assistant.service or matter-server.service is around.
+    # Switching stacks stays an explicit operator action.
     install_deb_if_needed "$matter2mqtt_deb_file" "thirdreality-matter2mqtt"
     apt-get install -f > /dev/null || true
 
