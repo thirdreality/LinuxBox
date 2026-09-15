@@ -5,6 +5,16 @@ After=network-pre.target dbus.service
 Before=network.target
 
 [Service]
+# Type must be oneshot, NOT the default 'simple'. amlogicw1-bt.service is ordered
+# After=/Requires= this unit, but with Type=simple systemd marks us active as soon
+# as w1_start.sh is forked, so the BT service used to run in parallel with the WiFi
+# bring-up. Bringing BT up pulses the shared W155S1 chip reset line, and if that
+# lands inside the WiFi SDIO enumeration window the enumeration hangs and both
+# radios die (sdio_bt then oopses on a NULL hif op). oneshot makes the ordering real.
+Type=oneshot
+# w1_start.sh worst case is ~34s (3 attempts x 10s wlan0 wait + 2s settle). Bound the
+# start job so a driver hung inside insmod cannot stall boot for the default 90s.
+TimeoutStartSec=60
 ExecStart=/usr/lib/firmware/w1/w1_start.sh
 RemainAfterExit=yes
 
