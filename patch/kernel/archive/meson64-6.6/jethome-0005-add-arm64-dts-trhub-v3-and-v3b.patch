@@ -100,8 +100,8 @@ index 000000000000..6845922b9cf4
 +&aml_bt {
 +	status = "okay";
 +	reset-gpios = <&gpio    GPIOX_21 GPIO_ACTIVE_HIGH>;
-+	btwakeup-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
-+	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
++	btwakeup-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>; /* BT_WAKE_HOST: W1 pin50 out -> SoC in; bt_device.c sets input + request_irq */
++	hostwake-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>; /* HOST_WAKE_BT: SoC out -> W1 pin49 in; bt_device.c sets output 1 */
 +};
 +
 +/*
@@ -198,8 +198,8 @@ index 000000000000..12a20432e0d9
 +&aml_bt {
 +	status = "okay";
 +	reset-gpios = <&gpio    GPIOX_21 GPIO_ACTIVE_HIGH>;
-+	btwakeup-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
-+	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
++	btwakeup-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>; /* BT_WAKE_HOST: W1 pin50 out -> SoC in; bt_device.c sets input + request_irq */
++	hostwake-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>; /* HOST_WAKE_BT: SoC out -> W1 pin49 in; bt_device.c sets output 1 */
 +};
 +
 +/*

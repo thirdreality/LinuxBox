@@ -102,8 +102,8 @@ index 000000000000..ae97bca8c1e8
 +&aml_bt {
 +	status = "okay";
 +	reset-gpios = <&gpio    GPIOX_21 GPIO_ACTIVE_HIGH>;
-+	btwakeup-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>;
-+	hostwake-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>;
++	btwakeup-gpios = <&gpio GPIOZ_6 GPIO_ACTIVE_HIGH>; /* BT_WAKE_HOST: W1 pin50 out -> SoC in; bt_device.c sets input + request_irq */
++	hostwake-gpios = <&gpio GPIOZ_7 GPIO_ACTIVE_HIGH>; /* HOST_WAKE_BT: SoC out -> W1 pin49 in; bt_device.c sets output 1 */
 +};
 +
 +/* V3A: uart_AO_B uses uart_ao_b_pins (not uart_ao_b_z_pins) */
