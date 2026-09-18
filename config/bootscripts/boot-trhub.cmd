@@ -10,6 +10,11 @@ setenv fdt_addr_r     "0x10800000"
 setenv overlay_error "false"
 # default values
 setenv rootdev "/dev/mmcblk0p1"
+# Only a fallback: /boot/armbianEnv.txt is imported below and its verbosity=
+# wins.  The shipped value comes from config/bootenv/meson.txt (verbosity=1,
+# shared by all of meson64); to raise it for this board set BOOTENV_FILE in
+# config/boards/trhubv3.conf, or on a live board just edit armbianEnv.txt - no
+# reflash.  Mind that verbosity < 4 keeps KERN_ERR off the serial console.
 setenv verbosity "1"
 setenv console "serial"
 setenv bootlogo "false"
@@ -47,7 +52,7 @@ echo "Current fdtfile after armbianEnv: ${fdtfile}"
 
 if test "${console}" = "serial"; then setenv consoleargs "console=ttyAML0,115200n8"; fi
 
-setenv bootargs "root=${rootdev} rootwait rootflags=data=ordered rootfstype=${rootfstype} ${consoleargs} no_console_suspend consoleblank=0 coherent_pool=2M loglevel=${verbosity} fsck.fix=yes fsck.repair=yes net.ifnames=0 ${extraargs} ${extraboardargs}"
+setenv bootargs "root=${rootdev} rootwait rootflags=data=ordered rootfstype=${rootfstype} ${consoleargs} no_console_suspend consoleblank=0 coherent_pool=2M loglevel=${verbosity} log_buf_len=1M fsck.fix=yes fsck.repair=yes net.ifnames=0 ${extraargs} ${extraboardargs}"
 
 if test -n "${board_name}"; then setenv bootargs "${bootargs} board=${board}"; fi
 

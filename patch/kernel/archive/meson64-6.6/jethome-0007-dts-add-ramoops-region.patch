@@ -1,0 +1,121 @@
+From: ThirdReality <dev@3reality.com>
+Subject: [PATCH] feat(dts): add a ramoops region to trhub-v3/v3b
+
+The W155S1 boot hang kills the box inside insmod of vlsicomm, right after
+"[sdio_reinit] sdio_rescan". The console goes quiet at that moment, so anything
+printk wrote in the final instants never leaves the 115200 UART - it is sitting
+in the ring buffer with no way to read it.
+
+ramoops fixes exactly that: 1 MiB of DRAM at a fixed address, preserved across a
+reset, readable next boot from /sys/fs/pstore/console-ramoops-0. The test rig
+now uses a manual RESET rather than cutting power, so DRAM contents do survive
+and this becomes usable.
+
+Address selection and the DDR-bist caveat are documented in the DTS comment.
+CONFIG_PSTORE_RAM also has to move from m to y (separate change): as a module the
+backend registers too late to capture early console output, and early output is
+part of what we need.
+
+DIAGNOSTIC ONLY - drop before release, or keep it deliberately as a field
+post-mortem facility.
+
+Applies on top of jethome-0005 (which creates these two DTS files).
+---
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3.dts
+@@ -97,3 +97,46 @@
+ &spicc1 {
+ 	status = "disabled";
+ };
++
++/*
++ * ramoops: 1 MiB of DRAM that survives a reset, so a wedge which silences the
++ * console still leaves the kernel ring buffer readable on the next boot from
++ * /sys/fs/pstore/console-ramoops-0.
++ *
++ * Motivation is the W155S1 boot hang: the box dies inside insmod of vlsicomm,
++ * the console stops, and whatever printk wrote in the final moments never
++ * makes it out of a 115200 UART. Reading it back after a reset is the only way
++ * to see those lines.
++ *
++ * The address has to be fixed - not moving between boots is the entire point.
++ * 0x07000000 sits clear of everything known to touch DRAM on this board:
++ *
++ *   0x00000000-0x00ffffff  hwrom_reserved      (meson-axg.dtsi)
++ *   0x01700000-0x017a8000  FIP hdr + BL3x/u-boot as loaded from eMMC
++ *   0x05000000-0x052fffff  secmon_reserved     (meson-axg.dtsi)
++ *   0x10800000             u-boot fdt_addr_r
++ *   0x12000000             u-boot scriptaddr
++ *   0x14000000             u-boot kernel_addr_r   (~23 MiB of Image)
++ *   0x1a000000             u-boot ramdisk_addr_r  (~12 MiB of uInitrd)
++ *   0x7b000000-0x7bffffff  default CMA (16 MiB)
++ *   0x7c307000-0x7cf05000  DTB + initrd after u-boot relocation
++ *   0x7fc00000-0x7fffffff  linux,cma
++ *
++ * Caveat worth knowing: BL2 runs a DDR bist_test and an AddrBus test on every
++ * reset, and both write to DRAM. If either touches this window the contents are
++ * gone. ecc-size lets ramoops detect a corrupted record and drop it instead of
++ * reporting garbage, but whether the region actually survives on this SoC can
++ * only be settled by trying it.
++ *
++ * Also note this only helps across a reset, not across a power cut - DRAM
++ * loses its contents either way.
++ */
++&{/reserved-memory} {
++	ramoops@7000000 {
++		compatible = "ramoops";
++		reg = <0x0 0x07000000 0x0 0x00100000>;
++		record-size = <0x00020000>;	/* 128 KiB per oops/panic dump */
++		console-size = <0x00080000>;	/* 512 KiB of console history */
++		ecc-size = <16>;
++	};
++};
+--- a/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-axg-thirdreality-trhub-v3b.dts
+@@ -98,3 +98,46 @@
+ &spicc1 {
+ 	status = "disabled";
+ };
++
++/*
++ * ramoops: 1 MiB of DRAM that survives a reset, so a wedge which silences the
++ * console still leaves the kernel ring buffer readable on the next boot from
++ * /sys/fs/pstore/console-ramoops-0.
++ *
++ * Motivation is the W155S1 boot hang: the box dies inside insmod of vlsicomm,
++ * the console stops, and whatever printk wrote in the final moments never
++ * makes it out of a 115200 UART. Reading it back after a reset is the only way
++ * to see those lines.
++ *
++ * The address has to be fixed - not moving between boots is the entire point.
++ * 0x07000000 sits clear of everything known to touch DRAM on this board:
++ *
++ *   0x00000000-0x00ffffff  hwrom_reserved      (meson-axg.dtsi)
++ *   0x01700000-0x017a8000  FIP hdr + BL3x/u-boot as loaded from eMMC
++ *   0x05000000-0x052fffff  secmon_reserved     (meson-axg.dtsi)
++ *   0x10800000             u-boot fdt_addr_r
++ *   0x12000000             u-boot scriptaddr
++ *   0x14000000             u-boot kernel_addr_r   (~23 MiB of Image)
++ *   0x1a000000             u-boot ramdisk_addr_r  (~12 MiB of uInitrd)
++ *   0x7b000000-0x7bffffff  default CMA (16 MiB)
++ *   0x7c307000-0x7cf05000  DTB + initrd after u-boot relocation
++ *   0x7fc00000-0x7fffffff  linux,cma
++ *
++ * Caveat worth knowing: BL2 runs a DDR bist_test and an AddrBus test on every
++ * reset, and both write to DRAM. If either touches this window the contents are
++ * gone. ecc-size lets ramoops detect a corrupted record and drop it instead of
++ * reporting garbage, but whether the region actually survives on this SoC can
++ * only be settled by trying it.
++ *
++ * Also note this only helps across a reset, not across a power cut - DRAM
++ * loses its contents either way.
++ */
++&{/reserved-memory} {
++	ramoops@7000000 {
++		compatible = "ramoops";
++		reg = <0x0 0x07000000 0x0 0x00100000>;
++		record-size = <0x00020000>;	/* 128 KiB per oops/panic dump */
++		console-size = <0x00080000>;	/* 512 KiB of console history */
++		ecc-size = <16>;
++	};
++};
