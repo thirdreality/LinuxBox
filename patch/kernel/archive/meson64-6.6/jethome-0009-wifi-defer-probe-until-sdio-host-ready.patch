@@ -1,0 +1,167 @@
+From: ThirdReality <dev@3reality.com>
+Subject: [PATCH] fix(wifi,mmc): probe aml_wifi after the SDIO host; ack IRQ before NULL check
+
+Two changes.  Neither touches the request-completion path.
+
+1) Root cause of the intermittent "wlan0 missing" boot (fix).
+
+   The differentiator between a good and a bad boot is purely the probe order
+   of ffe05000.sdio versus aml_wifi.  Measured over 80 boots (60 reset, 20
+   reboot) on v2.14.01.56/.57/.58:
+
+     80x PASS -> ffe05000.sdio probes at 0.193 .. 0.336s, "sdio_host is NULL"
+                 never printed
+      3x FAIL -> ffe05000.sdio probes at 0.85 .. 0.88s, "sdio_host is NULL"
+                 printed twice
+
+   On a FAIL boot wifi_dt runs first.  Its probe blocks for ~543ms in
+   msleep(100) + msleep(200) + msleep(200), which both completes the chip
+   power-on and pushes the SDIO host's probe half a second later, so the whole
+   power-on sequence finishes before the host exists:
+
+     0.383  set_wifi_power(1) -> sdio_reinit()      [wifi_dt.c]
+     0.385  Error: sdio_host is NULL                -> does nothing
+     0.595  probe-tail set_power(1)                 -> chip is now powered
+     0.803  probe-tail -> sdio_reinit()
+     0.804  Error: sdio_host is NULL                -> does nothing
+     0.853  ffe05000.sdio: meson_mmc_probe: probe start
+     0.883  ###mmc1: Set sdio_host ###
+            ... and mmc1 never prints again.
+
+   That silence is the actual failure.  mmc_add_host() starts the host's first
+   rescan right there, but the chip has been powered for ~290ms and is in the
+   window where it neither answers CMD52 nor raises the controller's response
+   timeout, so mmc_wait_for_req_done()'s bare wait_for_completion() never
+   returns.  On a PASS boot the same first rescan runs while the chip is still
+   unpowered, fails cleanly in ~25ms with -110, and the later sdio_reinit()
+   from set_wifi_power(1) enumerates the card in ~54ms.
+
+   Nine seconds later the WiFi driver notices ("sdio not probe, need set
+   power") and retries through usb_power_control(), but its sdio_rescan() does
+   flush_work() on the work that has been stuck since 0.88s, so insmod joins
+   mmc_rescan in D state:
+
+     kworker/3:0  D  Workqueue: events_freezable mmc_rescan
+       wait_for_completion <- mmc_wait_for_req_done <- mmc_wait_for_cmd
+       <- mmc_io_rw_direct <- mmc_sdio_init_card <- mmc_attach_sdio
+     insmod       D  sdio_reinit+0xa4/0xfc <- ... <- aml_insmod [vlsicomm]
+
+   Fix: export sdio_host_is_ready() and have wifi_dev_probe() return
+   -EPROBE_DEFER until the host is registered.  This turns the racing order
+   into a guaranteed one and reproduces the PASS timeline on every boot.
+   wifi_dev_probe() already defers on the PWM controller (-517 on the first
+   attempt, retried successfully), so the mechanism is proven on this driver.
+
+   For reference, 5.10 gets the same ordering by accident: meson-pwm probes
+   after meson-gx-mmc there, and aml_wifi depends on the PWM, so it is pushed
+   behind the host.  In 6.6 the PWM became ready first and the accidental
+   guard disappeared.  Checking sdio_host directly does not rely on any other
+   driver's probe timing.
+
+   Behaviour change worth stating: if ffe05000.sdio never probes, aml_wifi now
+   defers until deferred_probe_timeout instead of running and failing.  WiFi
+   cannot work in that situation either way.
+
+2) meson_mmc_irq() acked the controller only after its host->cmd NULL check
+   (correctness fix, independent of the above).
+
+   The early "return IRQ_NONE" left a level-triggered interrupt asserted, so
+   the handler was re-entered immediately and the CPU livelocked - seen as a
+   completely dead console with sysrq-over-BREAK also unresponsive, at the
+   exact moment an out-of-band completer had cleared host->cmd.  Ack first,
+   then return IRQ_HANDLED.  Nothing in-tree completes out of band today, so
+   this is latent, but it is what made an earlier software-watchdog attempt
+   turn a survivable D-state hang into a hard lockup.
+
+Applies on top of jethome-0003 and jethome-0008.
+---
+--- a/drivers/mmc/host/meson-gx-mmc.c
++++ b/drivers/mmc/host/meson-gx-mmc.c
+@@ -943,13 +943,20 @@
+ 			  irq_en, raw_status);
+ 		 return IRQ_NONE;
+ 	 }
+  
++	 /*
++	  * Ack BEFORE the NULL check.  Returning IRQ_NONE without acking leaves
++	  * this level-triggered line asserted, so the handler is re-entered
++	  * immediately and the CPU livelocks - observed as a dead console with
++	  * sysrq-over-BREAK also unresponsive.  Any out-of-band completion of
++	  * host->cmd reaches this path, so ack first and report the interrupt as
++	  * handled rather than leaving it pending forever.
++	  */
++	 writel(status, host->regs + SD_EMMC_STATUS);
++ 
+ 	 if (WARN_ON(!host) || WARN_ON(!host->cmd))
+-		 return IRQ_NONE;
+- 
+-	 /* ack all raised interrupts */
+-	 writel(status, host->regs + SD_EMMC_STATUS);
++		 return IRQ_HANDLED;
+  
+ 	 cmd = host->cmd;
+ 	 data = cmd->data;
+ 	 cmd->error = 0;
+@@ -1407,8 +1414,31 @@
+ 	 if (!ret)
+ 		 pr_info("Error: delayed_work mmc_rescan() already idle!\n");
+  }
+  
++/*
++ * Has the SDIO host probed and registered itself yet?
++ *
++ * sdio_host is assigned at the end of meson_mmc_probe().  The Amlogic WiFi
++ * platform driver (drivers/amlogic/wifi/wifi_dt.c) powers the W155S1 and then
++ * calls sdio_reinit() to enumerate it.  If wifi_dt probes first, both of its
++ * sdio_reinit() calls find no host and silently do nothing, so the
++ * post-power-on rescan never happens.  Worse, when this host finally does
++ * probe, mmc_add_host() kicks off its first rescan while the chip is already
++ * powered but not yet answering, and the unbounded wait in
++ * mmc_wait_for_req_done() wedges mmc_rescan permanently (kworker and the
++ * insmod that flush_work()s it both end up in D state, wlan0 never appears).
++ *
++ * Measured over 80 boots: every PASS had this host probing before 0.34s,
++ * every FAIL had it at 0.85-0.88s.  Exporting this lets wifi_dt defer its
++ * probe so the ordering is guaranteed instead of raced for.
++ */
++bool sdio_host_is_ready(void)
++{
++	return sdio_host != NULL;
++}
++EXPORT_SYMBOL(sdio_host_is_ready);
++
+  void sdio_reinit(void)
+  {
+  #if 1
+ 	 printk("[%s] \n", __func__);
+--- a/drivers/amlogic/wifi/wifi_dt.c
++++ b/drivers/amlogic/wifi/wifi_dt.c
+@@ -732,13 +732,28 @@
+ 	 return 0;
+  }
+  #endif
+  
++/* provided by drivers/mmc/host/meson-gx-mmc.c */
++extern bool sdio_host_is_ready(void);
++
+ static int wifi_dev_probe(struct platform_device *pdev)
+ {
+ 	 int ret;
+ 
+ 	 pr_info("### wifi_dev_probe: START, device=%s ###\n", dev_name(&pdev->dev));
++	 /*
++	  * Defer until the SDIO host has probed - see sdio_host_is_ready() in
++	  * drivers/mmc/host/meson-gx-mmc.c for why the ordering matters.  Without
++	  * this, on roughly 1 boot in 10 this probe wins the race, its
++	  * sdio_reinit() calls find no host and do nothing, and the SDIO host's
++	  * own first rescan then lands in the window where the chip is powered but
++	  * not yet answering, which wedges mmc_rescan for good and loses wlan0.
++	  */
++	 if (!sdio_host_is_ready()) {
++	 	pr_info("aml_wifi: SDIO host not registered yet, deferring probe\n");
++	 	return -EPROBE_DEFER;
++	 }
+ 
+ #ifdef CONFIG_OF
+ 	 struct wifi_plat_info *plat;
+ 	 const char *value;
