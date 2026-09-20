@@ -60,6 +60,13 @@ function run_kernel_make_internal() {
 		"KBUILD_BUILD_TIMESTAMP=${kernel_base_revision_date}" # https://www.kernel.org/doc/html/latest/kbuild/kbuild.html#kbuild-build-timestamp
 		"KBUILD_BUILD_USER=build"                             # https://www.kernel.org/doc/html/latest/kbuild/kbuild.html#kbuild-build-user-kbuild-build-host
 		"KBUILD_BUILD_HOST=armbian"                           # https://www.kernel.org/doc/html/latest/kbuild/kbuild.html#kbuild-build-user-kbuild-build-host
+		# Pin the "#N" field of `uname -a` to our release id instead of the kernel's
+		# auto-incrementing .version counter. That counter is per build tree, so it
+		# silently repeats or jumps whenever the tree is recreated or the build moves
+		# to another machine -- it cannot be used to tell two images apart. With this,
+		# `uname -a` reports the same number as VERSION_ID in /etc/t3r-release.
+		# Falls back to 0 when built without the release wrapper (plain ./compile.sh).
+		"KBUILD_BUILD_VERSION=${R3VERSION_ID:-0}"             # https://www.kernel.org/doc/html/latest/kbuild/kbuild.html#kbuild-build-version
 
 		# Parallel compression, use explicit parallel compressors https://lore.kernel.org/lkml/20200901151002.988547791@linuxfoundation.org/
 		"KGZIP=pigz"
