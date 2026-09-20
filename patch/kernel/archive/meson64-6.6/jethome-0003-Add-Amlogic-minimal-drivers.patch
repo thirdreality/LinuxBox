@@ -29,8 +29,7 @@ Subject: [PATCH 10/11] Add Amlogic minimal drivers
  drivers/mmc/core/sdio.c                       |   46 +
  drivers/mmc/core/slot-gpio.c                  |   46 +-
  drivers/mmc/host/meson-gx-mmc.c               | 2758 +++++++++--------
- drivers/pwm/core.c                            |  101 +-
- drivers/pwm/pwm-meson.c                       | 1410 +++++----
+ drivers/pwm/pwm-meson.c                       | 1411 +++++----
  fs/read_write.c                               |    3 +
  fs/stat.c                                     |    1 +
  include/dt-bindings/pwm/meson.h               |   30 +
@@ -51,7 +50,6 @@ Subject: [PATCH 10/11] Add Amlogic minimal drivers
  include/linux/amlogic/wlan_plat.h             |   21 +
  include/linux/mmc/sdio.h                      |    2 +
  include/linux/of_gpio.h                       |   26 +
- include/linux/pwm.h                           |    4 +-
  kernel/sched/core.c                           |    1 +
  49 files changed, 8049 insertions(+), 2252 deletions(-)
  create mode 100644 arch/arm64/configs/amlogic_defconfig
@@ -4276,7 +4274,7 @@ index 000000000000..f07eca9e026f
 +
 +		 pr_info("wifi: requesting PWM%d from child node: %s\n",
 +			 plat->ddata.num_pwm, child->name);
-+		 pdata->pwm = devm_of_pwm_get(plat->dev, child, NULL);
++		 pdata->pwm = devm_fwnode_pwm_get(plat->dev, of_fwnode_handle(child), NULL);
 +		 if (IS_ERR(pdata->pwm)) {
 +			 ret = PTR_ERR(pdata->pwm);
 +			 dev_err(plat->dev, "wifi: unable to request PWM%d, ret = %d\n",
@@ -7677,179 +7675,11 @@ index 7268946d3894..53d8ba4b1738 100644
 + MODULE_LICENSE("GPL v2");
 + 
 \ No newline at end of file
-diff --git a/drivers/pwm/core.c b/drivers/pwm/core.c
-index a1a355ba2383..e539208523b6 100644
---- a/drivers/pwm/core.c
-+++ b/drivers/pwm/core.c
-@@ -314,20 +314,34 @@ EXPORT_SYMBOL_GPL(pwmchip_add);
-  *
-  * Removes a PWM chip.
-  */
--void pwmchip_remove(struct pwm_chip *chip)
-+int pwmchip_remove(struct pwm_chip *chip)
- {
--	pwmchip_sysfs_unexport(chip);
-+	unsigned int i;
-+	int ret = 0;
- 
--	if (IS_ENABLED(CONFIG_OF))
--		of_pwmchip_remove(chip);
-+	pwmchip_sysfs_unexport(chip);
- 
- 	mutex_lock(&pwm_lock);
- 
-+	for (i = 0; i < chip->npwm; i++) {
-+		struct pwm_device *pwm = &chip->pwms[i];
-+
-+		if (test_bit(PWMF_REQUESTED, &pwm->flags)) {
-+			ret = -EBUSY;
-+			goto out;
-+		}
-+	}
-+
- 	list_del_init(&chip->list);
- 
-+	if (IS_ENABLED(CONFIG_OF))
-+		of_pwmchip_remove(chip);
-+
- 	free_pwms(chip);
- 
-+out:
- 	mutex_unlock(&pwm_lock);
-+	return ret;
- }
- EXPORT_SYMBOL_GPL(pwmchip_remove);
- 
-@@ -683,7 +697,7 @@ static struct device_link *pwm_device_link_add(struct device *dev,
-  * Returns: A pointer to the requested PWM device or an ERR_PTR()-encoded
-  * error code on failure.
-  */
--static struct pwm_device *of_pwm_get(struct device *dev, struct device_node *np,
-+struct pwm_device *of_pwm_get(struct device *dev, struct device_node *np,
- 				     const char *con_id)
- {
- 	struct pwm_device *pwm = NULL;
-@@ -985,9 +999,9 @@ void pwm_put(struct pwm_device *pwm)
- }
- EXPORT_SYMBOL_GPL(pwm_put);
- 
--static void devm_pwm_release(void *pwm)
-+static void devm_pwm_release(struct device *dev, void *res)
- {
--	pwm_put(pwm);
-+	pwm_put(*(struct pwm_device **)res);
- }
- 
- /**
-@@ -1003,6 +1017,23 @@ static void devm_pwm_release(void *pwm)
-  */
- struct pwm_device *devm_pwm_get(struct device *dev, const char *con_id)
- {
-+#ifdef CONFIG_AMLOGIC_MODIFY
-+	struct pwm_device **ptr, *pwm;
-+
-+	ptr = devres_alloc(devm_pwm_release, sizeof(*ptr), GFP_KERNEL);
-+	if (!ptr)
-+		return ERR_PTR(-ENOMEM);
-+
-+	pwm = pwm_get(dev, con_id);
-+	if (!IS_ERR(pwm)) {
-+		*ptr = pwm;
-+		devres_add(dev, ptr);
-+	} else {
-+		devres_free(ptr);
-+	}
-+
-+	return pwm;
-+#else
- 	struct pwm_device *pwm;
- 	int ret;
- 
-@@ -1015,9 +1046,43 @@ struct pwm_device *devm_pwm_get(struct device *dev, const char *con_id)
- 		return ERR_PTR(ret);
- 
- 	return pwm;
-+#endif
- }
- EXPORT_SYMBOL_GPL(devm_pwm_get);
- 
-+/**
-+ * devm_of_pwm_get() - resource managed of_pwm_get()
-+ * @dev: device for PWM consumer
-+ * @np: device node to get the PWM from
-+ * @con_id: consumer name
-+ *
-+ * This function performs like of_pwm_get() but the acquired PWM device will
-+ * automatically be released on driver detach.
-+ *
-+ * Returns: A pointer to the requested PWM device or an ERR_PTR()-encoded
-+ * error code on failure.
-+ */
-+ struct pwm_device *devm_of_pwm_get(struct device *dev, struct device_node *np,
-+	const char *con_id)
-+{
-+struct pwm_device **ptr, *pwm;
-+
-+ptr = devres_alloc(devm_pwm_release, sizeof(*ptr), GFP_KERNEL);
-+if (!ptr)
-+return ERR_PTR(-ENOMEM);
-+
-+pwm = of_pwm_get(dev, np, con_id);
-+if (!IS_ERR(pwm)) {
-+*ptr = pwm;
-+devres_add(dev, ptr);
-+} else {
-+devres_free(ptr);
-+}
-+
-+return pwm;
-+}
-+EXPORT_SYMBOL_GPL(devm_of_pwm_get);
-+
- /**
-  * devm_fwnode_pwm_get() - request a resource managed PWM from firmware node
-  * @dev: device for PWM consumer
-@@ -1034,6 +1099,27 @@ struct pwm_device *devm_fwnode_pwm_get(struct device *dev,
- 				       struct fwnode_handle *fwnode,
- 				       const char *con_id)
- {
-+#ifdef CONFIG_AMLOGIC_MODIFY
-+	struct pwm_device **ptr, *pwm = ERR_PTR(-ENODEV);
-+
-+	ptr = devres_alloc(devm_pwm_release, sizeof(*ptr), GFP_KERNEL);
-+	if (!ptr)
-+		return ERR_PTR(-ENOMEM);
-+
-+	if (is_of_node(fwnode))
-+		pwm = of_pwm_get(dev, to_of_node(fwnode), con_id);
-+	else if (is_acpi_node(fwnode))
-+		pwm = acpi_pwm_get(fwnode);
-+
-+	if (!IS_ERR(pwm)) {
-+		*ptr = pwm;
-+		devres_add(dev, ptr);
-+	} else {
-+		devres_free(ptr);
-+	}
-+
-+	return pwm;
-+#else
- 	struct pwm_device *pwm = ERR_PTR(-ENODEV);
- 	int ret;
- 
-@@ -1049,6 +1135,7 @@ struct pwm_device *devm_fwnode_pwm_get(struct device *dev,
- 		return ERR_PTR(ret);
- 
- 	return pwm;
-+#endif
- }
- EXPORT_SYMBOL_GPL(devm_fwnode_pwm_get);
- 
 diff --git a/drivers/pwm/pwm-meson.c b/drivers/pwm/pwm-meson.c
 index 25519cddc2a9..97372e14685c 100644
 --- a/drivers/pwm/pwm-meson.c
 +++ b/drivers/pwm/pwm-meson.c
-@@ -27,551 +27,867 @@
+@@ -27,551 +27,868 @@
   * Copyright (C) 2014 Amlogic, Inc.
   */
  
@@ -9225,7 +9055,8 @@ index 25519cddc2a9..97372e14685c 100644
 +	 if (meson->data->double_channel)
 +		 meson_pwm_sysfs_exit(&pdev->dev);
 + #endif
-+	 return pwmchip_remove(&meson->chip);
++	 pwmchip_remove(&meson->chip);
++	 return 0;
 + }
 + 
 + static struct platform_driver meson_pwm_driver = {
@@ -11088,28 +10919,6 @@ index d0f66a5e1b2a..760236ade083 100644
  #endif /* CONFIG_OF_GPIO */
  
  #endif /* __LINUX_OF_GPIO_H */
-diff --git a/include/linux/pwm.h b/include/linux/pwm.h
-index 63426d8255e4..f715d3c11b46 100644
---- a/include/linux/pwm.h
-+++ b/include/linux/pwm.h
-@@ -387,7 +387,7 @@ int pwm_set_chip_data(struct pwm_device *pwm, void *data);
- void *pwm_get_chip_data(struct pwm_device *pwm);
- 
- int pwmchip_add(struct pwm_chip *chip);
--void pwmchip_remove(struct pwm_chip *chip);
-+int pwmchip_remove(struct pwm_chip *chip);
- 
- int devm_pwmchip_add(struct device *dev, struct pwm_chip *chip);
- 
-@@ -404,6 +404,8 @@ struct pwm_device *pwm_get(struct device *dev, const char *con_id);
- void pwm_put(struct pwm_device *pwm);
- 
- struct pwm_device *devm_pwm_get(struct device *dev, const char *con_id);
-+struct pwm_device *devm_of_pwm_get(struct device *dev, struct device_node *np,
-+	const char *con_id);
- struct pwm_device *devm_fwnode_pwm_get(struct device *dev,
- 				       struct fwnode_handle *fwnode,
- 				       const char *con_id);
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
 index c4a9797e9eff..1a3bc6e3fe8a 100644
 --- a/kernel/sched/core.c
