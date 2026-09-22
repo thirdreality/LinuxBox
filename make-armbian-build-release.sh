@@ -27,27 +27,63 @@ check_command() {
 # Directories setup
 current_dir=$(pwd)
 print_info "Working directory is '$current_dir'"
-echo "Usage: $0 [-b board:trhubv3|trhubv3a|trhubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
+echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
 
 
+# Public release names are hubv3*, while Armbian retains trhubv3* internally.
 board="trhubv3"
+board_label="hubv3"
 destination=""
 r3version="v2.14.01.48"
 
 usage() {
-    echo "Usage: $0 [-b board:trhubv3|trhubv3a|trhubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
-    exit 1
+    local status="${1:-1}"
+
+    echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
+    echo "  hubv3, hubv3a and hubv3b are the supported public board names."
+    exit "$status"
 }
 
 while getopts ":b:d:r:v:h" opt; do
     case ${opt} in
         b)
-            if [[ "$OPTARG" == "trhubv3" || "$OPTARG" == "trhubv3b" || "$OPTARG" == "trhubv3a" || "$OPTARG" == "linuxbox" ]]; then
-                board=$OPTARG
-            else
-                echo "Invalid board type: $OPTARG"
-                usage
-            fi
+            case "$OPTARG" in
+                hubv3)
+                    board="trhubv3"
+                    board_label="hubv3"
+                    ;;
+                hubv3a)
+                    board="trhubv3a"
+                    board_label="hubv3a"
+                    ;;
+                hubv3b)
+                    board="trhubv3b"
+                    board_label="hubv3b"
+                    ;;
+                linuxbox)
+                    board="linuxbox"
+                    board_label="linuxbox"
+                    ;;
+                trhubv3)
+                    echo "Deprecated board name '$OPTARG'; use 'hubv3'."
+                    board="trhubv3"
+                    board_label="hubv3"
+                    ;;
+                trhubv3a)
+                    echo "Deprecated board name '$OPTARG'; use 'hubv3a'."
+                    board="trhubv3a"
+                    board_label="hubv3a"
+                    ;;
+                trhubv3b)
+                    echo "Deprecated board name '$OPTARG'; use 'hubv3b'."
+                    board="trhubv3b"
+                    board_label="hubv3b"
+                    ;;
+                *)
+                    echo "Invalid board type: $OPTARG"
+                    usage 1
+                    ;;
+            esac
             ;;
         d)
             if [[ "$OPTARG" == "cn" ]]; then
@@ -58,30 +94,29 @@ while getopts ":b:d:r:v:h" opt; do
                 destination=""                
             else
                 echo "Invalid destination: $OPTARG"
-                usage
+                usage 1
             fi
             ;;
         r)
             r3version=$OPTARG
             ;;
         h)
-            usage
-            exit 0
-            ;;            
+            usage 0
+            ;;
         \?)
             echo "Invalid option: -$OPTARG"
-            usage
+            usage 1
             ;;
         :)
             echo "Option -$OPTARG requires an argument."
-            usage
+            usage 1
             ;;
     esac
 done
 
 if [ -z "$board" ]; then
     echo "board name required."
-    usage
+    usage 1
 fi
 
 # 默认用 r3version
@@ -90,7 +125,7 @@ IFS='.' read -r major minor patch build <<< "$ver_no_v"
 r3_version_id=$((10#$major * 1000000 + 10#$minor * 10000 + 10#$patch * 100 + 10#$build))
 
 # 输出参数
-print_info "Board selected: [ $board ]"
+print_info "Board selected: [ $board_label ]"
 print_info "Destination selected: [ $destination ]"
 print_info "Release Version selected: [ $r3version ]"
 print_info "VERSION_ID calculated: [ $r3_version_id ]"
