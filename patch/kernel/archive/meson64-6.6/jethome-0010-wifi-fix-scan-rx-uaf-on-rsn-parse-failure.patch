@@ -1,0 +1,99 @@
+From: ThirdReality <dev@3reality.com>
+Subject: [PATCH] fix(wifi): don't free a listed scan entry when RSN parsing fails
+
+wifi_mac_scan_rx()'s error path corrupts the scan table and takes the box down
+with a NULL dereference inside the scan list walk:
+
+  Internal error: Oops: 0000000096000004 [#1] PREEMPT SMP
+  pc : wifi_mac_scan_rx+0x59c/0x83c [vlsicomm]
+  Call trace:
+    wifi_mac_scan_rx        <- wifi_mac_recv_probersp <- wifi_mac_recv_mgmt
+    <- wifi_mac_input       <- wifi_mac_input_all     <- wifi_mac_rx_complete
+    <- drv_intr_rx_ok       <- hal_soft_rx_cs         <- hal_rx_thread
+
+The function takes one of two entries: an existing one from the scan table
+(oldse, already linked into st->st_hash[] and st->st_entry), or a freshly
+kzalloc()ed one that is not linked anywhere yet.  The "goto fail" taken when
+wifi_mac_parse_counterpart_rsn() rejects an AP's RSN IE then has to unlink the
+entry only in the first case.  It gets that test wrong:
+
+    if (WIFINET_ADDR_EQ(se, oldse)) {
+
+WIFINET_ADDR_EQ() is memcmp(a1, a2, 6), meant for MAC addresses.  Applied to
+two struct scaninfo_entry pointers it compares the first six bytes of the
+structs instead of the pointers, and dereferences oldse - which is NULL on
+every newly allocated entry.  So:
+
+  - oldse == NULL: memcmp() reads through a NULL pointer.  Both operands are
+    kmalloc'd from the same 128-byte-aligned bucket and the leading bytes are
+    list_head pointers into the same slab, so the comparison is junk even when
+    it does not fault outright.
+
+  - oldse != NULL: if those six bytes happen to differ, the list_del_init()
+    pair is skipped and the entry is kfree()d while still linked, leaving
+    st_hash[hash] and st_entry pointing at freed memory.  The next walker -
+    wifi_mac_recv_probersp()'s hash lookup, wifi_mac_scan_flush(), or
+    wifi_mac_scan_rx() itself - follows the dangling se_hash into the freed
+    slab.  That is the Oops above: faulting address 0, x0 holding the stale
+    entry, and the faulting insn b9400300 loading from it.
+
+Reproducer is simply an AP in range whose RSN IE this parser refuses (it only
+accepts RSN_VERSION with recognised cipher/AKM selectors, and rejects WPA3
+suites among others, all of which log "RSN akm cipher wrong" / "RSN bad
+version" first) whose BSSID is already in the scan table.  Hence the crash at
+~12.9s, right as NetworkManager kicks off the first scan.
+
+Fix both halves:
+
+  - compare the pointers (se == oldse), which is what the code meant;
+  - free only an entry that was never published, so the table can never point
+    at freed memory.  A listed oldse is left in place with its previous, still
+    coherent contents: it was already there before this probe response arrived
+    and the ageing path will retire it normally.
+
+The unlink-then-free that the old code attempted was itself wrong for a listed
+entry, because callers of wifi_mac_scan_rx() keep using the table right after
+it returns.  Not touching a listed entry is both simpler and safe.  Dropping
+the WIFI_SCAN_SE_LIST_LOCK() section with it is fine: the remaining work no
+longer touches either list.
+
+This path runs from hal_rx_thread under GFP_ATOMIC, so it must not sleep;
+nothing here does.
+
+Applies on top of jethome-0004.
+---
+--- a/drivers/net/wireless/w1/vmac/wifi_mac_scan.c
++++ b/drivers/net/wireless/w1/vmac/wifi_mac_scan.c
+@@ -821,17 +821,23 @@
+ 
+     return;
+ 
+ fail:
+-     WIFI_SCAN_SE_LIST_LOCK(st);
+-     if (WIFINET_ADDR_EQ(se, oldse)) {
+-         list_del_init(&se->se_list);
+-         list_del_init(&se->se_hash);
+-         printk("[Micro]%s_%d,delete oldse\n", __func__, __LINE__);
+-     }
+-     WIFI_SCAN_SE_LIST_UNLOCK(st);
+-    FREE(se,"sta_add.se");
+-    printk("[Micro]%s_%d\n", __func__, __LINE__);
++    /*
++     * Only a never-published entry may be freed.  When se == oldse it is
++     * already linked into st_hash[]/st_entry and callers keep walking those
++     * lists after we return, so freeing it left the table pointing into freed
++     * slab memory.  Leave it linked with its previous contents instead;
++     * ageing retires it normally.
++     */
++    if (se != oldse) {
++        DPRINTF(AML_DEBUG_WARNING, "%s %d RSN parse failed, dropping new entry\n",
++            __func__, __LINE__);
++        FREE(se, "sta_add.se");
++    } else {
++        DPRINTF(AML_DEBUG_WARNING, "%s %d RSN parse failed, keeping listed entry\n",
++            __func__, __LINE__);
++    }
+     return;
+ }
+ 
+ static void quiet_intf (struct wlan_net_vif *wnet_vif, unsigned char enable)
