@@ -12,7 +12,7 @@ Signed-off-by: Vyacheslav Bocharov <adeep@lexina.in>
  1 file changed, 3 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
-index 768d0ed78dbe..892a5f147e6d 100644
+index 16af71d84a13240e56d2bb40b2d370e56581ee7e..d0b82c53faed72d4198aa66d4663bf6b68f545fb 100644
 --- a/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
 +++ b/arch/arm64/boot/dts/amlogic/meson-axg.dtsi
 @@ -13,6 +13,7 @@
@@ -29,16 +29,16 @@ index 768d0ed78dbe..892a5f147e6d 100644
  				clock-names = "core", "clkin0", "clkin1";
 +				amlogic,mmc-phase = <CLK_PHASE_270 CLK_PHASE_0 CLK_PHASE_0>;
  				resets = <&reset RESET_SD_EMMC_B>;
- 			};
  
-@@ -1906,6 +1908,7 @@ sd_emmc_c: mmc@7000 {
+ 				assigned-clocks = <&clkc CLKID_SD_EMMC_B_CLK0>;
+@@ -1909,6 +1911,7 @@ sd_emmc_c: mmc@7000 {
  					<&clkc CLKID_FCLK_DIV2>;
  				clock-names = "core", "clkin0", "clkin1";
  				resets = <&reset RESET_SD_EMMC_C>;
 +				amlogic,mmc-phase = <CLK_PHASE_270 CLK_PHASE_0 CLK_PHASE_0>;
- 			};
  
- 			usb2_phy1: phy@9020 {
+ 				assigned-clocks = <&clkc CLKID_SD_EMMC_C_CLK0>;
+ 				assigned-clock-rates = <24000000>;
 -- 
 Armbian
 

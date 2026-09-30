@@ -6,12 +6,12 @@ Subject: Fix:meson64: add gpio irq (patch from
 
 Signed-off-by: Vyacheslav Bocharov <devel@lexina.in>
 ---
- drivers/pinctrl/meson/pinctrl-meson.c | 41 ++++++++++
+ drivers/pinctrl/meson/pinctrl-meson.c | 41 +++++++++++++++++++++++++++++++++++
  drivers/pinctrl/meson/pinctrl-meson.h |  1 +
  2 files changed, 42 insertions(+)
 
 diff --git a/drivers/pinctrl/meson/pinctrl-meson.c b/drivers/pinctrl/meson/pinctrl-meson.c
-index 524424ee6c4e..77b9222a53c8 100644
+index 4f613f9082083f3c1e877e610172975fe625263e..ae0d392b0b2d5da0c625788ea708af7824012309 100644
 --- a/drivers/pinctrl/meson/pinctrl-meson.c
 +++ b/drivers/pinctrl/meson/pinctrl-meson.c
 @@ -51,6 +51,7 @@
@@ -70,7 +70,7 @@ index 524424ee6c4e..77b9222a53c8 100644
 +	pc->chip.to_irq = meson_gpio_to_irq;
  	pc->chip.base = -1;
  	pc->chip.ngpio = pc->data->num_pins;
- 	pc->chip.can_sleep = false;
+ 	pc->chip.can_sleep = true;
 @@ -679,6 +715,11 @@ static int meson_pinctrl_parse_dt(struct meson_pinctrl *pc)
  	pc->fwnode = gpiochip_node_get_first(pc->dev);
  	gpio_np = to_of_node(pc->fwnode);
@@ -84,7 +84,7 @@ index 524424ee6c4e..77b9222a53c8 100644
  	if (IS_ERR_OR_NULL(pc->reg_mux)) {
  		dev_err(pc->dev, "mux registers not found\n");
 diff --git a/drivers/pinctrl/meson/pinctrl-meson.h b/drivers/pinctrl/meson/pinctrl-meson.h
-index 34fc4e8612e4..0f9fa04513ea 100644
+index 34fc4e8612e47cb8cc26fdc82888c6dbb15c1f03..0f9fa04513eaa11bef7bbc2f9646ef074b3d1fad 100644
 --- a/drivers/pinctrl/meson/pinctrl-meson.h
 +++ b/drivers/pinctrl/meson/pinctrl-meson.h
 @@ -134,6 +134,7 @@ struct meson_pinctrl {

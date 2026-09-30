@@ -44,7 +44,7 @@ case $BRANCH in
 		;;
 	current)
 		declare -g KERNEL_MAJOR_MINOR="6.6"
-		declare -g KERNELBRANCH="tag:v6.6.120"
+		declare -g KERNELBRANCH="tag:v6.6.129"
 		;;
 	edge)
 		declare -g KERNEL_MAJOR_MINOR="6.12"
