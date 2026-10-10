@@ -11,7 +11,7 @@ if [ $# -lt 3 ]; then
     echo "		type		- partition type. supported: haos, armbian"
     echo "		compress	- 'compress' or 'no' output to zip"
     echo "		uboot		- path to u-boot binary"
-    exit
+    exit 1
 fi
 
 if [[ "$2" == "v3" || "$2" == "trhubv3" ]]; then
@@ -28,7 +28,7 @@ elif [[ "$2" == "v3a" || "$2" == "trhubv3a" ]]; then
   CNAME="hubv3l"
 else
   echo "ERROR: unknown controller"
-  exit
+  exit 1
 fi
 
 if [[ "$3" == "haos" ]]; then
@@ -39,7 +39,7 @@ elif [[ "$3" == "armbian" ]]; then
   CPART="armbian"
 else
   echo "ERROR: unknown partition table"
-  exit
+  exit 1
 fi
 
 if [[ "$4" == "compress" ]]; then
@@ -55,7 +55,7 @@ fi
 
 echo "UBOOT set to ${UBOOT}"
 
-[[ ! -e $1 ]] && echo No file found && exit
+[[ ! -e $1 ]] && echo No file found && exit 1
 echo "Selected $CNAME controller with $CPART partition table"
 
 
