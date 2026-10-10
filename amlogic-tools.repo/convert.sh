@@ -16,7 +16,7 @@ fi
 
 if [[ "$2" == "v3" || "$2" == "trhubv3" ]]; then
   DTS="meson-axg-thirdreality-trhub-v3.dts"
-  CNAME="j100" 
+  CNAME="hubv3"
 elif [[ "$2" == "v3b" || "$2" == "trhubv3b" ]]; then
   DTS="meson-axg-thirdreality-trhub-v3b.dts"
   CNAME="j100"
