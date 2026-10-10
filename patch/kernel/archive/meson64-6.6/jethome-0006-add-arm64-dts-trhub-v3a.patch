@@ -48,7 +48,7 @@ index 000000000000..ae97bca8c1e8
 +		/delete-property/ serial6;
 +	};
 +
-+	/* 512MB RAM; for 1GB use reg = <0x0 0x0 0x0 0x40000000> */
++	/* 1024MB RAM (2x DDR3, 2 ranks) */
 +	memory@0 {
 +		device_type = "memory";
 +		reg = <0x0 0x0 0x0 0x40000000>;

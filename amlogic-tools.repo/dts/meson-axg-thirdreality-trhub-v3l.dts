@@ -20,10 +20,10 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	/* 2048MB RAM */
+	/* 1024MB RAM (2x DDR3, 2 ranks) */
 	memory@0 {
 		device_type = "memory";
-		reg = <0x0 0x0 0x0 0x80000000>;
+		reg = <0x0 0x0 0x0 0x40000000>;
 	};
 
 	reserved-memory {

@@ -4,10 +4,10 @@ source lib.sh
 
 if [ $# -lt 3 ]; then
     echo Usage:
-    echo "	$0 <input> <h1|d1> <type> [compress uboot]"
+    echo "	$0 <input> <v3|v3a|v3b|v3l> <type> [compress uboot]"
     echo
     echo "		input		- input image"
-    echo "		h1|d1|d2|j80|j100|j200|cma	- select controller D1 or H1"
+    echo "		v3|v3a|v3b|v3l	- ThirdReality HubV3 variant"
     echo "		type		- partition type. supported: haos, armbian"
     echo "		compress	- 'compress' or 'no' output to zip"
     echo "		uboot		- path to u-boot binary"
@@ -22,22 +22,10 @@ elif [[ "$2" == "v3l" || "$2" == "trhubv3l" ]]; then
   CNAME="hubv3l"
 elif [[ "$2" == "v3b" || "$2" == "trhubv3b" ]]; then
   DTS="meson-axg-thirdreality-trhub-v3b.dts"
-  CNAME="j100"
+  CNAME="hubv3"
 elif [[ "$2" == "v3a" || "$2" == "trhubv3a" ]]; then
   DTS="meson-axg-thirdreality-trhub-v3a.dts"
-  CNAME="j100"
-elif [[ "$2" == "h1" || "$2" == "j80" ]]; then
-  DTS="meson-gxl-s905w-jethome-jethub-j80.dts"
-  CNAME="j80"
-elif [[ "$2" == "d1" || "$2" == "j100" ]]; then
-  DTS="meson-axg-jethome-jethub-j100.dts"
-  CNAME="j100"
-elif [[ "$2" == "d2" || "$2" == "j200" ]]; then
-  DTS="meson-sm1-jethome-jethub-j200.dts"
-  CNAME="j200"
-elif [[ "$2" == "cma" ]]; then
-  DTS="meson-axg-jethome-jethub-j100.dts"
-  CNAME="magicbox"
+  CNAME="hubv3l"
 else
   echo "ERROR: unknown controller"
   exit
