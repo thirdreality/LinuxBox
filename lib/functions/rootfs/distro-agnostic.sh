@@ -100,7 +100,7 @@ function install_distribution_agnostic() {
 	echo "${VENDOR} ${IMAGE_VERSION:-"${REVISION}"} ${RELEASE^}" > "${SDCARD}"/etc/issue.net
 
 	if [ "${RELEASE}" == "bookworm" ]; then
-		if [[ $BOARD == trhubv3 || $BOARD == linuxbox ]]; then
+		if [[ $BOARD == trhubv3 || $BOARD == trhubv3l || $BOARD == linuxbox ]]; then
 			cat <<-EOF > "${SDCARD}/etc/t3r-release"
 			PRETTY_NAME="LinuxBox Dev Edition"
 			NAME="LinuxBox/HubV3"

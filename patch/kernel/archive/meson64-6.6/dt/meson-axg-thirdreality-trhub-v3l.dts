@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * ThirdReality HubV3L (LinuxBox-Lite MB0.5): same pinout as HubV3,
+ * 2x DDR3 16bit 2 ranks = 1GB. CMA is size-only and ramoops sits at
+ * 0x07000000, so both still fit below 1GB.
+ */
+
+#include "meson-axg-thirdreality-trhub-v3.dts"
+
+/ {
+	compatible = "ThirdReality,trhub-v3l", "amlogic,a113d", "amlogic,meson-axg";
+	model = "ThirdReality TRHub-V3L";
+
+	memory@0 {
+		reg = <0x0 0x0 0x0 0x40000000>;
+	};
+};
