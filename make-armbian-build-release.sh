@@ -300,18 +300,6 @@ case ${BOARD} in
     ./convert.sh ../${IMG} v3l armbian compress output/usr/lib/linux*/u-boot.nosd.bin
     SUPPORTED="V3L"
     ;;
-  jethubj100)
-    ./convert.sh ../${IMG} d1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin
-    SUPPORTED="D1,D1P"
-    ;;
-  jethubj200)
-    ./convert.sh ../${IMG} d2 armbian compress output/usr/lib/linux*/u-boot.nosd.bin
-    SUPPORTED="D2"
-    ;;
-  jethubj80)
-    ./convert.sh ../${IMG} h1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin
-    SUPPORTED="H1"
-    ;;
   *)
     print_error "Unsupported board ${BOARD}"
     print_error "Error in convert: Unsupported board ${BOARD}" >> GITHUB_STEP_SUMMARY
