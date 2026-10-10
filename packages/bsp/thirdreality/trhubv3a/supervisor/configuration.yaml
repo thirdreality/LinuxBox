@@ -53,6 +53,7 @@ system_info:
     trhubv3: "3RHUB-"
     trhubv3a: "3RHUB-"
     trhubv3b: "3RCARE-"
+    trhubv3l: "3RHUB-"
     default: "3RHUB-"
   
 

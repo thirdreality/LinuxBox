@@ -27,7 +27,7 @@ check_command() {
 # Directories setup
 current_dir=$(pwd)
 print_info "Working directory is '$current_dir'"
-echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
+echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|hubv3l|linuxbox] -d [cn|us|kr] -r [revision]"
 
 
 # Public release names are hubv3*, while Armbian retains trhubv3* internally.
@@ -39,8 +39,8 @@ r3version="v2.14.01.51"
 usage() {
     local status="${1:-1}"
 
-    echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|linuxbox] -d [cn|us|kr] -r [revision]"
-    echo "  hubv3, hubv3a and hubv3b are the supported public board names."
+    echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|hubv3l|linuxbox] -d [cn|us|kr] -r [revision]"
+    echo "  hubv3, hubv3a, hubv3b and hubv3l are the supported public board names."
     exit "$status"
 }
 
@@ -55,6 +55,10 @@ while getopts ":b:d:r:v:h" opt; do
                 hubv3a)
                     board="trhubv3a"
                     board_label="hubv3a"
+                    ;;
+                hubv3l)
+                    board="trhubv3l"
+                    board_label="hubv3l"
                     ;;
                 hubv3b)
                     board="trhubv3b"
@@ -258,6 +262,9 @@ case ${board} in
   trhubv3a)
     BOARD_NAME="hubv3a"
     ;;
+  trhubv3l)
+    BOARD_NAME="hubv3l"
+    ;;
   *)
     BOARD_NAME="${board}"
     ;;
@@ -288,6 +295,10 @@ case ${BOARD} in
   trhubv3a)
     ./convert.sh ../${IMG} v3a armbian compress output/usr/lib/linux*/u-boot.nosd.bin
     SUPPORTED="V3,V3A,V3B"
+    ;;
+  trhubv3l)
+    ./convert.sh ../${IMG} v3l armbian compress output/usr/lib/linux*/u-boot.nosd.bin
+    SUPPORTED="V3L"
     ;;
   jethubj100)
     ./convert.sh ../${IMG} d1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin
