@@ -233,9 +233,15 @@ fi
 print_info "Uboot.deb: ${UBOOTDEB}"
 print_info "Image: ${IMG}"
 
-cd "${current_dir}/amlogic-tools.repo"
+BURN_DIR="${current_dir}/cache/sources/amlogic-boot-tools/burn"
+BURN_WORK="${current_dir}/.tmp/burn"
+[ -x "${BURN_DIR}/convert.sh" ] || { print_error "Missing ${BURN_DIR}/convert.sh (amlogic-boot-tools not fetched?)"; exit 1; }
 
-DEB="../${UBOOTDEB}"
+rm -rf "${BURN_WORK}"
+mkdir -p "${BURN_WORK}/output"
+cd "${BURN_WORK}"
+
+DEB="${current_dir}/${UBOOTDEB}"
 dpkg -x "$DEB" output
 UBOOT=$(find output/usr/lib -name u-boot.nosd.bin | head -n 1)
 print_info "UBOOT: ${UBOOT}"
@@ -245,7 +251,7 @@ EVALCMD='BETA=no BOARD=${board} BRANCH=current BUILD_DESKTOP=no BUILD_MINIMAL=no
 eval "$EVALCMD"
 
 # Rename image file before conversion
-IMG_DIR=$(dirname "../${IMG}")
+IMG_DIR=$(dirname "${current_dir}/${IMG}")
 IMG_BASENAME=$(basename "${IMG}")
 
 # Extract kernel version from original filename (e.g., 6.6.120)
@@ -278,26 +284,25 @@ NEW_IMG_PATH="${IMG_DIR}/${NEW_IMG_NAME}"
 print_info "Renaming image file:"
 print_info "  From: ${IMG_BASENAME}"
 print_info "  To: ${NEW_IMG_NAME}"
-mv "../${IMG}" "${NEW_IMG_PATH}"
+mv "${current_dir}/${IMG}" "${NEW_IMG_PATH}"
 
-# Update IMG variable to use new path
-IMG="${NEW_IMG_PATH:3}"  # Remove "../" prefix
+IMG="${NEW_IMG_PATH}"
 
 case ${BOARD} in
   trhubv3)
-    ./convert.sh ../${IMG} v3 armbian compress output/usr/lib/linux*/u-boot.nosd.bin
+    CONVERT_VARIANT="v3"
     SUPPORTED="V3,V3B"
     ;;
   trhubv3b)
-    ./convert.sh ../${IMG} v3b armbian compress output/usr/lib/linux*/u-boot.nosd.bin
+    CONVERT_VARIANT="v3b"
     SUPPORTED="V3,V3B"
     ;;
   trhubv3a)
-    ./convert.sh ../${IMG} v3a armbian compress output/usr/lib/linux*/u-boot.nosd.bin
+    CONVERT_VARIANT="v3a"
     SUPPORTED="V3,V3A,V3B"
     ;;
   trhubv3l)
-    ./convert.sh ../${IMG} v3l armbian compress output/usr/lib/linux*/u-boot.nosd.bin
+    CONVERT_VARIANT="v3l"
     SUPPORTED="V3L"
     ;;
   *)
@@ -307,9 +312,10 @@ case ${BOARD} in
     ;;
 esac
 
-rm -rf ${current_dir}/amlogic-tools.repo/output/usr
+OUTPUT_DIR="${BURN_WORK}/burn" "${BURN_DIR}/convert.sh" "${IMG}" "${CONVERT_VARIANT}" armbian compress "${UBOOT}" \
+  || { print_error "convert.sh failed"; exit 50; }
 
-IMGBURN=$(find ${current_dir}/amlogic-tools.repo/output | grep -e  "thirdreality.*burn.img.zip$" | head -n 1)
+IMGBURN=$(find "${BURN_WORK}/burn" -name "thirdreality*burn.img.zip" | head -n 1)
 print_info "IMGBURN: [ ${IMGBURN} ]"
 
 [ -z "${IMGBURN}" ] && exit 50
