@@ -3,5 +3,6 @@
 
 ThirdReality HubV3 support started from JetHome's JetHub D1 (j100) work by
 Vyacheslav Bocharov ([JetHome](https://jethome.ru)): the trhub board/DTS code
-and `amlogic-tools.repo`, which derives from
-[jethome-tools](https://github.com/jethome-iot/jethome-tools).
+and the USB burn image converter, now in
+[amlogic-boot-tools](https://github.com/thirdreality/amlogic-boot-tools) `burn/`,
+which derives from [jethome-tools](https://github.com/jethome-iot/jethome-tools).
