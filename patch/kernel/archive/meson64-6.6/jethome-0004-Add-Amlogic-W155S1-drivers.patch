@@ -25,6 +25,15 @@ Local changes on top of the vendor drop:
                               made ~1000 debug prints unconditional)
   vmac/print_version.c        static copy; create_version_file.pl is not run
                               by in-tree kbuild
+  vmac/wifi_mac_sta.c         nsta_free(): skip the vif tx queue when
+                              sta_wnet_vif is NULL; rmmod vlsicomm frees
+                              stations after their vif and Oopsed at
+                              NULL + 0x2d34
+  vmac/w1_sdio/w1_sdio.c      aml_w1_sdio_exit() runs once: it is called when
+                              the last of WiFi/BT unregisters and again from
+                              module_exit, and the second sdio_unregister_driver()
+                              Oopsed in klist_put; clear sdio_dma_buf[] after
+                              kfree and only mark insmoded on successful register
 
 The scan-rx RSN-parse UAF that jethome-0010 fixed on 1.6.3 is fixed by the
 vendor in this drop (unlink under st_lock, then free), so 0010 is removed.
@@ -139,7 +148,7 @@ vendor in this drop (unlink under st_lock, then free), so 0010 is removed.
  .../net/wireless/w1/vmac/rc80211_minstrel_init.c   |  907 +++
  .../net/wireless/w1/vmac/rc80211_minstrel_init.h   |  110 +
  drivers/net/wireless/w1/vmac/version.h             |    1 +
- drivers/net/wireless/w1/vmac/w1_sdio/w1_sdio.c     | 1435 ++++
+ drivers/net/wireless/w1/vmac/w1_sdio/w1_sdio.c     | 1442 ++++
  drivers/net/wireless/w1/vmac/w1_sdio/w1_sdio.h     |  188 +
  drivers/net/wireless/w1/vmac/wifi_android.c        |  491 ++
  drivers/net/wireless/w1/vmac/wifi_android.h        |   78 +
@@ -225,7 +234,7 @@ vendor in this drop (unlink under st_lock, then free), so 0010 is removed.
  drivers/net/wireless/w1/vmac/wifi_mac_sae.h        |   47 +
  drivers/net/wireless/w1/vmac/wifi_mac_scan.c       | 2353 +++++++
  drivers/net/wireless/w1/vmac/wifi_mac_scan.h       |  305 +
- drivers/net/wireless/w1/vmac/wifi_mac_sta.c        | 2460 +++++++
+ drivers/net/wireless/w1/vmac/wifi_mac_sta.c        | 2463 +++++++
  drivers/net/wireless/w1/vmac/wifi_mac_sta.h        |  594 ++
  drivers/net/wireless/w1/vmac/wifi_mac_var.h        | 1016 +++
  drivers/net/wireless/w1/vmac/wifi_mac_xmit.c       | 3956 +++++++++++
@@ -249,7 +258,7 @@ vendor in this drop (unlink under st_lock, then free), so 0010 is removed.
  drivers/net/wireless/w1/vmac/wifi_share_fifo.h     |  160 +
  drivers/net/wireless/w1/vmac/wifi_skbbuf.c         |    9 +
  drivers/net/wireless/w1/vmac/wifi_skbbuf.h         |   50 +
- 220 files changed, 119892 insertions(+)
+ 220 files changed, 119902 insertions(+)
 
 diff --git a/drivers/bluetooth/Kconfig b/drivers/bluetooth/Kconfig
 index bc211c324206b9231cba018104bfefaf1ad8ad32..9845c6782bfbc14c156a41443573442ea3325858 100644
@@ -37129,7 +37138,7 @@ new file mode 100644
 index 0000000000000000000000000000000000000000..283b3057de1cd7ec3cec6e848d7097ed610e3c76
 --- /dev/null
 +++ b/drivers/net/wireless/w1/vmac/w1_sdio/w1_sdio.c
-@@ -0,0 +1,1435 @@
+@@ -0,0 +1,1443 @@
 +#include "w1_sdio.h"
 +#include <linux/mutex.h>
 +
@@ -38475,20 +38484,22 @@ index 0000000000000000000000000000000000000000..283b3057de1cd7ec3cec6e848d7097ed
 +    }
 +
 +    err = sdio_register_driver(&aml_w1_sdio_driver);
-+    w1_sdio_driver_insmoded = 1;
-+    wifi_in_insmod = 0;
-+    wifi_in_rmmod = 0;
-+    PRINT("*****************aml sdio common driver is insmoded********************\n");
 +    if (err) {
 +        PRINT("failed to register sdio driver: %d \n", err);
 +        goto err_out;
 +    }
++    w1_sdio_driver_insmoded = 1;
++    wifi_in_insmod = 0;
++    wifi_in_rmmod = 0;
++    PRINT("*****************aml sdio common driver is insmoded********************\n");
 +
 +    return 0;
 +
 +err_out:
-+    for (i = 0; i < ARRAY_SIZE(sdio_dma_buf); i++)
++    for (i = 0; i < ARRAY_SIZE(sdio_dma_buf); i++) {
 +        kfree(sdio_dma_buf[i]);
++        sdio_dma_buf[i] = NULL;
++    }
 +
 +    return err;
 +}
@@ -38497,13 +38508,19 @@ index 0000000000000000000000000000000000000000..283b3057de1cd7ec3cec6e848d7097ed
 +void  aml_w1_sdio_exit(void)
 +{
 +    int i = 0;
++
++    /* Called both when the last of WiFi/BT unregisters and from module_exit. */
++    if (!w1_sdio_driver_insmoded)
++        return;
 +    PRINT("aml_w1_sdio_exit++ \n");
 +    sdio_unregister_driver(&aml_w1_sdio_driver);
 +    w1_sdio_driver_insmoded = 0;
 +    w1_sdio_after_porbe = 0;
 +    PRINT("*****************aml sdio common driver is rmmoded********************\n");
-+    for (i = 0; i < ARRAY_SIZE(sdio_dma_buf); i++)
++    for (i = 0; i < ARRAY_SIZE(sdio_dma_buf); i++) {
 +        kfree(sdio_dma_buf[i]);
++        sdio_dma_buf[i] = NULL;
++    }
 +}
 +//EXPORT_SYMBOL(aml_w1_sdio_exit);
 +
@@ -106571,7 +106588,7 @@ new file mode 100644
 index 0000000000000000000000000000000000000000..9b93e5a2b4ba51c2c0f04cdadd590ccbc193a70e
 --- /dev/null
 +++ b/drivers/net/wireless/w1/vmac/wifi_mac_sta.c
-@@ -0,0 +1,2460 @@
+@@ -0,0 +1,2463 @@
 +/*
 + ****************************************************************************************
 + *
@@ -107325,18 +107342,21 @@ index 0000000000000000000000000000000000000000..9b93e5a2b4ba51c2c0f04cdadd590ccb
 +        FREE(sta->sta_wai_ie,"sta->sta_wai_ie");
 +#endif /*CONFIG_WAPI*/
 +
-+    txqueue = &wnet_vif->vm_tx_buffer_queue;
-+    WIFINET_SAVEQ_LOCK(txqueue);
-+    skb_queue_walk_safe(txqueue,skb,tmp) {
-+        txqueue_sta = os_skb_get_nsta(skb);
-+        if (txqueue_sta == sta) {
-+            AML_OUTPUT("as free sta: %p so free skb\n",txqueue_sta);
-+            aml_skb_unlink(skb,txqueue);
-+            wifi_mac_free_skb(skb);
++    /* The vif may already be gone on driver unload; its tx queue went with it. */
++    if (wnet_vif) {
++        txqueue = &wnet_vif->vm_tx_buffer_queue;
++        WIFINET_SAVEQ_LOCK(txqueue);
++        skb_queue_walk_safe(txqueue,skb,tmp) {
++            txqueue_sta = os_skb_get_nsta(skb);
++            if (txqueue_sta == sta) {
++                AML_OUTPUT("as free sta: %p so free skb\n",txqueue_sta);
++                aml_skb_unlink(skb,txqueue);
++                wifi_mac_free_skb(skb);
 +
++            }
 +        }
++        WIFINET_SAVEQ_UNLOCK(txqueue);
 +    }
-+    WIFINET_SAVEQ_UNLOCK(txqueue);
 +
 +    WIFINET_SAVEQ_DESTROY(&(sta->sta_pstxqueue));
 +    pr_debug("%s free %p\n", __func__, sta);
