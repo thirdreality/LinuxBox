@@ -54,13 +54,17 @@ try=1
 wifi_ok=0
 while [ $try -le "$MAX_TRIES" ]; do
     log "WiFi bring-up attempt ${try}/${MAX_TRIES}"
-    if load_modules && wait_for_wifi; then
-        log "wlan0 is up (attempt ${try})"
-        wifi_ok=1
-        break
+    if load_modules; then
+        if wait_for_wifi; then
+            log "wlan0 is up (attempt ${try})"
+            wifi_ok=1
+            break
+        fi
+        log "wlan0 did not appear within ${WAIT_SECS}s; power-cycling the chip (unload/reload)"
+    else
+        log "module load failed; power-cycling the chip (unload/reload)"
     fi
 
-    log "wlan0 did not appear within ${WAIT_SECS}s; power-cycling the chip (unload/reload)"
     unload_modules
     sleep 2   # let the SDIO power sequence settle before retrying
     try=$((try + 1))
