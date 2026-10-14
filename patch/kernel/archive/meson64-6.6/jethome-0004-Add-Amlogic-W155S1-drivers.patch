@@ -38457,7 +38457,7 @@ index 0000000000000000000000000000000000000000..283b3057de1cd7ec3cec6e848d7097ed
 +    wlan_preallocated_rx_buf = kvmalloc(RX_BUF_LEN, GFP_KERNEL);
 +#endif
 +    if (!wlan_preallocated_rx_buf) {
-+        vfree(wlan_preallocated_tx_desc_buf);
++        kvfree(wlan_preallocated_tx_desc_buf);
 +        return -ENOMEM;
 +    }
 +    return 0;
@@ -38465,8 +38465,8 @@ index 0000000000000000000000000000000000000000..283b3057de1cd7ec3cec6e848d7097ed
 +
 +static void aml_deinit_wlan_mem(void)
 +{
-+    kfree(wlan_preallocated_rx_buf);
-+    vfree(wlan_preallocated_tx_desc_buf);
++    kvfree(wlan_preallocated_rx_buf);
++    kvfree(wlan_preallocated_tx_desc_buf);
 +}
 +
 +int aml_w1_sdio_init(void)
