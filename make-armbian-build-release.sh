@@ -34,7 +34,7 @@ echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|hubv3l|linuxbox] -d [cn|us|kr] -r 
 board="trhubv3"
 board_label="hubv3"
 destination=""
-r3version="v2.14.01.51"
+r3version="v2.14.01.55"
 
 usage() {
     local status="${1:-1}"
