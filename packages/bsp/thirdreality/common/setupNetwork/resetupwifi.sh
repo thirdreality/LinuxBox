@@ -169,6 +169,10 @@ if ! select_wifi_profile; then
     exit 1
 fi
 
+# NM persists 'radio wifi off' across reboots, so never exit with it off.
+trap 'nmcli radio wifi on >/dev/null 2>&1' EXIT
+trap 'exit 1' INT TERM HUP
+
 case "$LEVEL" in
     soft)   soft_recover ;;
     reload) reload_recover ;;
