@@ -70,7 +70,7 @@ index 4f613f9082083f3c1e877e610172975fe625263e..ae0d392b0b2d5da0c625788ea708af78
 +	pc->chip.to_irq = meson_gpio_to_irq;
  	pc->chip.base = -1;
  	pc->chip.ngpio = pc->data->num_pins;
- 	pc->chip.can_sleep = true;
+ 	pc->chip.can_sleep = false;
 @@ -679,6 +715,11 @@ static int meson_pinctrl_parse_dt(struct meson_pinctrl *pc)
  	pc->fwnode = gpiochip_node_get_first(pc->dev);
  	gpio_np = to_of_node(pc->fwnode);
