@@ -583,7 +583,18 @@ diff --git a/arch/arm64/boot/dts/amlogic/meson-axg-s400.dts b/arch/arm64/boot/dt
 index df16eead2c80307daeaa0459a524af78dc1823fb..3243c06b5c109e6e47ea97722004dcc12f1cf562 100644
 --- a/arch/arm64/boot/dts/amlogic/meson-axg-s400.dts
 +++ b/arch/arm64/boot/dts/amlogic/meson-axg-s400.dts
-@@ -440,16 +440,6 @@ &pdm {
+@@ -433,10 +433,6 @@
+ 	};
+ };
+ 
+-&mipi_pcie_analog_dphy {
+-	status = "okay";
+-};
+-
+ &pdm {
+ 	pinctrl-0 = <&pdm_dclk_a14_pins>, <&pdm_din0_pins>,
+ 		    <&pdm_din1_pins>, <&pdm_din2_pins>, <&pdm_din3_pins>;
+@@ -444,16 +440,6 @@ &pdm {
  	status = "okay";
  };
  
