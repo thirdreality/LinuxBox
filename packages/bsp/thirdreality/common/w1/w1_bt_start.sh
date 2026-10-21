@@ -41,7 +41,8 @@ echo 1 > /sys/class/rfkill/rfkill0/state
 modprobe sdio_bt
 sleep 0.2
 
-aml_hciattach -s 115200 /dev/ttyAML1 aml &> /dev/null
+# blocks until firmware download finishes, then detaches itself
+aml_hciattach -s 115200 /dev/ttyAML1 aml > /dev/null 2>&1
 sleep 0.1
 
 cnt=10
