@@ -71,7 +71,7 @@ The compiled generated firmware is located:
 
 Here is a pre-compiled image. If you don't have time to compile the image yourself and don't mind if it's slightly outdated, you can give it a try:
 
-- hubv3:
+- hubv3: [thirdreality_hubv3_armbian_24.11_bookworm_6.6.158_v2.14.01.55.burn.img.zip](https://assets.3reality.com/product/hubv3/thirdreality_hubv3_armbian_24.11_bookworm_6.6.158_v2.14.01.55.burn.img.zip)
 - hubv3l:
 
 More detail information please check [How-to-Compile-firmware](https://github.com/thirdreality/LinuxBox/wiki/How-to-Compile-firmware)
