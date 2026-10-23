@@ -1,0 +1,60 @@
+From: ThirdReality <dev@3reality.com>
+Subject: [PATCH] Bluetooth: MGMT: Fix double list_del in command complete handlers
+
+Stable 6.6.158 backported upstream 302a1f674c00 ("Bluetooth: MGMT: Fix
+possible UAFs"), which turned mgmt_pending_valid() into a check that also
+unlinks the command from hdev->mgmt_pending.  The completion handlers were
+not updated accordingly on the 6.6 branch, so they call
+mgmt_pending_remove() (an unconditional list_del) after the command has
+already been unlinked.  This corrupts the list and on arm64 ends in:
+
+  Unable to handle kernel paging request at virtual address dead000000000108
+  pc : mgmt_pending_remove+0x24/0x64
+  lr : mgmt_pending_remove+0x20/0x64
+  Call trace:
+   mgmt_pending_remove+0x24/0x64
+   mgmt_add_adv_patterns_monitor_complete+0x120/0x17c
+   hci_cmd_sync_work+0xac/0x150
+
+Fix both handlers the same way upstream did in 17f89341cb42:
+
+  - mgmt_add_adv_patterns_monitor_complete(): use mgmt_pending_free(),
+    the command is already unlinked by mgmt_pending_valid().
+  - set_mesh_complete(): drop the mgmt_pending_foreach() walk that could
+    free unrelated pending mesh commands, send the status with
+    mgmt_cmd_status() using cmd->opcode and free the command once in the
+    common exit path.
+
+Fixes: 302a1f674c00 ("Bluetooth: MGMT: Fix possible UAFs")
+diff --git a/net/bluetooth/mgmt.c b/net/bluetooth/mgmt.c
+index a678a4a57c..ca7c092ea4 100644
+--- a/net/bluetooth/mgmt.c
++++ b/net/bluetooth/mgmt.c
+@@ -2162,13 +2162,14 @@ static void set_mesh_complete(struct hci_dev *hdev, void *data, int err)
+ 	sk = cmd->sk;
+ 
+ 	if (status) {
+-		mgmt_pending_foreach(MGMT_OP_SET_MESH_RECEIVER, hdev, true,
+-				     cmd_status_rsp, &status);
+-		return;
++		mgmt_cmd_status(cmd->sk, hdev->id, cmd->opcode, status);
++		goto done;
+ 	}
+ 
+-	mgmt_pending_remove(cmd);
+ 	mgmt_cmd_complete(sk, hdev->id, MGMT_OP_SET_MESH_RECEIVER, 0, NULL, 0);
++
++done:
++	mgmt_pending_free(cmd);
+ }
+ 
+ static int set_mesh_sync(struct hci_dev *hdev, void *data)
+@@ -5426,7 +5427,7 @@ static void mgmt_add_adv_patterns_monitor_complete(struct hci_dev *hdev,
+ 
+ 	mgmt_cmd_complete(cmd->sk, cmd->hdev->id, cmd->opcode,
+ 			  mgmt_status(status), &rp, sizeof(rp));
+-	mgmt_pending_remove(cmd);
++	mgmt_pending_free(cmd);
+ 
+ 	hci_dev_unlock(hdev);
+ 	bt_dev_dbg(hdev, "add monitor %d complete, status %d",
