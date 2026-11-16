@@ -188,17 +188,28 @@ Main() {
 	chmod 755 /etc/caremojo
 	chmod 755 /opt/caremojo
 
-	log "retiring the base image's generic USB automount"
-	# ThirdReality's rule automounts every USB partition at /mnt and starts
-	# hubv3-usb-sync. A docked watch is also a USB block device, so that path
-	# races READY/SETTIME, runs fsck against the watch and can reset the port.
-	# CareMojo owns watch sync on this image. Kept as a recoverable file.
+	log "checking the base image's USB automount is absent"
+	# ThirdReality's 20-usb-mount.rules automounts every USB partition at /mnt and
+	# starts hubv3-usb-sync. A docked watch is also a USB block device, so that
+	# path races READY/SETTIME, runs fsck against the watch and can reset the
+	# port. config/sources/families/trhub.conf now skips both when packaging the
+	# BSP for this board, so in a normal build there is nothing to find here.
+	#
+	# The handling below stays as a guard: an image assembled from a BSP package
+	# built before that change would still carry them, and silently letting the
+	# automount run is the one failure mode that corrupts a watch's filesystem.
 	if [[ -f /etc/udev/rules.d/20-usb-mount.rules ]]; then
+		log "WARNING: 20-usb-mount.rules is present (stale BSP package); disabling it"
 		mv /etc/udev/rules.d/20-usb-mount.rules /etc/udev/rules.d/20-usb-mount.rules.caremojo-disabled
 	fi
-	systemctl disable hubv3-usb-sync.service >/dev/null 2>&1 || true
-	# Masking in a chroot is a symlink to /dev/null; no daemon is running to ask.
-	ln -sfn /dev/null /etc/systemd/system/hubv3-usb-sync.service
+	if [[ -f /lib/systemd/system/hubv3-usb-sync.service ]] ||
+	   [[ -f /etc/systemd/system/hubv3-usb-sync.service ]] ||
+	   [[ -e /etc/systemd/system/hubv3-usb-sync.service ]]; then
+		log "WARNING: hubv3-usb-sync.service is present (stale BSP package); masking it"
+		systemctl disable hubv3-usb-sync.service >/dev/null 2>&1 || true
+		# Masking in a chroot is a symlink to /dev/null; no daemon runs to ask.
+		ln -sfn /dev/null /etc/systemd/system/hubv3-usb-sync.service
+	fi
 	rm -f /etc/systemd/system/mnt.automount /etc/systemd/system/mnt.mount
 
 	log "installing the P1 udev rules and the MSC remount helper"
