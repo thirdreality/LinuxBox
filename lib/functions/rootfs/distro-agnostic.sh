@@ -100,7 +100,26 @@ function install_distribution_agnostic() {
 	echo "${VENDOR} ${IMAGE_VERSION:-"${REVISION}"} ${RELEASE^}" > "${SDCARD}"/etc/issue.net
 
 	if [ "${RELEASE}" == "bookworm" ]; then
-		if [[ $BOARD == trhubv3 || $BOARD == trhubv3l || $BOARD == linuxbox ]]; then
+		if [[ $BOARD == trhubv3caremojo ]]; then
+			# Same hardware as trhubv3, so it keeps the real model id; only the
+			# two name fields carry the partner brand. The supervisor reads this
+			# file for its device model and version and, without it, falls back
+			# to "v0.0.1" and a generic id.
+			#
+			# $VENDOR is still ThirdReality at this point -- customize-image.sh
+			# rebrands later -- so the partner name comes from its own variable.
+			local caremojo_brand="${CARE_MOJO_BRAND:-CareMojo}"
+			cat <<-EOF > "${SDCARD}/etc/t3r-release"
+			PRETTY_NAME="${caremojo_brand} Hub"
+			NAME="${caremojo_brand}/HubV3"
+			MODLE="3RLB01081MH"
+			MODEL="3RLB01081MH"
+			VERSION_ID="${R3VERSION_ID}"
+			VERSION="${R3VERSION}"
+			HOME_URL="https://3reality.com/"
+			SUPPORT_URL="Support@3reality.com"
+			EOF
+		elif [[ $BOARD == trhubv3 || $BOARD == trhubv3l || $BOARD == linuxbox ]]; then
 			cat <<-EOF > "${SDCARD}/etc/t3r-release"
 			PRETTY_NAME="LinuxBox Dev Edition"
 			NAME="LinuxBox/HubV3"

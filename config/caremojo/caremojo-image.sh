@@ -103,6 +103,36 @@ branding_pass() {
 	log "branding done (banner, issue, os-release)"
 }
 
+# The supervisor verifies that one of its expected application units is
+# installed and, when none is, declares the box SYS_SYSTEM_CORRUPTED: the LED
+# blinks white at 1 Hz, which a family reads as "this thing is broken".
+#
+# Its required_any_of list is home-assistant / zigbee2mqtt / matter2mqtt /
+# openhab. This image deliberately ships none of them -- the box is a
+# watch-offload hub -- so the check can never pass as shipped. Adding
+# watch-to-cloud, the unit everything else on this image depends on, makes the
+# check mean something true here instead of disabling it.
+#
+# Verified on the board: "Component check passed: watch-to-cloud.service is
+# installed", LED goes solid blue, "Clearing LED SYS_SYSTEM_CORRUPTED state".
+supervisor_component_check_pass() {
+	local conf=/var/lib/hubv3-supervisor/configuration.yaml
+	[[ -f "${conf}" ]] || { log "WARNING: ${conf} missing, supervisor check left as is"; return 0; }
+
+	if grep -q '^\s*-\s*"watch-to-cloud.service"' "${conf}"; then
+		log "supervisor component check already accepts watch-to-cloud"
+		return 0
+	fi
+
+	# Insert right after the required_any_of: key so the list stays readable.
+	if grep -q '^  required_any_of:' "${conf}"; then
+		sed -i '/^  required_any_of:/a\    - "watch-to-cloud.service"' "${conf}"
+		log "supervisor component check now accepts watch-to-cloud.service"
+	else
+		log "WARNING: required_any_of not found in ${conf}; the LED may blink CORRUPTED"
+	fi
+}
+
 Main() {
 	[[ "${BOARD}" == *caremojo* ]] || { log "board ${BOARD} is not a CareMojo image, skipping"; return 0; }
 	[[ -x "${APP}/packaging/hub/bin/aarch64/hub-watch" ]] \
@@ -218,6 +248,7 @@ EOF
 		/etc/systemd/journald.conf.d/20-caremojo-persistent.conf
 
 	branding_pass
+	supervisor_component_check_pass
 
 	log "done: the box boots into the CareMojo stack (unclaimed, no cloud config)"
 } # Main
