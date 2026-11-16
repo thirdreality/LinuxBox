@@ -35,6 +35,10 @@ UNIT_SRC="${APP}/packaging/systemd"
 STATE_DIR="/var/lib/caremojo"
 P1_IGNORE_QUIRK="6675:3498:i"
 ARMBIAN_ENV="/boot/armbianEnv.txt"
+# What the box calls itself. The serial console and the login banner both print
+# this: 10-armbian-header runs `figlet -f big " $VENDOR"`, and getty prints
+# /etc/issue. Overridable so the same branch can serve another partner.
+BRAND="${CARE_MOJO_BRAND:-CareMojo}"
 
 CORE_UNITS=(
 	watch-to-cloud.service
@@ -64,6 +68,39 @@ enable_unit() {
 install_unit() {
 	local u="$1"
 	install -m644 "${UNIT_SRC}/${u}" "/etc/systemd/system/${u}"
+}
+
+# The build framework sets VENDOR="ThirdReality" in
+# userpatches/config-linuxbox-images.conf, which reaches these four files and
+# the motd script. Renaming the vendor here keeps the vendor config untouched
+# for every other board on this branch.
+branding_pass() {
+	log "branding the image as ${BRAND}"
+
+	# 10-armbian-header sources both and prefers the image-release value.
+	local f
+	for f in /etc/armbian-image-release /etc/armbian-release; do
+		[[ -f "$f" ]] || continue
+		sed -i "s|^VENDOR=.*|VENDOR=\"${BRAND}\"|" "$f"
+	done
+
+	# Printed by getty before the login prompt, on the console and over ssh.
+	for f in /etc/issue /etc/issue.net; do
+		[[ -f "$f" ]] || continue
+		sed -i "s|^ThirdReality |${BRAND} |" "$f"
+	done
+
+	# Keep the version and codename, replace only the leading vendor name.
+	if [[ -f /etc/os-release ]]; then
+		sed -i -e "s|^PRETTY_NAME=\"ThirdReality |PRETTY_NAME=\"${BRAND} |" \
+			-e "s|^ARMBIAN_PRETTY_NAME=\"ThirdReality |ARMBIAN_PRETTY_NAME=\"${BRAND} |" \
+			/etc/os-release
+	fi
+
+	# The GPL notice under /etc; cosmetic, but it is what reads as "who made it".
+	[[ -f /etc/armbian.txt ]] && sed -i "s|^Vendor:.*|Vendor:         ${BRAND}|" /etc/armbian.txt
+
+	log "branding done (banner, issue, os-release)"
 }
 
 Main() {
@@ -179,6 +216,8 @@ EOF
 	mkdir -p /etc/systemd/journald.conf.d
 	install -m644 "${UNIT_SRC}/caremojo-persistent-journal.conf" \
 		/etc/systemd/journald.conf.d/20-caremojo-persistent.conf
+
+	branding_pass
 
 	log "done: the box boots into the CareMojo stack (unclaimed, no cloud config)"
 } # Main
