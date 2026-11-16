@@ -52,8 +52,65 @@ caremojo_fetch_sources() {
 	# Record what the image was built from, so a factory box can be traced back.
 	printf '%s %s\n' "${CARE_MOJO_REF}" "${sha}" > "${CARE_MOJO_CACHE}/.caremojo-build-ref"
 
+	caremojo_verify_binaries
 	caremojo_copy_to_rootfs
 	caremojo_stage_chroot_script
+}
+
+# The binaries are committed, and BUILDINFO records the hash of the sources they
+# were built from plus each binary's own hash. Nothing in their repository
+# enforces it: no CI workflow, no pre-commit hook, only a pytest in tests/ that
+# someone has to remember to run. So a commit that edits native/src/*.c without
+# rebuilding passes review, and the tag we pin would ship yesterday's bug.
+#
+# Verify on every build and refuse to produce an image whose binaries do not
+# match their sources. Failing the build is the cheap outcome; a board that
+# silently runs stale C is the expensive one, and it would look like our board.
+caremojo_verify_binaries() {
+	local bin="${CARE_MOJO_CACHE}/packaging/hub/bin/aarch64"
+	local info="${bin}/BUILDINFO"
+
+	if [[ ! -f "${info}" ]]; then
+		display_alert "WARNING: no BUILDINFO; the binaries cannot be verified" "${bin}" "wrn"
+		return 0
+	fi
+
+	local -a shatool
+	if command -v sha256sum >/dev/null 2>&1; then
+		shatool=(sha256sum)
+	else
+		shatool=(shasum -a 256)
+	fi
+
+	# Same file set, same order, same concatenation as native/build-aarch64.sh
+	# -- that script wrote the number we compare against. LC_ALL=C pins the
+	# glob order to byte order, which is what it and the pytest both assume.
+	local recorded actual
+	recorded="$(sed -n 's/^sources_sha256=//p' "${info}")"
+	actual="$(cd "${CARE_MOJO_CACHE}/native" && LC_ALL=C \
+		cat Makefile src/*.c src/*.h vendor/cjson/*.c vendor/cjson/*.h 2>/dev/null |
+		"${shatool[@]}" | cut -d' ' -f1)"
+
+	if [[ "${recorded}" != "${actual}" ]]; then
+		exit_with_error "CareMojo binaries are STALE: native/ sources changed without a rebuild (BUILDINFO ${recorded:0:16}..., sources ${actual:0:16}...). Ask them to run native/build-aarch64.sh and commit the binaries with BUILDINFO." "${CARE_MOJO_CACHE}"
+	fi
+	display_alert "CareMojo binaries match their sources" "${actual:0:16}..." "info"
+
+	# Each binary against its own recorded hash: catches a swapped or truncated
+	# file even when the source hash happens to line up.
+	local line key value prog got count=0
+	while IFS= read -r line; do
+		key="${line%%=*}"
+		value="${line#*=}"
+		prog="${key%_sha256}"
+		[[ "${prog}" == "sources" ]] && continue
+		[[ -f "${bin}/${prog}" ]] || exit_with_error "Missing CareMojo binary" "${prog}"
+		got="$("${shatool[@]}" "${bin}/${prog}" | cut -d' ' -f1)"
+		[[ "${got}" == "${value}" ]] ||
+			exit_with_error "CareMojo binary ${prog} does not match BUILDINFO (${got:0:16}... vs ${value:0:16}...)" "${bin}"
+		count=$((count + 1))
+	done < <(grep '_sha256=' "${info}")
+	display_alert "All CareMojo binaries match BUILDINFO" "${count} programs" "info"
 }
 
 # The chroot half lives in config/caremojo/caremojo-image.sh and is appended to
