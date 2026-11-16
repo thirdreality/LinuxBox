@@ -9,11 +9,10 @@ differs.
 
 ```sh
 # on an x86-64 Linux builder with docker
-CARE_MOJO_TOKEN=<read-only PAT for peakmojo/audio-hub> \
-  ./make-armbian-build-release.sh -b hubv3caremojo -d us -r v2.14.01.55
+./make-armbian-build-release.sh -b hubv3caremojo -d us -r v2.14.01.55
 ```
 
-Output: `output/images/thirdreality_hubv3caremojo_armbian_24.11_bookworm_<kernel>_<rev>.burn.img.zip`,
+Output: `output/images/caremojo_armbian_24.11_bookworm_<kernel>_<rev>.burn.img.zip`,
 flashed with the Amlogic USB Burning Tool (same as `hubv3`).
 
 ### Where the CareMojo source comes from
@@ -28,9 +27,18 @@ flashed with the Amlogic USB Burning Tool (same as `hubv3`).
 | variable | default | meaning |
 |---|---|---|
 | `CARE_MOJO_REF` | `hub-stable` | the tag Hubs track; never `main` |
-| `CARE_MOJO_TOKEN` | — | read-only PAT; makes the private clone work over HTTPS with no SSH agent |
 | `CARE_MOJO_CACHE` | `$SRC/cache/sources/audio-hub` | where the clone lives |
-| `CARE_MOJO_REPO` | `git@github.com:peakmojo/audio-hub.git` | used when no token is set |
+| `CARE_MOJO_REPO` | `git@github.com:peakmojo/audio-hub.git` | clone URL |
+
+The repository is private but no credential is stored in this branch or passed
+as a variable: the clone uses **the builder's own git identity**, exactly like a
+developer cloning it by hand. Either
+
+* the builder has an SSH key that can read `peakmojo/audio-hub` (default URL), or
+* `CARE_MOJO_REPO` is set to an HTTPS URL and a credential helper (`gh auth
+  login`) is in place, or
+* `cache/sources/audio-hub` is primed by hand before the build -- once present,
+  the update path needs no network at all.
 
 The resolved commit is written to `/home/caremojo/audio-hub/.caremojo-build-ref`
 inside the image, so a fielded box can be traced back to an exact audio-hub
@@ -87,11 +95,11 @@ be converted in place:
 
 ## Open item
 
-**`supervisor.service`** (ThirdReality HA/Zigbee/Thread supervisor) is still
-installed and enabled by `config/sources/families/trhub.conf`, as on stock
-`hubv3`. The CareMojo stack does not use it. On ~1.9 GB RAM it is a candidate
-for removal; this image keeps it until the partner confirms, then flip
-`CARE_MOJO_KEEP_SUPERVISOR` in `trhub.conf`.
+**`supervisor.service`** (ThirdReality HA/Zigbee/Thread supervisor) **is
+installed and enabled**, exactly as on stock `hubv3` and as the partner asked.
+It comes from `config/sources/families/trhub.conf` (`SUPERVISOR_VERSION`), which
+this board inherits unchanged. Watch the memory headroom on ~1.9 GB RAM with
+both stacks running; see the verification checklist.
 
 ## Factory flow (after the image is flashed)
 

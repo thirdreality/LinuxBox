@@ -286,7 +286,12 @@ case ${board} in
 esac
 
 # Construct new filename: thirdreality_hubv3_armbian_bookworm_current_24.11_v2.14.01.21.img
-NEW_IMG_NAME="thirdreality_${BOARD_NAME}_armbian_${REVISION}_${RELEASE}_${KERNEL_VERSION}_${r3version}.img"
+# The partner image is named after the product, not the board.
+if [[ ${board} == trhubv3caremojo ]]; then
+  NEW_IMG_NAME="caremojo_armbian_${REVISION}_${RELEASE}_${KERNEL_VERSION}_${r3version}.img"
+else
+  NEW_IMG_NAME="thirdreality_${BOARD_NAME}_armbian_${REVISION}_${RELEASE}_${KERNEL_VERSION}_${r3version}.img"
+fi
 NEW_IMG_PATH="${IMG_DIR}/${NEW_IMG_NAME}"
 
 # Rename the image file
@@ -329,7 +334,8 @@ esac
 OUTPUT_DIR="${BURN_WORK}/burn" "${BURN_DIR}/convert.sh" "${IMG}" "${CONVERT_VARIANT}" armbian compress "${UBOOT}" \
   || { print_error "convert.sh failed"; exit 50; }
 
-IMGBURN=$(find "${BURN_WORK}/burn" -name "thirdreality*burn.img.zip" | head -n 1)
+# convert.sh names its output after the input image, so match both families.
+IMGBURN=$(find "${BURN_WORK}/burn" \( -name "thirdreality*burn.img.zip" -o -name "caremojo*burn.img.zip" \) | head -n 1)
 print_info "IMGBURN: [ ${IMGBURN} ]"
 
 [ -z "${IMGBURN}" ] && exit 50

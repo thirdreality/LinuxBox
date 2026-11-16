@@ -16,18 +16,11 @@ CARE_MOJO_REF="${CARE_MOJO_REF:-hub-stable}"     # Hubs track hub-stable, never 
 CARE_MOJO_CACHE="${CARE_MOJO_CACHE:-${SRC}/cache/sources/audio-hub}"
 CARE_MOJO_DEST="${SDCARD}/home/caremojo/audio-hub"
 
-# The repository is private. Either
-#   * CARE_MOJO_TOKEN is set (a read-only PAT) -> HTTPS + token, which also
-#     works inside the build container with no SSH agent, or
-#   * CARE_MOJO_REPO points at an SSH URL and the container has the key.
-# If the cache already holds a clone, neither is needed.
-caremojo_repo_url() {
-	if [[ -n "${CARE_MOJO_TOKEN:-}" ]]; then
-		printf 'https://x-access-token:%s@github.com/peakmojo/audio-hub.git' "${CARE_MOJO_TOKEN}"
-	else
-		printf '%s' "${CARE_MOJO_REPO}"
-	fi
-}
+# The repository is private. No credential is stored here: the builder's own
+# SSH key (or gh's credential helper, when CARE_MOJO_REPO is an HTTPS URL)
+# is what the clone uses, the same way a developer clones it. If the build
+# runs in a container, mount that key in or prime the cache first -- the
+# cache, once present, needs no network access at all.
 
 caremojo_should_run() {
 	[[ "${BOARD}" == *caremojo* ]]
@@ -43,8 +36,8 @@ caremojo_fetch_sources() {
 		display_alert "Cloning CareMojo audio-hub" "${CARE_MOJO_REF} -> ${CARE_MOJO_CACHE}" "info"
 		mkdir -p "$(dirname "${CARE_MOJO_CACHE}")" || exit_with_error "Unable to create cache dir" "${CARE_MOJO_CACHE}"
 		run_host_command_logged git clone --depth 1 --branch "${CARE_MOJO_REF}" \
-			"$(caremojo_repo_url)" "${CARE_MOJO_CACHE}" ||
-			exit_with_error "Unable to clone audio-hub (set CARE_MOJO_TOKEN or prime the cache by hand)" "${CARE_MOJO_REPO}"
+			"${CARE_MOJO_REPO}" "${CARE_MOJO_CACHE}" ||
+			exit_with_error "Unable to clone audio-hub (private repo: give the builder SSH access, or prime ${CARE_MOJO_CACHE} by hand)" "${CARE_MOJO_REPO}"
 	else
 		display_alert "Updating CareMojo audio-hub" "${CARE_MOJO_REF} in ${CARE_MOJO_CACHE}" "info"
 		run_host_command_logged git -C "${CARE_MOJO_CACHE}" fetch --depth 1 origin "${CARE_MOJO_REF}" ||
