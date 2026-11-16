@@ -119,7 +119,7 @@ supervisor_component_check_pass() {
 	local conf=/var/lib/hubv3-supervisor/configuration.yaml
 	[[ -f "${conf}" ]] || { log "WARNING: ${conf} missing, supervisor check left as is"; return 0; }
 
-	if grep -q '^\s*-\s*"watch-to-cloud.service"' "${conf}"; then
+	if grep -qE '^[[:space:]]*-[[:space:]]*"watch-to-cloud.service"' "${conf}"; then
 		log "supervisor component check already accepts watch-to-cloud"
 		return 0
 	fi
@@ -130,6 +130,31 @@ supervisor_component_check_pass() {
 		log "supervisor component check now accepts watch-to-cloud.service"
 	else
 		log "WARNING: required_any_of not found in ${conf}; the LED may blink CORRUPTED"
+	fi
+}
+
+# device_prefixes maps BOARD to the prefix in the device name the supervisor
+# reports ("3RHUB-A1B2C3D4"). Only trhubv3 is listed, so every other board --
+# this one included -- falls to default, which is "3RCARE-". That prefix
+# belongs to ThirdReality's Care Hub (trhubv3b, model 3RCH01091H); using it here
+# would report our box as a different product.
+#
+# This board is the same hardware and the same model id (3RLB01081MH) as
+# trhubv3, so it takes trhubv3's prefix.
+supervisor_device_prefix() {
+	local conf=/var/lib/hubv3-supervisor/configuration.yaml
+	[[ -f "${conf}" ]] || return 0
+
+	if grep -qE '^[[:space:]]*trhubv3caremojo:' "${conf}"; then
+		log "supervisor device prefix already set for this board"
+		return 0
+	fi
+
+	if grep -q '^  device_prefixes:' "${conf}"; then
+		sed -i '/^  device_prefixes:/a\    trhubv3caremojo: "3RHUB-"' "${conf}"
+		log "supervisor device prefix: 3RHUB- (was falling through to 3RCARE-)"
+	else
+		log "WARNING: device_prefixes not found in ${conf}; the device name will read 3RCARE-"
 	fi
 }
 
@@ -249,6 +274,7 @@ EOF
 
 	branding_pass
 	supervisor_component_check_pass
+	supervisor_device_prefix
 
 	log "done: the box boots into the CareMojo stack (unclaimed, no cloud config)"
 } # Main
