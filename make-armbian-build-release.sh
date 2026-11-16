@@ -27,7 +27,7 @@ check_command() {
 # Directories setup
 current_dir=$(pwd)
 print_info "Working directory is '$current_dir'"
-echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|hubv3l|linuxbox] -d [cn|us|kr] -r [revision]"
+echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|hubv3l|hubv3caremojo|linuxbox] -d [cn|us|kr] -r [revision]"
 
 
 # Public release names are hubv3*, while Armbian retains trhubv3* internally.
@@ -39,7 +39,7 @@ r3version="v2.14.01.55"
 usage() {
     local status="${1:-1}"
 
-    echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|hubv3l|linuxbox] -d [cn|us|kr] -r [revision]"
+    echo "Usage: $0 [-b board:hubv3|hubv3a|hubv3b|hubv3l|hubv3caremojo|linuxbox] -d [cn|us|kr] -r [revision]"
     echo "  hubv3, hubv3a, hubv3b and hubv3l are the supported public board names."
     exit "$status"
 }
@@ -63,6 +63,12 @@ while getopts ":b:d:r:v:h" opt; do
                 hubv3b)
                     board="trhubv3b"
                     board_label="hubv3b"
+                    ;;
+                hubv3caremojo|trhubv3caremojo)
+                    # Partner image: same hardware as hubv3, CareMojo stack baked
+                    # into the rootfs by userpatches/customize-image.sh.
+                    board="trhubv3caremojo"
+                    board_label="hubv3caremojo"
                     ;;
                 linuxbox)
                     board="linuxbox"
@@ -271,6 +277,9 @@ case ${board} in
   trhubv3l)
     BOARD_NAME="hubv3l"
     ;;
+  trhubv3caremojo)
+    BOARD_NAME="hubv3caremojo"
+    ;;
   *)
     BOARD_NAME="${board}"
     ;;
@@ -304,6 +313,11 @@ case ${BOARD} in
   trhubv3l)
     CONVERT_VARIANT="v3l"
     SUPPORTED="V3L"
+    ;;
+  trhubv3caremojo)
+    # Identical blobs to hubv3; only the rootfs differs.
+    CONVERT_VARIANT="v3"
+    SUPPORTED="V3,V3B"
     ;;
   *)
     print_error "Unsupported board ${BOARD}"

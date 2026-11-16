@@ -1,0 +1,107 @@
+#!/bin/bash
+#
+# customize-image-host.sh -- runs on the BUILD HOST, before the chroot.
+#
+# Its only job is to make the CareMojo source tree available on the host and
+# copy it into the target rootfs. The chroot has no network and no access to
+# the build framework's variables, so the clone/update must happen here.
+#
+# Semantics asked for by the partner: if the cache dir is missing, clone it;
+# if it is present, update it to the requested ref and move on.
+#
+# The chroot side (customize-image.sh) only consumes what this leaves behind.
+
+CARE_MOJO_REPO="${CARE_MOJO_REPO:-git@github.com:peakmojo/audio-hub.git}"
+CARE_MOJO_REF="${CARE_MOJO_REF:-hub-stable}"     # Hubs track hub-stable, never main
+CARE_MOJO_CACHE="${CARE_MOJO_CACHE:-${SRC}/cache/sources/audio-hub}"
+CARE_MOJO_DEST="${SDCARD}/home/caremojo/audio-hub"
+
+# The repository is private. Either
+#   * CARE_MOJO_TOKEN is set (a read-only PAT) -> HTTPS + token, which also
+#     works inside the build container with no SSH agent, or
+#   * CARE_MOJO_REPO points at an SSH URL and the container has the key.
+# If the cache already holds a clone, neither is needed.
+caremojo_repo_url() {
+	if [[ -n "${CARE_MOJO_TOKEN:-}" ]]; then
+		printf 'https://x-access-token:%s@github.com/peakmojo/audio-hub.git' "${CARE_MOJO_TOKEN}"
+	else
+		printf '%s' "${CARE_MOJO_REPO}"
+	fi
+}
+
+caremojo_should_run() {
+	[[ "${BOARD}" == *caremojo* ]]
+}
+
+caremojo_fetch_sources() {
+	if ! caremojo_should_run; then
+		display_alert "customize-image-host: skipping" "board ${BOARD} is not a CareMojo image" "info"
+		return 0
+	fi
+
+	if [[ ! -d "${CARE_MOJO_CACHE}/.git" ]]; then
+		display_alert "Cloning CareMojo audio-hub" "${CARE_MOJO_REF} -> ${CARE_MOJO_CACHE}" "info"
+		mkdir -p "$(dirname "${CARE_MOJO_CACHE}")" || exit_with_error "Unable to create cache dir" "${CARE_MOJO_CACHE}"
+		run_host_command_logged git clone --depth 1 --branch "${CARE_MOJO_REF}" \
+			"$(caremojo_repo_url)" "${CARE_MOJO_CACHE}" ||
+			exit_with_error "Unable to clone audio-hub (set CARE_MOJO_TOKEN or prime the cache by hand)" "${CARE_MOJO_REPO}"
+	else
+		display_alert "Updating CareMojo audio-hub" "${CARE_MOJO_REF} in ${CARE_MOJO_CACHE}" "info"
+		run_host_command_logged git -C "${CARE_MOJO_CACHE}" fetch --depth 1 origin "${CARE_MOJO_REF}" ||
+			exit_with_error "Unable to fetch ${CARE_MOJO_REF}" "${CARE_MOJO_REPO}"
+		run_host_command_logged git -C "${CARE_MOJO_CACHE}" checkout --force FETCH_HEAD ||
+			exit_with_error "Unable to check out ${CARE_MOJO_REF}" "${CARE_MOJO_CACHE}"
+	fi
+
+	local sha
+	sha="$(git -C "${CARE_MOJO_CACHE}" rev-parse HEAD)"
+	display_alert "CareMojo source" "${CARE_MOJO_REF} @ ${sha}" "info"
+	# Record what the image was built from, so a factory box can be traced back.
+	printf '%s %s\n' "${CARE_MOJO_REF}" "${sha}" > "${CARE_MOJO_CACHE}/.caremojo-build-ref"
+
+	caremojo_copy_to_rootfs
+}
+
+caremojo_copy_to_rootfs() {
+	display_alert "Copying CareMojo tree into the image" "${CARE_MOJO_DEST}" "info"
+	mkdir -p "${CARE_MOJO_DEST}" || exit_with_error "Unable to create" "${CARE_MOJO_DEST}"
+
+	# Everything a box runs is under packaging/, native/ is only needed if you
+	# rebuild the binaries on the box (we do not), and the cloud side (gateway/,
+	# migrations/, cloud/, docs/, tests/, tools/) never belongs on a hub.
+	#
+	# .git is dropped: the box self-updates over OTA from the tagged release,
+	# it never needs history. offline/ is gitignored and absent in a clone.
+	run_host_command_logged rsync -a --delete \
+		--exclude='.git' \
+		--exclude='venv' \
+		--exclude='offline' \
+		--exclude='__pycache__' \
+		--exclude='*.pyc' \
+		--exclude='.env.cloud' \
+		--exclude='.env.insforge' \
+		--exclude='device-auth.env' \
+		--exclude='.insta' \
+		--exclude='gateway' \
+		--exclude='migrations' \
+		--exclude='cloud' \
+		--exclude='tests' \
+		--exclude='tools' \
+		--exclude='deid' \
+		--exclude='data' \
+		--exclude='docs' \
+		"${CARE_MOJO_CACHE}/" "${CARE_MOJO_DEST}/" ||
+		exit_with_error "Unable to copy audio-hub into the rootfs" "${CARE_MOJO_DEST}"
+
+	# The chroot side runs as root and cannot chown to a user it will create
+	# later; uid/gid are set there. Here we only make sure the tree is not
+	# world-writable and that the entrypoints are executable.
+	chmod -R go-w "${CARE_MOJO_DEST}"
+	chmod +x "${CARE_MOJO_DEST}/packaging/hub/bin/aarch64/"* 2>/dev/null || true
+	chmod +x "${CARE_MOJO_DEST}/clients/"*.sh 2>/dev/null || true
+	chmod +x "${CARE_MOJO_DEST}/packaging/hub/"caremojo-msc-attach \
+		"${CARE_MOJO_DEST}/packaging/hub/"install-msc-gate \
+		"${CARE_MOJO_DEST}/packaging/hub/"caremojo-backup-wifi 2>/dev/null || true
+}
+
+caremojo_fetch_sources
