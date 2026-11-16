@@ -84,11 +84,17 @@ Main() {
 	log "preparing runtime state and secrets directories"
 	mkdir -p "${STATE_DIR}"/{queue,device-archive,watch-events,hub-audio/RECORD}
 	mkdir -p /etc/caremojo /opt/caremojo
-	chown -R "${SVC_USER}:${SVC_USER}" "${STATE_DIR}"
-	chmod 750 "${STATE_DIR}"
+	# The tree was copied in by the host hook as root, and /home/caremojo was
+	# created by mkdir -p then left alone by useradd, so neither is owned by the
+	# service account yet. install.sh gives the state dir 0750; match that.
+	chown "${SVC_USER}:${SVC_USER}" "${SVC_HOME}"
 	chown -R "${SVC_USER}:${SVC_USER}" "${APP}"
+	chown -R "${SVC_USER}:${SVC_USER}" "${STATE_DIR}"
+	chmod 750 "${STATE_DIR}" "${STATE_DIR}"/*
+	chmod 755 "${SVC_HOME}"
 	# /etc/caremojo stays root-owned; only the files placed there are 0600.
 	chmod 755 /etc/caremojo
+	chmod 755 /opt/caremojo
 
 	log "retiring the base image's generic USB automount"
 	# ThirdReality's rule automounts every USB partition at /mnt and starts
