@@ -228,11 +228,20 @@ fi
 
 export KERNEL_REUSE_LOCAL=yes
 
+# Armbian excludes /home/* when it assembles the image (rootfs-to-image.sh,
+# exclude_home), which would drop the whole CareMojo tree. The partner's layout
+# lives under /home/caremojo/audio-hub, so keep home contents for this board.
+EXTRA_BUILD_ARGS=()
+if [[ ${board} == trhubv3caremojo ]]; then
+  EXTRA_BUILD_ARGS+=(INCLUDE_HOME_DIR=yes)
+fi
+
 ./compile.sh BETA=no BOARD=${board} HOST=linuxbox BRANCH=current BUILD_DESKTOP=no BUILD_MINIMAL=no RELEASE=bookworm \
     R3VERSION_ID=$r3_version_id R3VERSION=$r3version REVISION=24.11 REVISION="24.11"  IMAGE_VERSION=24.11 \
     linuxbox-images USE_FIXED_LOOP_DEVICE="$USE_FIXED_LOOP_DEVICE" \
     MAKE_FOLDERS="archive" SHOW_DEBIAN=yes SHARE_LOG=no ALLOW_ROOT=yes KERNEL_GIT=shallow \
     UPLOAD_TO_OCI_ONLY=no NETWORKING_STACK="network-manager" EXTRAWIFI=no  \
+    "${EXTRA_BUILD_ARGS[@]}" \
     COMPRESS_OUTPUTIMAGE="sha,img"
 
 #ARTIFACT_IGNORE_CACHE=yes
