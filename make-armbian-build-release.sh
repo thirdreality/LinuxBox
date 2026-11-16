@@ -66,7 +66,7 @@ while getopts ":b:d:r:v:h" opt; do
                     ;;
                 hubv3caremojo|trhubv3caremojo)
                     # Partner image: same hardware as hubv3, CareMojo stack baked
-                    # into the rootfs by userpatches/customize-image.sh.
+                    # into the rootfs by config/caremojo/ hooks.
                     board="trhubv3caremojo"
                     board_label="hubv3caremojo"
                     ;;
@@ -160,6 +160,29 @@ if [ ! -d "userpatches" ]; then
 fi
 
 echo "24.11" > userpatches/VERSION
+
+# CareMojo partner image. The vendor customize-image.sh is kept as-is: it
+# installs Node.js and configures NetworkManager for every hubv3 image, and
+# replacing it would silently drop that. Instead the host hook is installed and
+# a call to the chroot half is appended to the end of customize-image.sh.
+if [[ ${board} == trhubv3caremojo ]]; then
+  print_info "Injecting the CareMojo image hooks"
+  install -m755 config/caremojo/customize-image-host.sh userpatches/customize-image-host.sh || {
+    print_error "Cannot install config/caremojo/customize-image-host.sh"
+    exit 1
+  }
+  cat >> userpatches/customize-image.sh <<'CARE_MOJO_HOOK'
+
+# --- CareMojo bake-in (hubv3caremojo) --------------------------------------
+# Appended by make-armbian-build-release.sh. The script itself lives in the
+# repo under config/caremojo/ and is staged into the target by
+# userpatches/customize-image-host.sh.
+if [ -x /tmp/caremojo-image.sh ]; then
+	/tmp/caremojo-image.sh "$@"
+fi
+# --- end CareMojo bake-in --------------------------------------------------
+CARE_MOJO_HOOK
+fi
 
 print_info "ImageOS: ${ImageOS}"
 

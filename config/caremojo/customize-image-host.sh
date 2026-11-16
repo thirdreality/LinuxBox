@@ -53,6 +53,17 @@ caremojo_fetch_sources() {
 	printf '%s %s\n' "${CARE_MOJO_REF}" "${sha}" > "${CARE_MOJO_CACHE}/.caremojo-build-ref"
 
 	caremojo_copy_to_rootfs
+	caremojo_stage_chroot_script
+}
+
+# The chroot half lives in config/caremojo/caremojo-image.sh and is appended to
+# customize-image.sh by make-armbian-build-release.sh; here it only has to land
+# inside the target rootfs. $SDCARD is the target's root, writable from the host.
+caremojo_stage_chroot_script() {
+	local script="${SRC}/config/caremojo/caremojo-image.sh"
+	[[ -f "${script}" ]] || exit_with_error "Missing the chroot half" "${script}"
+	display_alert "Staging the CareMojo chroot script" "/tmp/caremojo-image.sh in the image" "info"
+	install -m755 "${script}" "${SDCARD}/tmp/caremojo-image.sh"
 }
 
 caremojo_copy_to_rootfs() {
