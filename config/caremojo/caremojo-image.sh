@@ -2,23 +2,14 @@
 #
 # customize-image.sh -- runs INSIDE the target chroot (no network).
 #
-# Bakes the CareMojo watch-offload stack into a TRHub-V3 rootfs so a factory
-# box needs no SD/USB bundle, no serial session and no hand-run install.sh.
-# The source tree was cloned and copied to /home/caremojo/audio-hub by
-# customize-image-host.sh before this script ran.
+# Bakes the approved CareMojo offline bundle into a TRHub-V3 rootfs so a
+# factory box needs no SD card, no serial session and no hand-run install.sh.
 #
-# What this deliberately does NOT do (compared with packaging/hub/install.sh):
-#   * no apt/PyPI -- the packages are already in the image (see the board's
-#     PACKAGE_LIST_BOARD) and no Hub service runs Python any more;
-#   * no /boot remount -- armbianEnv.txt is written directly, so
-#     install-msc-gate and its read-only dance are not needed;
-#   * no service start -- configure-image only enables; the factory power-on
-#     is the first boot.
-#
-# Credentials are never baked in. clients/.env.cloud, /etc/caremojo/device-auth.env
-# and /etc/caremojo/tailscale-authkey are injected at the factory (ENROLL or
-# the offline bundle), and the services start in a degraded but harmless state
-# until they exist.
+# The application still comes from CareMojo's own bundle and is installed by
+# their own packaging/hub/install.sh -- this script does not reimplement that
+# installer. It only reshapes the run for a build chroot (no systemd running, no
+# network, nothing to start) and adds the few things their installer does not
+# cover on this board. See Main for both lists.
 
 # The framework calls this as: customize-image.sh RELEASE LINUXFAMILY BOARD BUILD_DESKTOP ARCH
 # Nothing else from the build host is exported into the chroot.
@@ -28,11 +19,10 @@ BOARD=$3
 BUILD_DESKTOP=$4
 ARCH=$5
 
-APP="/home/caremojo/audio-hub"
-SVC_USER="caremojo"
-SVC_HOME="/home/caremojo"
-UNIT_SRC="${APP}/packaging/systemd"
-STATE_DIR="/var/lib/caremojo"
+# Their installer's own layout. Keeping it means the OTA updater, the units and
+# the docs all describe the same path, and nothing has to be re-templated.
+APP="/opt/caremojo/audio-hub"
+STAGE="/root/caremojo-offline-stage"
 P1_IGNORE_QUIRK="6675:3498:i"
 ARMBIAN_ENV="/boot/armbianEnv.txt"
 # What the box calls itself. The serial console and the login banner both print
@@ -40,35 +30,7 @@ ARMBIAN_ENV="/boot/armbianEnv.txt"
 # /etc/issue. Overridable so the same branch can serve another partner.
 BRAND="${CARE_MOJO_BRAND:-CareMojo}"
 
-CORE_UNITS=(
-	watch-to-cloud.service
-	hub-audio-recorder.service
-	hub-audio-handoff-beacon.service
-	caremojo-uploader.service
-	caremojo-ble.service
-	caremojo-power-limits.service
-	hub-status-web.service
-	caremojo-btagent.service
-	caremojo-provision.service
-	caremojo-boot-evidence.service
-	caremojo-boot-complete.service
-)
-OTA_UNITS=(caremojo-update.service caremojo-update.timer)
-
 log() { echo "[caremojo-image] $*"; }
-
-enable_unit() {
-	local u="$1"
-	mkdir -p /etc/systemd/system/multi-user.target.wants
-	if ! systemctl enable "$u" >/dev/null 2>&1; then
-		ln -sfn "/etc/systemd/system/$u" "/etc/systemd/system/multi-user.target.wants/$u"
-	fi
-}
-
-install_unit() {
-	local u="$1"
-	install -m644 "${UNIT_SRC}/${u}" "/etc/systemd/system/${u}"
-}
 
 # The build framework sets VENDOR="ThirdReality" in
 # userpatches/config-linuxbox-images.conf, which reaches these four files and
@@ -158,136 +120,114 @@ supervisor_device_prefix() {
 	fi
 }
 
+# Runs their installer the way a build chroot needs it, and nothing more.
+run_vendor_installer() {
+	log "unpacking the CareMojo application into ${APP}"
+	install -d -m755 "${APP}"
+	tar -xzf "${STAGE}/audio-hub.tar.gz" -C "${APP}"
+	chown -R root:root "${APP}"
+
+	# A factory board has no RTC; the bundle's build time is a safe lower bound,
+	# and it is exactly what install-offline-package.sh does on the line.
+	local epoch
+	epoch="$(sed -n 's/^BUILT_AT_EPOCH=//p' "${STAGE}/BUILD_INFO" 2>/dev/null || true)"
+	if [[ "${epoch}" =~ ^[0-9]+$ ]] && (( $(date -u +%s) < epoch )); then
+		date -u -s "@${epoch}"
+	fi
+
+	# Their installer refuses to run without these and the bundle carries them,
+	# so hand over the bundled copies. This leaves the box in the same state the
+	# line reaches by running the same installer from the same bundle.
+	local -a args=(--no-start)
+	[[ -s "${STAGE}/hub.env" ]] || { log "ERROR: ${STAGE}/hub.env missing"; exit 1; }
+	args+=(--env-file "${STAGE}/hub.env")
+	[[ -s "${STAGE}/tailscale-authkey" ]] && args+=(--tailscale-authkey "${STAGE}/tailscale-authkey")
+	[[ -s "${STAGE}/github-token" ]] && args+=(--github-token "${STAGE}/github-token")
+	local sha
+	sha="$(sed -n 's/^HEAD_SHA=//p' "${STAGE}/BUILD_INFO" 2>/dev/null || true)"
+	[[ -n "${sha}" ]] && args+=(--installed-sha "${sha}")
+
+	# --no-start: enabling is wanted, starting is not (nothing runs here).
+	# SYSTEMD_OFFLINE=1: the documented way to use systemctl in a chroot; it
+	# makes daemon-reload a no-op and lets enable write the symlink.
+	log "running their install.sh ${args[*]}"
+	( cd / && SYSTEMD_OFFLINE=1 bash "${APP}/packaging/hub/install.sh" "${args[@]}" ) ||
+		{ log "ERROR: their install.sh failed"; exit 1; }
+}
+
+# install.sh keeps the offline apt/PyPI cache inside the app tree because a
+# factory box reads it off the SD card. Here the packages are already in the
+# rootfs, and the line does not keep the cache either -- the stick comes out
+# after install. The app tree on a factory box has no offline/ once the stick is
+# gone, so this also keeps the two identical.
+prune_offline_cache() {
+	local offline="${APP}/packaging/hub/offline"
+	[[ -d "${offline}" ]] || return 0
+	local mb
+	mb="$(du -sm "${offline}" 2>/dev/null | cut -f1)"
+	rm -rf "${offline}"
+	log "removed the offline cache (${mb:-?} MB); the rootfs already carries the packages"
+}
+
+# Their installer runs install-msc-gate, which rewrites armbianEnv.txt in place;
+# armbian-hardware-optimization reads usbstoragequirks from there on every boot.
+# Nothing to do but confirm it landed: a missing quirk on a docked band is the
+# one failure mode that reaches into a watch's filesystem.
+confirm_p1_quirk() {
+	if grep -q "${P1_IGNORE_QUIRK}" "${ARMBIAN_ENV}" 2>/dev/null; then
+		log "P1 storage quirk present in ${ARMBIAN_ENV}"
+	else
+		log "WARNING: ${P1_IGNORE_QUIRK} missing from ${ARMBIAN_ENV}; a docked band would not be gated"
+	fi
+}
+
+# Newer than the approved bundle. iOS serves Battery Level only over a paired
+# link, so bluetoothd's battery plugin makes BlueZ ask the iPhone to pair, the
+# pairing fails, the kernel drops the link and the Admin app's WiFi setup ends in
+# "The hub dropped the connection". Safe to apply when their installer already
+# did it (it writes the same drop-in).
+bluetooth_no_battery() {
+	local dropin=/etc/systemd/system/bluetooth.service.d/caremojo-no-battery.conf
+	[[ -f "${dropin}" ]] && { log "bluetoothd battery plugin already disabled"; return 0; }
+	local svc=/lib/systemd/system/bluetooth.service
+	[[ -f "${svc}" ]] || { log "WARNING: ${svc} missing; battery plugin left in place"; return 0; }
+	local exec_line
+	exec_line="$(awk '/^ExecStart=/ { sub(/^ExecStart=/, ""); print; exit }' "${svc}")"
+	[[ -n "${exec_line}" ]] || return 0
+	mkdir -p /etc/systemd/system/bluetooth.service.d
+	cat > "${dropin}" <<EOF
+# bluetoothd without its battery plugin. iOS serves Battery Level only over a
+# paired link: BlueZ asks the iPhone to pair, the pairing fails and the kernel
+# drops the link, so the Admin app's WiFi setup ends in "The hub dropped the
+# connection". The Hub never needs a phone's battery. Delete this file to undo.
+[Service]
+ExecStart=
+ExecStart=${exec_line} --noplugin=battery
+EOF
+	log "bluetoothd: battery plugin disabled (iOS pairing fix)"
+}
+
 Main() {
 	[[ "${BOARD}" == *caremojo* ]] || { log "board ${BOARD} is not a CareMojo image, skipping"; return 0; }
-	[[ -x "${APP}/packaging/hub/bin/aarch64/hub-watch" ]] \
-		|| { log "ERROR: ${APP} is missing or incomplete (customize-image-host.sh did not run?)"; exit 1; }
+	[[ -f "${STAGE}/install.sh" ]] ||
+		{ log "ERROR: ${STAGE} is missing (did customize-image-host.sh run?)"; exit 1; }
 
-	log "creating the ${SVC_USER} service account"
-	if ! id "${SVC_USER}" >/dev/null 2>&1; then
-		useradd --system --create-home --home-dir "${SVC_HOME}" --shell /usr/sbin/nologin "${SVC_USER}"
-	fi
-	# CDC serial, ALSA capture, and the udev-assigned device group for the P1.
-	for g in dialout audio plugdev; do
-		getent group "$g" >/dev/null || groupadd --system "$g"
-		usermod -aG "$g" "${SVC_USER}"
-	done
+	run_vendor_installer
+	prune_offline_cache
 
-	log "preparing runtime state and secrets directories"
-	mkdir -p "${STATE_DIR}"/{queue,device-archive,watch-events,hub-audio/RECORD}
-	mkdir -p /etc/caremojo /opt/caremojo
-	# The tree was copied in by the host hook as root, and /home/caremojo was
-	# created by mkdir -p then left alone by useradd, so neither is owned by the
-	# service account yet. install.sh gives the state dir 0750; match that.
-	chown "${SVC_USER}:${SVC_USER}" "${SVC_HOME}"
-	chown -R "${SVC_USER}:${SVC_USER}" "${APP}"
-	chown -R "${SVC_USER}:${SVC_USER}" "${STATE_DIR}"
-	chmod 750 "${STATE_DIR}" "${STATE_DIR}"/*
-	chmod 755 "${SVC_HOME}"
-	# /etc/caremojo stays root-owned; only the files placed there are 0600.
-	chmod 755 /etc/caremojo
-	chmod 755 /opt/caremojo
-
-	log "checking the base image's USB automount is absent"
-	# ThirdReality's 20-usb-mount.rules automounts every USB partition at /mnt and
-	# starts hubv3-usb-sync. A docked watch is also a USB block device, so that
-	# path races READY/SETTIME, runs fsck against the watch and can reset the
-	# port. config/sources/families/trhub.conf now skips both when packaging the
-	# BSP for this board, so in a normal build there is nothing to find here.
-	#
-	# The handling below stays as a guard: an image assembled from a BSP package
-	# built before that change would still carry them, and silently letting the
-	# automount run is the one failure mode that corrupts a watch's filesystem.
-	if [[ -f /etc/udev/rules.d/20-usb-mount.rules ]]; then
-		log "WARNING: 20-usb-mount.rules is present (stale BSP package); disabling it"
-		mv /etc/udev/rules.d/20-usb-mount.rules /etc/udev/rules.d/20-usb-mount.rules.caremojo-disabled
-	fi
-	if [[ -f /lib/systemd/system/hubv3-usb-sync.service ]] ||
-	   [[ -f /etc/systemd/system/hubv3-usb-sync.service ]] ||
-	   [[ -e /etc/systemd/system/hubv3-usb-sync.service ]]; then
-		log "WARNING: hubv3-usb-sync.service is present (stale BSP package); masking it"
-		systemctl disable hubv3-usb-sync.service >/dev/null 2>&1 || true
-		# Masking in a chroot is a symlink to /dev/null; no daemon runs to ask.
-		ln -sfn /dev/null /etc/systemd/system/hubv3-usb-sync.service
-	fi
-	rm -f /etc/systemd/system/mnt.automount /etc/systemd/system/mnt.mount
-
-	log "installing the P1 udev rules and the MSC remount helper"
-	install -m644 "${APP}/packaging/udev/99-caremojo-thirdreality-p1.rules" \
-		/etc/udev/rules.d/99-caremojo-thirdreality-p1.rules
-	install -m755 "${APP}/packaging/hub/caremojo-msc-attach" /usr/local/sbin/caremojo-msc-attach
-	install -m440 "${APP}/packaging/sudoers/caremojo-msc-remount" /etc/sudoers.d/caremojo-msc-remount
-	ln -sfn "${APP}/packaging/hub/caremojo-backup-wifi" /usr/local/sbin/caremojo-backup-wifi
-
-	log "persisting the P1 storage ignore quirk"
-	# usb_storage is built into this kernel, so a modprobe blacklist is too
-	# late; the quirk has to be in armbianEnv.txt, where the base image's
-	# armbian-hardware-optimization service picks it up on every boot and
-	# writes it to /sys/module/usb_storage/parameters/quirks. That service
-	# preserves an existing value, so this line survives boot.
-	if [[ -f "${ARMBIAN_ENV}" ]]; then
-		if ! grep -q "${P1_IGNORE_QUIRK}" "${ARMBIAN_ENV}"; then
-			if grep -q '^usbstoragequirks=' "${ARMBIAN_ENV}"; then
-				sed -i "s|^usbstoragequirks=\(.*\)$|usbstoragequirks=\1,${P1_IGNORE_QUIRK}|" "${ARMBIAN_ENV}"
-			else
-				echo "usbstoragequirks=${P1_IGNORE_QUIRK}" >> "${ARMBIAN_ENV}"
-			fi
-			log "added ${P1_IGNORE_QUIRK} to ${ARMBIAN_ENV}"
-		fi
-	else
-		log "WARNING: ${ARMBIAN_ENV} not found; the P1 MSC gate will not persist"
-	fi
-
-	log "installing and enabling the CareMojo units"
-	for u in "${CORE_UNITS[@]}"; do
-		[[ -f "${UNIT_SRC}/${u}" ]] || { log "ERROR: missing unit ${u}"; exit 1; }
-		install_unit "$u"
-	done
-	# Mount unit for the read-only watch volume. The name is systemd's escaped
-	# form of /run/caremojo-watch, so it must stay byte-identical.
-	install -m644 "${UNIT_SRC}/run-caremojo\\x2dwatch.mount" '/etc/systemd/system/run-caremojo\x2dwatch.mount'
-	for u in "${OTA_UNITS[@]}"; do install_unit "$u"; done
-
-	# caremojo-bt-select is Intel-7265-only and is not installed.
-	[[ -f "${UNIT_SRC}/caremojo-bt-select.service" ]] && \
-		log "skipping caremojo-bt-select (Intel-only)"
-
-	for u in "${CORE_UNITS[@]}"; do enable_unit "$u"; done
-	enable_unit caremojo-update.timer
-
-	log "installing the OTA updater outside the app tree"
-	install -m755 "${APP}/packaging/update/update.sh" /opt/caremojo/update.sh
-	mkdir -p /etc/systemd/system/caremojo-update.service.d
-	cat > /etc/systemd/system/caremojo-update.service.d/10-hub.conf <<EOF
-[Service]
-Environment="CAREMOJO_APP=${APP}"
-Environment="CAREMOJO_USER=${SVC_USER}"
-Environment="CAREMOJO_SERVICES=watch-to-cloud hub-audio-recorder hub-audio-handoff-beacon caremojo-uploader caremojo-ble hub-status-web caremojo-btagent caremojo-provision"
-EOF
-
-	log "bluetoothd without its battery plugin"
-	# iOS serves Battery Level only over a paired link; the pairing fails and
-	# the kernel drops the link, which breaks the Admin app's WiFi setup.
-	BLUETOOTHD="$(awk '/^ExecStart=/ { sub(/^ExecStart=/, ""); print; exit }' \
-		/lib/systemd/system/bluetooth.service 2>/dev/null || true)"
-	if [[ -n "${BLUETOOTHD}" ]]; then
-		mkdir -p /etc/systemd/system/bluetooth.service.d
-		sed -e "s#@BLUETOOTHD@#${BLUETOOTHD}#" "${UNIT_SRC}/caremojo-no-battery.conf" \
-			> /etc/systemd/system/bluetooth.service.d/caremojo-no-battery.conf
-	else
-		log "WARNING: could not read bluetooth.service ExecStart; battery plugin left in place"
-	fi
-
-	log "journald: keep boot history on durable storage"
-	mkdir -p /etc/systemd/journald.conf.d
-	install -m644 "${UNIT_SRC}/caremojo-persistent-journal.conf" \
-		/etc/systemd/journald.conf.d/20-caremojo-persistent.conf
-
+	# What their installer leaves to us: things that exist only because this is
+	# an Armbian image, plus one fix newer than the approved bundle.
+	confirm_p1_quirk
+	bluetooth_no_battery
 	branding_pass
 	supervisor_component_check_pass
 	supervisor_device_prefix
 
-	log "done: the box boots into the CareMojo stack (unclaimed, no cloud config)"
+	# The bundle's own copy of the credentials is spent; the files their
+	# installer wrote (/etc/caremojo/*, clients/.env.cloud) stay in the image.
+	rm -rf "${STAGE}"
+
+	log "done: the box boots into the CareMojo stack (unclaimed, no device identity)"
 } # Main
 
 Main "$@"
