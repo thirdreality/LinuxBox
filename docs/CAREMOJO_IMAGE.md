@@ -26,24 +26,34 @@ bundle the production line copies to a USB stick.
 
 | variable | default | meaning |
 |---|---|---|
-| `CARE_MOJO_BUNDLE_DIR` | `$SRC/cache/sources/caremojo-offline` | where bundles are cached |
-| `CARE_MOJO_BUNDLE` | `caremojo-trhub-v3-offline-p3-golden-1.tar.gz` | the bundle this image ships |
+| `CARE_MOJO_BUNDLE_DIR` | `$SRC/cache/sources/caremojo-offline` | where the bundle is cached |
+| `CARE_MOJO_REPO` | `peakmojo/audio-hub` | the Repository the Release lives in |
+| `CARE_MOJO_RELEASE` | `p3-golden-1` | the Release tag to download |
+| `CARE_MOJO_BUNDLE` | `caremojo-trhub-v3-offline-p3-golden-1.tar.gz` | the asset inside that Release |
 
-The bundle is selected **by name**, not "newest file in the directory": the image
+The bundle is chosen **by name**, not "newest file in the directory": the image
 records which build it carries, and a stray or half-copied download must not
 silently become the next release.
 
-Both files must be present, and the bundle is verified against the Release's own
-`.sha256` before anything is unpacked. A missing bundle, a missing checksum or a
-mismatch **fails the build**. The bundle carries the install payload *and* the
-cloud / Tailscale / GitHub credentials, so an unverified one must never reach an
-image.
+### Where the bundle comes from, and when
 
 ```
-<CARE_MOJO_BUNDLE_DIR>/
-+- caremojo-trhub-v3-offline-p3-golden-1.tar.gz
-+- caremojo-trhub-v3-offline-p3-golden-1.tar.gz.sha256
+<CARE_MOJO_BUNDLE_DIR>/<CARE_MOJO_BUNDLE>       exists?  -> reuse it
+<CARE_MOJO_BUNDLE_DIR>/<CARE_MOJO_BUNDLE>.sha256 exists?  -> reuse it
+otherwise -> gh release download <CARE_MOJO_RELEASE> --repo <CARE_MOJO_REPO>
+              --pattern '<CARE_MOJO_BUNDLE>*'
 ```
+
+A cached bundle is never re-downloaded, so repeated builds cost nothing and work
+on a machine with no network to GitHub. The Release assets are private, so the
+download goes through `gh` and its credential store rather than an anonymous
+curl: the builder needs `gh` installed and `gh auth login` done once. Without
+either, the build stops and says so.
+
+Both files are then verified against the Release's own `.sha256` before anything
+is unpacked. A missing bundle, a missing checksum or a mismatch **fails the
+build**. The bundle carries the install payload *and* the cloud / Tailscale /
+GitHub credentials, so an unverified one must never reach an image.
 
 The commit the bundle was built from is printed at build time
 (`CareMojo bundle built from <sha>`) and lands inside the image as
@@ -51,10 +61,19 @@ The commit the bundle was built from is printed at build time
 
 ### Upgrading to a newer Release
 
-A newer approved bundle is a file swap: drop the new
-`caremojo-trhub-v3-offline-*.tar.gz` and its `.sha256` into
-`CARE_MOJO_BUNDLE_DIR`, set `CARE_MOJO_BUNDLE` to its name, rebuild. Nothing in
-either hook has to change.
+Point the variables at the new Release and rebuild; the cache is keyed by file
+name, so a new name triggers one download and the old bundle stays on disk for
+rollback:
+
+```sh
+CARE_MOJO_RELEASE=p3-golden-2 \
+CARE_MOJO_BUNDLE=caremojo-trhub-v3-offline-p3-golden-2.tar.gz \
+  ./make-armbian-build-release.sh -b hubv3caremojo -d us -r v2.14.01.55
+```
+
+Nothing in either hook has to change. To pin a bundle that is already on the
+builder, copy both files into `CARE_MOJO_BUNDLE_DIR` and set `CARE_MOJO_BUNDLE`
+to its name; no download is attempted.
 
 ## What ends up in the image
 
