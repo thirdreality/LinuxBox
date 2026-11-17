@@ -159,7 +159,7 @@ image, or because the approved bundle predates the fix:
 | CareMojo branding (`VENDOR`, `/etc/issue`, `os-release`, `/etc/armbian.txt`) | the build framework sets `VENDOR="ThirdReality"`, which the boot banner and login prompt print |
 | `/etc/t3r-release` | written per board name by the framework; without it the supervisor reports `Version v0.0.1` |
 | supervisor `required_any_of` includes `watch-to-cloud.service` | the bundle ships none of the four units it expects (HA / zigbee2mqtt / matter2mqtt / openhab), so it declared the box `SYS_SYSTEM_CORRUPTED` and blinked the LED white |
-| supervisor `device_prefixes` -> `3RHUB-` | the fallback is `3RCARE-`, which is ThirdReality's *Care Hub* (trhubv3b), a different product |
+| supervisor `device_prefixes` `default:` -> `3RHUB-` | the supervisor only resolves `trhubv3` and `default`, so `BOARD=trhubv3caremojo` falls to default, which is `3RCARE-` — ThirdReality's *Care Hub* (trhubv3b), a different product. Adding a `trhubv3caremojo:` key does not help (the binary never looks it up); the image moves `default` instead, which is safe because it only ever ships on a TRHub-V3 |
 | `bluetoothd` without its battery plugin | newer than the bundle. iOS serves Battery Level only over a paired link; the plugin makes BlueZ ask to pair, pairing fails, the kernel drops the link and the Admin app's WiFi setup ends in "The hub dropped the connection". |
 
 ## Open item

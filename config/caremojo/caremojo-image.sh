@@ -96,28 +96,49 @@ supervisor_component_check_pass() {
 }
 
 # device_prefixes maps BOARD to the prefix in the device name the supervisor
-# reports ("3RHUB-A1B2C3D4"). Only trhubv3 is listed, so every other board --
-# this one included -- falls to default, which is "3RCARE-". That prefix
-# belongs to ThirdReality's Care Hub (trhubv3b, model 3RCH01091H); using it here
-# would report our box as a different product.
+# reports ("3RHUB-A1B2C3D4"). Its own config carries the rule:
 #
-# This board is the same hardware and the same model id (3RLB01081MH) as
-# trhubv3, so it takes trhubv3's prefix.
+#   # trhubv3 (exact match only) -> prefix_trhubv3
+#   # trhubv3a, trhubv3b, and all other board types -> default
+#
+# so the binary resolves exactly two names, trhubv3 and default. Our BOARD is
+# trhubv3caremojo, which is neither; adding a trhubv3caremojo key looks right
+# but does nothing -- an earlier build here did exactly that, the line landed in
+# the file, and the box still reported 3RCARE-628C7FBE because the lookup fell
+# to default.
+#
+# default is "3RCARE-", the prefix of ThirdReality's Care Hub (trhubv3b, model
+# 3RCH01091H), so the box announced itself as a different product. The only
+# lever this file gives is default, and moving it is safe here: this image only
+# ever ships on a TRHub-V3, the same hardware and model id (3RLB01081MH) as
+# trhubv3.
 supervisor_device_prefix() {
 	local conf=/var/lib/hubv3-supervisor/configuration.yaml
-	[[ -f "${conf}" ]] || return 0
+	[[ -f "${conf}" ]] ||
+		{ log "ERROR: ${conf} missing; the device name would read 3RCARE-"; exit 1; }
 
-	if grep -qE '^[[:space:]]*trhubv3caremojo:' "${conf}"; then
-		log "supervisor device prefix already set for this board"
-		return 0
+	grep -q '^  device_prefixes:' "${conf}" ||
+		{ log "ERROR: device_prefixes not found in ${conf}; the device name would read 3RCARE-"; exit 1; }
+
+	# Replace only the default: entry inside the device_prefixes block (the
+	# range ends at the first non-indented line), so no other default: key is
+	# touched.
+	sed -i '/^  device_prefixes:/,/^[^ ]/ s/^\(    default:\).*/\1 "3RHUB-"/' "${conf}"
+
+	# Drop the key an earlier build of this script added. The supervisor never
+	# looks it up, and leaving it would suggest it does.
+	sed -i '/^    trhubv3caremojo:/d' "${conf}"
+
+	# Read the file back: only claim success if it really says 3RHUB-.
+	local got
+	got=$(sed -n '/^  device_prefixes:/,/^[^ ]/ s/^    default:[[:space:]]*//p' "${conf}" | head -n1)
+	got=${got//\"/}
+	if [[ "${got}" != "3RHUB-" ]]; then
+		log "ERROR: supervisor default device prefix reads '${got}', wanted '3RHUB-'"
+		exit 1
 	fi
 
-	if grep -q '^  device_prefixes:' "${conf}"; then
-		sed -i '/^  device_prefixes:/a\    trhubv3caremojo: "3RHUB-"' "${conf}"
-		log "supervisor device prefix: 3RHUB- (was falling through to 3RCARE-)"
-	else
-		log "WARNING: device_prefixes not found in ${conf}; the device name will read 3RCARE-"
-	fi
+	log "supervisor device prefix: default 3RCARE- -> 3RHUB-"
 }
 
 # Runs their installer the way a build chroot needs it, and nothing more.
