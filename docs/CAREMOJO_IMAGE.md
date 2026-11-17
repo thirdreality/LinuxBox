@@ -159,10 +159,15 @@ image, or because the approved bundle predates the fix:
 | CareMojo branding (`VENDOR`, `/etc/issue`, `os-release`, `/etc/armbian.txt`) | the build framework sets `VENDOR="ThirdReality"`, which the boot banner and login prompt print |
 | `/etc/t3r-release` | written per board name by the framework; without it the supervisor reports `Version v0.0.1` |
 | supervisor `required_any_of` includes `watch-to-cloud.service` | the bundle ships none of the four units it expects (HA / zigbee2mqtt / matter2mqtt / openhab), so it declared the box `SYS_SYSTEM_CORRUPTED` and blinked the LED white |
-| supervisor `device_prefixes` `default:` -> `3RHUB-` | the supervisor only resolves `trhubv3` and `default`, so `BOARD=trhubv3caremojo` falls to default, which is `3RCARE-` — ThirdReality's *Care Hub* (trhubv3b), a different product. Adding a `trhubv3caremojo:` key does not help (the binary never looks it up); the image moves `default` instead, which is safe because it only ever ships on a TRHub-V3 |
+| `BOARD=trhubv3` in `/etc/armbian-release` (the build board is still `trhubv3caremojo`) | two ThirdReality programs read `BOARD` and match `trhubv3` exactly: `/usr/local/bin/supervisor` for the device prefix (anything else falls to `default` = `3RCARE-`, the Care Hub prefix) and `/usr/lib/armbian/factory-reset.sh` `get_trhub_model()` (anything else takes the non-HubV3 branch). The hardware is a HubV3; `caremojo` is a software variant, and `VENDOR`, `os-release` and `t3r-release` already say so. Armbian's own scripts key on `BOARDFAMILY` (`trhub`) and `BOARD_NAME` (`TRHub-V3`), so they are unaffected. |
 | `bluetoothd` without its battery plugin | newer than the bundle. iOS serves Battery Level only over a paired link; the plugin makes BlueZ ask to pair, pairing fails, the kernel drops the link and the Admin app's WiFi setup ends in "The hub dropped the connection". |
 
-## Open item
+The BSP package is still `armbian-bsp-cli-trhubv3caremojo-current`, and reinstalling
+it writes `BOARD=trhubv3caremojo` back. It has no apt source, so that only happens
+by hand. After a manual reinstall, `sed -i 's/^BOARD=.*/BOARD=trhubv3/'
+/etc/armbian-release` restores it.
+
+## Open items
 
 **`supervisor.service`** (ThirdReality HA/Zigbee/Thread supervisor) **is
 installed and enabled**, exactly as on stock `hubv3` and as the partner asked.
@@ -173,6 +178,12 @@ stacks running.
 The supervisor's backup path is `/mnt/R3Backup`, which only exists while a USB
 stick is automounted -- and that automount is removed on this image. Backup and
 restore through the supervisor's web UI therefore cannot work here.
+
+**Factory reset** now takes the HubV3 branch of
+`/usr/lib/armbian/factory-reset.sh`, because the image reports `BOARD=trhubv3`.
+That branch removes `zigbee2mqtt`, the bridge and the `thirdreality-*` packages.
+**Not tested on a CareMojo box yet** -- test it with the reset button before
+shipping.
 
 ## Factory flow (after the image is flashed)
 

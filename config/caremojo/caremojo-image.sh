@@ -95,50 +95,42 @@ supervisor_component_check_pass() {
 	fi
 }
 
-# device_prefixes maps BOARD to the prefix in the device name the supervisor
-# reports ("3RHUB-A1B2C3D4"). Its own config carries the rule:
+# Two ThirdReality programs on the box read BOARD from /etc/armbian-release and
+# match "trhubv3" exactly:
 #
-#   # trhubv3 (exact match only) -> prefix_trhubv3
-#   # trhubv3a, trhubv3b, and all other board types -> default
+#   /usr/local/bin/supervisor            device prefix. It resolves only trhubv3
+#                                        and default, so BOARD=trhubv3caremojo
+#                                        fell to default "3RCARE-" and the box
+#                                        announced itself as a Care Hub
+#                                        (3RCARE-628C7FBE).
+#   /usr/lib/armbian/factory-reset.sh    get_trhub_model(). BOARD=trhubv3caremojo
+#                                        takes the non-HubV3 (Care Hub) branch.
 #
-# so the binary resolves exactly two names, trhubv3 and default. Our BOARD is
-# trhubv3caremojo, which is neither; adding a trhubv3caremojo key looks right
-# but does nothing -- an earlier build here did exactly that, the line landed in
-# the file, and the box still reported 3RCARE-628C7FBE because the lookup fell
-# to default.
+# The hardware is a HubV3; "caremojo" is a software variant, which the image
+# already states in VENDOR, /etc/os-release and /etc/t3r-release. Reporting the
+# board as trhubv3 puts both programs on the HubV3 path and leaves the BSP's
+# device_prefixes in configuration.yaml exactly as it ships. Armbian's own
+# scripts key on BOARDFAMILY (trhub) and BOARD_NAME (TRHub-V3), so they are not
+# affected.
 #
-# default is "3RCARE-", the prefix of ThirdReality's Care Hub (trhubv3b, model
-# 3RCH01091H), so the box announced itself as a different product. The only
-# lever this file gives is default, and moving it is safe here: this image only
-# ever ships on a TRHub-V3, the same hardware and model id (3RLB01081MH) as
-# trhubv3.
-supervisor_device_prefix() {
-	local conf=/var/lib/hubv3-supervisor/configuration.yaml
-	[[ -f "${conf}" ]] ||
-		{ log "ERROR: ${conf} missing; the device name would read 3RCARE-"; exit 1; }
+# The build board keeps its name: the board conf, the family and the BSP package
+# all key on trhubv3caremojo, and renaming it would collide with stock hubv3.
+report_board_as_trhubv3() {
+	local f got
+	for f in /etc/armbian-release /etc/armbian-image-release; do
+		[[ -f "$f" ]] || { log "ERROR: ${f} missing; BOARD would stay trhubv3caremojo"; exit 1; }
 
-	grep -q '^  device_prefixes:' "${conf}" ||
-		{ log "ERROR: device_prefixes not found in ${conf}; the device name would read 3RCARE-"; exit 1; }
+		sed -i 's/^BOARD=.*/BOARD=trhubv3/' "$f"
 
-	# Replace only the default: entry inside the device_prefixes block (the
-	# range ends at the first non-indented line), so no other default: key is
-	# touched.
-	sed -i '/^  device_prefixes:/,/^[^ ]/ s/^\(    default:\).*/\1 "3RHUB-"/' "${conf}"
+		# Read it back: only claim success if the file really says trhubv3.
+		got=$(sed -n 's/^BOARD=//p' "$f" | head -n1)
+		if [[ "${got}" != "trhubv3" ]]; then
+			log "ERROR: ${f} reports BOARD='${got}', wanted 'trhubv3'"
+			exit 1
+		fi
+	done
 
-	# Drop the key an earlier build of this script added. The supervisor never
-	# looks it up, and leaving it would suggest it does.
-	sed -i '/^    trhubv3caremojo:/d' "${conf}"
-
-	# Read the file back: only claim success if it really says 3RHUB-.
-	local got
-	got=$(sed -n '/^  device_prefixes:/,/^[^ ]/ s/^    default:[[:space:]]*//p' "${conf}" | head -n1)
-	got=${got//\"/}
-	if [[ "${got}" != "3RHUB-" ]]; then
-		log "ERROR: supervisor default device prefix reads '${got}', wanted '3RHUB-'"
-		exit 1
-	fi
-
-	log "supervisor device prefix: default 3RCARE- -> 3RHUB-"
+	log "BOARD reported as trhubv3 (armbian-release, armbian-image-release)"
 }
 
 # Runs their installer the way a build chroot needs it, and nothing more.
@@ -273,7 +265,7 @@ Main() {
 	bluetooth_no_battery
 	branding_pass
 	supervisor_component_check_pass
-	supervisor_device_prefix
+	report_board_as_trhubv3
 
 	# The bundle's own copy of the credentials is spent; the files their
 	# installer wrote (/etc/caremojo/*, clients/.env.cloud) stay in the image.
