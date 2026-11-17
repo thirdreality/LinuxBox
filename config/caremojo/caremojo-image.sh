@@ -155,6 +155,50 @@ run_vendor_installer() {
 		{ log "ERROR: their install.sh failed"; exit 1; }
 }
 
+# Their installer enables the units only in the branch that also starts them
+# (`systemctl enable --now`), and it starts them under set -e, which a chroot
+# cannot do. With --no-start it enables tailscaled and nothing else. An image
+# has to come up running the stack, so enable what the bundle installed.
+#
+# The list is read from the bundle's own packaging/systemd directory rather than
+# copied from their script: a newer bundle that adds or drops a unit is picked
+# up without touching this file.
+enable_caremojo_units() {
+	local dir="${APP}/packaging/systemd" f name
+	mkdir -p /etc/systemd/system/multi-user.target.wants \
+		/etc/systemd/system/timers.target.wants
+
+	for f in "${dir}"/*.service "${dir}"/*.timer; do
+		[[ -f "${f}" ]] || continue
+		name="${f##*/}"
+		case "${name}" in
+			caremojo-bt-select.service)
+				log "skipping ${name} (Intel 7265 only)"
+				continue
+				;;
+			caremojo-update.service)
+				# Its timer starts it. Enabling the oneshot would run an OTA
+				# on the first boot of every factory box.
+				continue
+				;;
+		esac
+		# Their installer already templated the unit into /etc/systemd/system,
+		# so enable by name. SYSTEMD_OFFLINE makes systemctl work here; when it
+		# still refuses (no [Install] section) link by hand.
+		if SYSTEMD_OFFLINE=1 systemctl enable "${name}" >/dev/null 2>&1; then
+			log "enabled ${name}"
+			continue
+		fi
+		case "${name}" in
+			*.timer) ln -sfn "/etc/systemd/system/${name}" \
+				"/etc/systemd/system/timers.target.wants/${name}" ;;
+			*) ln -sfn "/etc/systemd/system/${name}" \
+				"/etc/systemd/system/multi-user.target.wants/${name}" ;;
+		esac
+		log "enabled ${name} (linked by hand)"
+	done
+}
+
 # install.sh keeps the offline apt/PyPI cache inside the app tree because a
 # factory box reads it off the SD card. Here the packages are already in the
 # rootfs, and the line does not keep the cache either -- the stick comes out
@@ -213,6 +257,7 @@ Main() {
 		{ log "ERROR: ${STAGE} is missing (did customize-image-host.sh run?)"; exit 1; }
 
 	run_vendor_installer
+	enable_caremojo_units
 	prune_offline_cache
 
 	# What their installer leaves to us: things that exist only because this is
