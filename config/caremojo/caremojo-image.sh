@@ -127,13 +127,11 @@ run_vendor_installer() {
 	tar -xzf "${STAGE}/audio-hub.tar.gz" -C "${APP}"
 	chown -R root:root "${APP}"
 
-	# A factory board has no RTC; the bundle's build time is a safe lower bound,
-	# and it is exactly what install-offline-package.sh does on the line.
-	local epoch
-	epoch="$(sed -n 's/^BUILT_AT_EPOCH=//p' "${STAGE}/BUILD_INFO" 2>/dev/null || true)"
-	if [[ "${epoch}" =~ ^[0-9]+$ ]] && (( $(date -u +%s) < epoch )); then
-		date -u -s "@${epoch}"
-	fi
+	# The bundle's BUILD_INFO carries BUILT_AT_EPOCH and
+	# install-offline-package.sh uses it to lift a stale factory clock before
+	# the install. That is skipped here on purpose: inside a build chroot
+	# `date -u -s` sets the build host's clock, and the image is assembled with
+	# the host's time anyway (files carry their build timestamps).
 
 	# Their installer refuses to run without these and the bundle carries them,
 	# so hand over the bundled copies. This leaves the box in the same state the
@@ -165,8 +163,6 @@ run_vendor_installer() {
 # up without touching this file.
 enable_caremojo_units() {
 	local dir="${APP}/packaging/systemd" f name
-	mkdir -p /etc/systemd/system/multi-user.target.wants \
-		/etc/systemd/system/timers.target.wants
 
 	for f in "${dir}"/*.service "${dir}"/*.timer; do
 		[[ -f "${f}" ]] || continue
@@ -182,35 +178,23 @@ enable_caremojo_units() {
 				continue
 				;;
 		esac
-		# Their installer already templated the unit into /etc/systemd/system,
-		# so enable by name. SYSTEMD_OFFLINE makes systemctl work here; when it
-		# still refuses (no [Install] section) link by hand.
+		# Their installer already templated the unit into /etc/systemd/system.
+		# Enable only what is really there: a unit named in the bundle but not
+		# installed (their installer skips some conditionally) would otherwise
+		# get a symlink to a missing file, which systemd reports as a failure on
+		# every boot.
+		if [[ ! -f "/etc/systemd/system/${name}" ]]; then
+			log "skipping ${name}: not installed by their installer"
+			continue
+		fi
+		# SYSTEMD_OFFLINE makes systemctl work here; systemd creates the
+		# wants/ link itself, into whatever target the [Install] section names.
 		if SYSTEMD_OFFLINE=1 systemctl enable "${name}" >/dev/null 2>&1; then
 			log "enabled ${name}"
 			continue
 		fi
-		case "${name}" in
-			*.timer) ln -sfn "/etc/systemd/system/${name}" \
-				"/etc/systemd/system/timers.target.wants/${name}" ;;
-			*) ln -sfn "/etc/systemd/system/${name}" \
-				"/etc/systemd/system/multi-user.target.wants/${name}" ;;
-		esac
-		log "enabled ${name} (linked by hand)"
+		log "could not enable ${name}; leaving it unenabled"
 	done
-}
-
-# install.sh keeps the offline apt/PyPI cache inside the app tree because a
-# factory box reads it off the SD card. Here the packages are already in the
-# rootfs, and the line does not keep the cache either -- the stick comes out
-# after install. The app tree on a factory box has no offline/ once the stick is
-# gone, so this also keeps the two identical.
-prune_offline_cache() {
-	local offline="${APP}/packaging/hub/offline"
-	[[ -d "${offline}" ]] || return 0
-	local mb
-	mb="$(du -sm "${offline}" 2>/dev/null | cut -f1)"
-	rm -rf "${offline}"
-	log "removed the offline cache (${mb:-?} MB); the rootfs already carries the packages"
 }
 
 # Their installer runs install-msc-gate, which rewrites armbianEnv.txt in place;
@@ -258,7 +242,6 @@ Main() {
 
 	run_vendor_installer
 	enable_caremojo_units
-	prune_offline_cache
 
 	# What their installer leaves to us: things that exist only because this is
 	# an Armbian image, plus one fix newer than the approved bundle.

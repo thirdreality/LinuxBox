@@ -1,9 +1,12 @@
 # CareMojo partner image (`hubv3caremojo`)
 
-A TRHub-V3 image with the CareMojo watch-offload stack baked in, so a factory
-box needs no SD/USB bundle, no serial session and no hand-run `install.sh`.
-Same hardware, same kernel, same U-Boot as `hubv3`; only the rootfs payload
-differs.
+A TRHub-V3 image with CareMojo's approved offline bundle installed, so a factory
+box needs no SD card, no serial session and no hand-run `install.sh`. Same
+hardware, same kernel, same U-Boot as `hubv3`; only the rootfs payload differs.
+
+The application is **not** re-implemented here. The image carries the same
+artifact the production line installs, and CareMojo's own
+`packaging/hub/install.sh` installs it during the build, inside the chroot.
 
 ## Build
 
@@ -15,98 +18,170 @@ differs.
 Output: `output/images/caremojo_armbian_24.11_bookworm_<kernel>_<rev>.burn.img.zip`,
 flashed with the Amlogic USB Burning Tool (same as `hubv3`).
 
-### Where the CareMojo source comes from
+## Where the application comes from
 
-`userpatches/customize-image-host.sh` runs on the build host:
-
-| cache state | action |
-|---|---|
-| `cache/sources/audio-hub/.git` missing | `git clone --depth 1 --branch $CARE_MOJO_REF` |
-| present | `git fetch --depth 1` + `checkout FETCH_HEAD` (update in place) |
+`config/caremojo/customize-image-host.sh` runs on the build host and stages the
+approved offline bundle from the `p3-golden-1` GitHub Release. That is the same
+bundle the production line copies to a USB stick.
 
 | variable | default | meaning |
 |---|---|---|
-| `CARE_MOJO_REF` | `hub-stable` | the tag Hubs track; never `main` |
-| `CARE_MOJO_CACHE` | `$SRC/cache/sources/audio-hub` | where the clone lives |
-| `CARE_MOJO_REPO` | `git@github.com:peakmojo/audio-hub.git` | clone URL |
+| `CARE_MOJO_BUNDLE_DIR` | `$SRC/cache/sources/caremojo-offline` | where bundles are cached |
+| `CARE_MOJO_BUNDLE` | `caremojo-trhub-v3-offline-p3-golden-1.tar.gz` | the bundle this image ships |
 
-The repository is private but no credential is stored in this branch or passed
-as a variable: the clone uses **the builder's own git identity**, exactly like a
-developer cloning it by hand. Either
+The bundle is selected **by name**, not "newest file in the directory": the image
+records which build it carries, and a stray or half-copied download must not
+silently become the next release.
 
-* the builder has an SSH key that can read `peakmojo/audio-hub` (default URL), or
-* `CARE_MOJO_REPO` is set to an HTTPS URL and a credential helper (`gh auth
-  login`) is in place, or
-* `cache/sources/audio-hub` is primed by hand before the build -- once present,
-  the update path needs no network at all.
+Both files must be present, and the bundle is verified against the Release's own
+`.sha256` before anything is unpacked. A missing bundle, a missing checksum or a
+mismatch **fails the build**. The bundle carries the install payload *and* the
+cloud / Tailscale / GitHub credentials, so an unverified one must never reach an
+image.
 
-The resolved commit is written to `/home/caremojo/audio-hub/.caremojo-build-ref`
-inside the image, so a fielded box can be traced back to an exact audio-hub
-commit.
+```
+<CARE_MOJO_BUNDLE_DIR>/
++- caremojo-trhub-v3-offline-p3-golden-1.tar.gz
++- caremojo-trhub-v3-offline-p3-golden-1.tar.gz.sha256
+```
 
-Files copied: `packaging/` and `clients/` (everything a box runs).
-Excluded: `gateway/`, `migrations/`, `cloud/`, `tools/`, `tests/`, `docs/`,
-`deid/`, `data/`, `.git`, `venv`, `offline/`, and every `.env*` / `device-auth.env`.
+The commit the bundle was built from is printed at build time
+(`CareMojo bundle built from <sha>`) and lands inside the image as
+`/opt/caremojo/audio-hub/INSTALLED_SHA`.
+
+### Upgrading to a newer Release
+
+A newer approved bundle is a file swap: drop the new
+`caremojo-trhub-v3-offline-*.tar.gz` and its `.sha256` into
+`CARE_MOJO_BUNDLE_DIR`, set `CARE_MOJO_BUNDLE` to its name, rebuild. Nothing in
+either hook has to change.
 
 ## What ends up in the image
 
+`/opt/caremojo/audio-hub` is their own layout, produced by their installer. The
+image does not put a second copy anywhere else, so the OTA updater patches the
+tree the image shipped.
+
 | path | contents |
 |---|---|
-| `/home/caremojo/audio-hub` | the tree above, owned by `caremojo` |
-| `/etc/systemd/system/` | 13 CareMojo units + `run-caremojo\x2dwatch.mount`, enabled (not started) |
-| `/etc/systemd/system/bluetooth.service.d/caremojo-no-battery.conf` | bluetoothd without the battery plugin |
+| `/opt/caremojo/audio-hub` | the bundle's `audio-hub.tar.gz`, unpacked (code, 8 aarch64 binaries, watch firmware) |
+| `/opt/caremojo/audio-hub/packaging/hub/offline/` | the offline cache, kept: 185 `.deb`, 11 `.whl`, the Tailscale tgz |
+| `/opt/caremojo/audio-hub/venv` | Python venv built from the offline wheels |
+| `/opt/caremojo/audio-hub/INSTALLED_SHA` | the commit the bundle was built from |
+| `/opt/caremojo/update.sh` | OTA updater, outside the app tree |
+| `/etc/systemd/system/` | their units + `run-caremojo\x2dwatch.mount`, enabled (not started) |
 | `/etc/systemd/journald.conf.d/20-caremojo-persistent.conf` | persistent journal |
 | `/etc/udev/rules.d/99-caremojo-thirdreality-p1.rules` | P1 CDC/MSC device permissions |
-| `/etc/udev/rules.d/20-usb-mount.rules.caremojo-disabled` | the base image's automount, renamed (recoverable) |
 | `/etc/sudoers.d/caremojo-msc-remount` | the one command the service user may run as root |
 | `/usr/local/sbin/caremojo-msc-attach`, `caremojo-backup-wifi` | USB remount helper, backup-WiFi helper |
-| `/opt/caremojo/update.sh` | OTA updater, outside the app tree |
-| `/var/lib/caremojo/{queue,device-archive,watch-events,hub-audio/RECORD}` | runtime state, `caremojo:caremojo 0750` |
-| `/boot/armbianEnv.txt` | `usbstoragequirks=…,6675:3498:i` |
+| `/usr/bin/tailscale`, `/usr/sbin/tailscaled`, `tailscaled.service` | from the bundle |
+| `/var/lib/caremojo/{queue,device-archive,watch-events,hub-audio/RECORD}` | runtime state, `caremojo:caremojo` |
+| `/boot/armbianEnv.txt` | `usbstoragequirks=...,6675:3498:i` |
 | user/group | `caremojo` (system, nologin), in `dialout`, `audio`, `plugdev` |
 
-`hubv3-usb-sync.service` is masked, and `caremojo-bt-select.service` (Intel
-7265 only) is not installed.
+### Why the offline cache is kept
 
-## What is deliberately NOT in the image
+`install-offline-package.sh` unpacks `audio-hub.tar.gz`, `offline/` included, to
+`/opt/caremojo/audio-hub`. On a line box the cache stays on eMMC after the stick
+is removed. `update.sh` also relies on it: it excludes `./packaging/hub/offline`
+from the code backup and uses it as `CAREMOJO_WHEEL_DIR` for the pip ensure step.
+Image boxes must match line boxes, so the cache is not pruned.
 
-No credentials. The box boots unclaimed and keeps running; these are injected
-at the factory:
+### Credentials in the image
 
-| file | how |
+Unlike the earlier git-clone approach, **the image contains credentials**, because
+the bundle does and their `install.sh` requires them:
+
+| file | contents |
 |---|---|
-| `/etc/caremojo/device-auth.env` | Admin app ENROLL (`CA12B004`), or the offline bundle |
-| `clients/.env.cloud` | per-agency cloud config, or edited on the box |
-| `/etc/caremojo/tailscale-authkey` | factory provisioning |
-| `/etc/caremojo/github-token` | factory provisioning; without it OTA no-ops |
+| `/opt/caremojo/audio-hub/clients/.env.cloud` | cloud config (URL, anon key, ingest token) |
+| `/etc/caremojo/tailscale-authkey` | Tailscale provisioning credential |
+| `/etc/caremojo/github-token` | read-only PAT for the OTA updater |
 
-## Differences from `packaging/hub/install.sh`
+Consequence: **one image belongs to one agency.** A bundle is built per agency
+(`build-offline-package.sh --env-file`), so shipping to a second agency means
+obtaining their bundle and rebuilding the image with `CARE_MOJO_BUNDLE` pointed
+at it. `device-auth.env` is still per-device and is never in the image.
 
-Baking removes several runtime steps that only exist because a stock box had to
-be converted in place:
+## Two deviations from their installer, both required by a chroot
 
-| stock `install.sh` | image |
+| flag | why |
 |---|---|
-| mask `hubv3-usb-sync`, rename `20-usb-mount.rules` at runtime | done at build time, no window where both run |
-| `install-msc-gate` remounts `/boot` read-write, edits, restores | `armbianEnv.txt` written directly; `install-msc-gate` not needed |
-| `sed`-templates `/home/caremojo/audio-hub` into each unit | units are byte-identical to upstream |
-| offline `apt`/`pip` from `offline/` | packages come from `PACKAGE_LIST_BOARD`; no Hub service runs Python |
-| starts services at the end of the install | units are enabled only; the factory power-on is the first start |
+| `--no-start` | `systemctl enable --now` fails in a chroot (`start` returns 5) and their installer runs under `set -e`, so it would abort. Their own flag enables without starting, which is what an image wants. |
+| `SYSTEMD_OFFLINE=1` | the documented way to run `systemctl` in a chroot: `daemon-reload` becomes a no-op, `enable` still writes the symlink. |
+
+`date -u -s "@BUILT_AT_EPOCH"` from `install-offline-package.sh` is **not**
+carried over: inside a build chroot it would set the build host's clock.
+
+Their `--no-start` branch enables `tailscaled` and nothing else, so the image
+enables the units itself, reading the list from the bundle's own
+`packaging/systemd`. A unit is enabled only if `/etc/systemd/system/<name>`
+really exists -- no symlink to a missing file. `caremojo-bt-select` (Intel 7265
+only) is skipped, and `caremojo-update.service` is left to its timer so no OTA
+runs on a factory box's first boot.
+
+## What is added on top of the bundle
+
+Their installer does not cover these; they exist because this is an Armbian
+image, or because the approved bundle predates the fix:
+
+| item | why |
+|---|---|
+| `usbstoragequirks=6675:3498:i` in `armbianEnv.txt` | their `install-msc-gate` writes it too; this only confirms it landed. A missing quirk on a docked band reaches into a watch's filesystem. |
+| `20-usb-mount.rules` / `hubv3-usb-sync` not packaged | a docked watch is also a USB block device; the automount races READY/SETTIME and can reset the port. Removed at packaging time, so no unit and no udev trigger exist. |
+| `33-ama-usb.rules` kept | matches only ThirdReality accessories (VID `31b6`), never the P1 dock (VID `6675`) |
+| CareMojo branding (`VENDOR`, `/etc/issue`, `os-release`, `/etc/armbian.txt`) | the build framework sets `VENDOR="ThirdReality"`, which the boot banner and login prompt print |
+| `/etc/t3r-release` | written per board name by the framework; without it the supervisor reports `Version v0.0.1` |
+| supervisor `required_any_of` includes `watch-to-cloud.service` | the bundle ships none of the four units it expects (HA / zigbee2mqtt / matter2mqtt / openhab), so it declared the box `SYS_SYSTEM_CORRUPTED` and blinked the LED white |
+| supervisor `device_prefixes` -> `3RHUB-` | the fallback is `3RCARE-`, which is ThirdReality's *Care Hub* (trhubv3b), a different product |
+| `bluetoothd` without its battery plugin | newer than the bundle. iOS serves Battery Level only over a paired link; the plugin makes BlueZ ask to pair, pairing fails, the kernel drops the link and the Admin app's WiFi setup ends in "The hub dropped the connection". |
 
 ## Open item
 
 **`supervisor.service`** (ThirdReality HA/Zigbee/Thread supervisor) **is
 installed and enabled**, exactly as on stock `hubv3` and as the partner asked.
 It comes from `config/sources/families/trhub.conf` (`SUPERVISOR_VERSION`), which
-this board inherits unchanged. Watch the memory headroom on ~1.9 GB RAM with
-both stacks running; see the verification checklist.
+this board inherits unchanged. Watch the memory headroom on ~1.9 GB RAM with both
+stacks running.
+
+The supervisor's backup path is `/mnt/R3Backup`, which only exists while a USB
+stick is automounted -- and that automount is removed on this image. Backup and
+restore through the supervisor's web UI therefore cannot work here.
 
 ## Factory flow (after the image is flashed)
 
-1. Flash `burn.img`, power from the original adapter (never a USB cable).
-2. On power-on the box advertises over BLE, unclaimed, nothing recorded.
-3. Admin app: join WiFi, then ENROLL against the agency backend.
-4. Register `Hub-NN` in the agency inventory, stage its identity.
-5. `tools/assign_hub.sh` at the home claims it and sets the room.
+Follow `docs/FACTORY_INSTALL.md` in the audio-hub repo, but **skip its Hub steps
+1 and 2** -- those install the bundle from an SD/USB stick, which this image has
+already done. Start at **step 3**:
 
-Details: `docs/FACTORY_INSTALL.md` in the audio-hub repo.
+1. ~~Build the offline bundle, copy it to a stick, mount it, `bash install.sh`~~
+2. ~~`sha256sum -c SHA256SUMS` and run the installer on the box~~
+3. **Check services:** `systemctl list-units 'caremojo-*' 'hub-*' 'watch-to-cloud'`
+   -- all active, none failed.
+4. **Backup WiFi:** `caremojo-backup-wifi set baryphone`.
+5. **Cloud:** this bundle points at its own agency. For a different one, edit
+   `clients/.env.cloud` and `systemctl restart watch-to-cloud`. OTA never touches
+   that file.
+6. **Identity:** register `Hub-NN` in the agency inventory and stage its identity
+   from the Portal repo, then copy `device-auth.env` to
+   `/etc/caremojo/device-auth.env` and restart `watch-to-cloud`.
+7. Confirm a heartbeat in `hub_heartbeat` and `tailscale status`.
+8. Label the box `Hub-NN` and its serial (first 8 of `cat /etc/machine-id`).
+
+Steps 3-8 assume the box is on the network. On an image box the WiFi join and the
+backend connection are done with the Admin app over BLE, which is what step 3
+verifies.
+
+### Do not run the USB installer on an image box
+
+`install-offline-package.sh` refuses to install into a non-empty
+`/opt/caremojo/audio-hub`:
+
+```
+refusing to overlay non-empty /opt/caremojo/audio-hub
+```
+
+That is correct behaviour, not a fault: the image already installed that bundle.
+Re-running the stick installer on a flashed box does nothing useful. The way to
+update an image box is the OTA timer (`caremojo-update.timer`, tracking
+`hub-stable`) or a reflash.
