@@ -193,7 +193,10 @@ enable_caremojo_units() {
 			log "enabled ${name}"
 			continue
 		fi
-		log "could not enable ${name}; leaving it unenabled"
+		# An image whose stack is installed but not enabled boots and looks fine,
+		# and only fails in the field. Stopping the build here is the cheaper
+		# outcome; every unit in the bundle is expected to enable.
+		log "ERROR: could not enable ${name}"; exit 1
 	done
 }
 

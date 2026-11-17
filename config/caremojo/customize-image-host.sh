@@ -49,10 +49,13 @@ caremojo_fetch_bundle() {
 
 	mkdir -p "${CARE_MOJO_BUNDLE_DIR}" || exit_with_error "Unable to create" "${CARE_MOJO_BUNDLE_DIR}"
 	display_alert "Downloading CareMojo bundle" "${CARE_MOJO_REPO}@${CARE_MOJO_RELEASE}/${CARE_MOJO_BUNDLE}" "info"
+	# --clobber matters: a bundle present while its .sha256 is missing takes this
+	# path, and gh refuses to overwrite an existing file without it.
 	run_host_command_logged gh release download "${CARE_MOJO_RELEASE}" \
 		--repo "${CARE_MOJO_REPO}" \
 		--pattern "${CARE_MOJO_BUNDLE}*" \
-		--dir "${CARE_MOJO_BUNDLE_DIR}" ||
+		--dir "${CARE_MOJO_BUNDLE_DIR}" \
+		--clobber ||
 		exit_with_error "gh release download failed (private repo: is the builder authenticated? see 'gh auth status')" \
 			"${CARE_MOJO_REPO}@${CARE_MOJO_RELEASE}"
 

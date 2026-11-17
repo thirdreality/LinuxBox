@@ -41,8 +41,12 @@ silently become the next release.
 <CARE_MOJO_BUNDLE_DIR>/<CARE_MOJO_BUNDLE>       exists?  -> reuse it
 <CARE_MOJO_BUNDLE_DIR>/<CARE_MOJO_BUNDLE>.sha256 exists?  -> reuse it
 otherwise -> gh release download <CARE_MOJO_RELEASE> --repo <CARE_MOJO_REPO>
-              --pattern '<CARE_MOJO_BUNDLE>*'
+              --pattern '<CARE_MOJO_BUNDLE>*' --clobber
 ```
+
+Both files must be cached to skip the download: a bundle present while its
+`.sha256` is missing still takes the download path, and `--clobber` is what lets
+gh overwrite the existing bundle there.
 
 A cached bundle is never re-downloaded, so repeated builds cost nothing and work
 on a machine with no network to GitHub. The Release assets are private, so the
@@ -61,9 +65,7 @@ The commit the bundle was built from is printed at build time
 
 ### Upgrading to a newer Release
 
-Point the variables at the new Release and rebuild; the cache is keyed by file
-name, so a new name triggers one download and the old bundle stays on disk for
-rollback:
+Either point the variables at the new Release and let the build fetch it:
 
 ```sh
 CARE_MOJO_RELEASE=p3-golden-2 \
@@ -71,9 +73,12 @@ CARE_MOJO_BUNDLE=caremojo-trhub-v3-offline-p3-golden-2.tar.gz \
   ./make-armbian-build-release.sh -b hubv3caremojo -d us -r v2.14.01.55
 ```
 
-Nothing in either hook has to change. To pin a bundle that is already on the
-builder, copy both files into `CARE_MOJO_BUNDLE_DIR` and set `CARE_MOJO_BUNDLE`
-to its name; no download is attempted.
+...or copy both files into `CARE_MOJO_BUNDLE_DIR` by hand and set
+`CARE_MOJO_BUNDLE` to its name; no download is attempted. This is the only path
+when the builder has no `gh` or no GitHub access.
+
+The cache is keyed by file name, so a new name downloads once and the previous
+bundle stays on disk for rollback. Nothing in either hook has to change.
 
 ## What ends up in the image
 
@@ -135,9 +140,11 @@ carried over: inside a build chroot it would set the build host's clock.
 Their `--no-start` branch enables `tailscaled` and nothing else, so the image
 enables the units itself, reading the list from the bundle's own
 `packaging/systemd`. A unit is enabled only if `/etc/systemd/system/<name>`
-really exists -- no symlink to a missing file. `caremojo-bt-select` (Intel 7265
-only) is skipped, and `caremojo-update.service` is left to its timer so no OTA
-runs on a factory box's first boot.
+really exists -- no symlink to a missing file. A unit that *is* installed but
+fails to enable **fails the build**: an image whose stack is installed but not
+enabled boots and looks fine, and only fails in the field.
+`caremojo-bt-select` (Intel 7265 only) is skipped, and `caremojo-update.service`
+is left to its timer so no OTA runs on a factory box's first boot.
 
 ## What is added on top of the bundle
 
