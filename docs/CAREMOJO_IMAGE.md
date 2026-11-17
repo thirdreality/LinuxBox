@@ -143,8 +143,35 @@ enables the units itself, reading the list from the bundle's own
 really exists -- no symlink to a missing file. A unit that *is* installed but
 fails to enable **fails the build**: an image whose stack is installed but not
 enabled boots and looks fine, and only fails in the field.
-`caremojo-bt-select` (Intel 7265 only) is skipped, and `caremojo-update.service`
-is left to its timer so no OTA runs on a factory box's first boot.
+`caremojo-bt-select` (Intel 7265 only) is skipped, and
+`caremojo-update.service` is enabled only through its timer -- enabling the
+service directly would start an OTA during the build, and the timer owns the
+schedule (see *OTA* below).
+
+## OTA: the box does not stay on the bundle
+
+The bundle decides what a box boots with, not what it runs for long.
+`caremojo-update.timer` fires **about two minutes after boot**, then every
+**15 minutes**, and `caremojo-update.service` pulls the latest `hub-stable` code
+and applies it with a health check and automatic rollback.
+
+Measured on a flashed box: right after the flash `INSTALLED_SHA` read
+`b88fe1835408` (the bundle); the first timer run moved it to `99c3a9fb1228` and
+installed that revision's own systemd units, boot MSC gate and
+`caremojo-no-battery.conf`. A factory box therefore reaches `hub-stable` on its
+first boot and does **not** stay on `p3-golden-1`.
+
+Two consequences worth knowing:
+
+- The bundle still matters: it is what the box runs before the first update,
+  what it falls back to if an update rolls back, and the `offline/` cache the
+  pip step and the OTA both use.
+- The first boot can miss the run. The board has no RTC, so the clock starts at
+  the build timestamp and jumps when NTP answers; on one boot here that jump was
+  1h23m47s, past the `OnBootSec=2min` trigger point, and the timer sat at
+  `NextElapse=infinity` for the rest of that boot. If a box comes up on an old
+  SHA, `systemctl start caremojo-update.service` (start the service, not the
+  timer) forces the run, and a reboot restores the schedule.
 
 ## What is added on top of the bundle
 
@@ -179,11 +206,43 @@ The supervisor's backup path is `/mnt/R3Backup`, which only exists while a USB
 stick is automounted -- and that automount is removed on this image. Backup and
 restore through the supervisor's web UI therefore cannot work here.
 
-**Factory reset** now takes the HubV3 branch of
-`/usr/lib/armbian/factory-reset.sh`, because the image reports `BOARD=trhubv3`.
-That branch removes `zigbee2mqtt`, the bridge and the `thirdreality-*` packages.
-**Not tested on a CareMojo box yet** -- test it with the reset button before
-shipping.
+**Factory reset** takes the HubV3 branch of `/usr/lib/armbian/factory-reset.sh`,
+because the image reports `BOARD=trhubv3`. Run once on a CareMojo box (by
+invoking the script directly, not through the reset button), it showed what that
+branch actually does here:
+
+| what | result |
+|---|---|
+| `thirdreality-*` packages | none installed, so `dpkg` removed nothing |
+| `zigbee2mqtt` / `linuxbox-hubv3-bridge` | neither unit exists, both removals skip |
+| `/opt/caremojo/audio-hub`, `/etc/caremojo/*`, `clients/.env.cloud` | **kept** |
+| Tailscale login state | **kept** |
+| `/var/lib/caremojo` | **kept** |
+| NetworkManager connections | **all deleted** (`nmcli con delete` runs over every profile) |
+| `caremojo-backup-wifi` profile (`set baryphone`, production line step 4) | expected to be deleted too, by the same command -- inferred from the script, not tested separately |
+| `/var/lib/homeassistant/{homeassistant,matter_server}` | recreated empty |
+
+Every CareMojo unit came back healthy after the reboot. So on a CareMojo box
+**factory reset clears only the WiFi, and keeps the identity (`device-auth`),
+the cloud config and the Tailscale state.** Whether that is the intended
+behaviour is the partner's call, not this image's.
+
+The `serial-getty@ttyAML0`, `apt-daily.timer` and `apt-daily-upgrade.timer`
+units the script re-enables are **already enabled in the image** (their
+`*.wants/` links are in the rootfs), so factory reset changes nothing there.
+`apt-daily.service` and `unattended-upgrades.service` have no `[Install]`
+section at all (they are static), so their `enable` is a no-op.
+
+**Still untested: the reset button itself.** The script was run directly; the
+button -> supervisor -> script path has not been exercised.
+
+**Bluetooth `Opcode 0x2005 failed: -16`** (`EBUSY`) appears in the kernel log
+about every 10 seconds -- 57 times in one boot. `0x2005` is LE Set Random
+Address, and two of their units drive `hci0` at once: `caremojo-ble` keeps a
+scan running while `caremojo-provision` advertises, so the controller is busy
+when the address is set. It is log noise, not a fault: `hci0` reports
+`UP RUNNING` with zero errors and `/run/caremojo-ble/status.json` shows
+`scanning: true`. It does keep writing to the persistent journal.
 
 ## Factory flow (after the image is flashed)
 
@@ -199,9 +258,15 @@ already done. Start at **step 3**:
 5. **Cloud:** this bundle points at its own agency. For a different one, edit
    `clients/.env.cloud` and `systemctl restart watch-to-cloud`. OTA never touches
    that file.
-6. **Identity:** register `Hub-NN` in the agency inventory and stage its identity
-   from the Portal repo, then copy `device-auth.env` to
-   `/etc/caremojo/device-auth.env` and restart `watch-to-cloud`.
+6. **Identity:** two paths, both end at `/etc/caremojo/device-auth.env`:
+   - as `FACTORY_INSTALL.md` describes -- generate it in the Portal repo with
+     `node scripts/provision-device-identity.mjs …` and copy it to the box;
+   - or let the first OTA land (see *OTA* above) and enrol over BLE with
+     characteristic `ca12b004`, which `p3-golden-1` does not have.
+   Then `systemctl restart watch-to-cloud`. Until this step is done,
+   `watch-to-cloud` logs `per-Hub credentials not configured: docking only` on
+   every start. That message is expected, not a fault -- the unit still does the
+   docking half (READY, SETTIME, firmware).
 7. Confirm a heartbeat in `hub_heartbeat` and `tailscale status`.
 8. Label the box `Hub-NN` and its serial (first 8 of `cat /etc/machine-id`).
 
@@ -222,3 +287,17 @@ That is correct behaviour, not a fault: the image already installed that bundle.
 Re-running the stick installer on a flashed box does nothing useful. The way to
 update an image box is the OTA timer (`caremojo-update.timer`, tracking
 `hub-stable`) or a reflash.
+
+### Do not source `factory-reset.sh` while inspecting it
+
+`/usr/lib/armbian/factory-reset.sh` has **no `main` guard** -- loading it runs the
+whole reset: it deletes NetworkManager connections, wipes the supervisor's
+`backup/` and `archives/`, sets the LED white and reboots. Reading a function out
+of it means extracting the body first, e.g.
+
+```sh
+sed -n '/^get_trhub_model/,/^}/p' /usr/lib/armbian/factory-reset.sh
+```
+
+and then reasoning about the input by hand. Never `source` it, never pipe it into
+`bash` to "see what happens".
