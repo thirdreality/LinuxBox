@@ -143,10 +143,10 @@ enables the units itself, reading the list from the bundle's own
 really exists -- no symlink to a missing file. A unit that *is* installed but
 fails to enable **fails the build**: an image whose stack is installed but not
 enabled boots and looks fine, and only fails in the field.
-`caremojo-bt-select` (Intel 7265 only) is skipped, and
-`caremojo-update.service` is enabled only through its timer -- enabling the
-service directly would start an OTA during the build, and the timer owns the
-schedule (see *OTA* below).
+`caremojo-bt-select` (Intel 7265 only) is skipped. `caremojo-update.service` is
+**static** -- its unit file has no `[Install]` section at all, so it cannot be
+enabled and only `caremojo-update.timer` triggers it. The enable loop therefore
+skips it, and the timer owns the schedule (see *OTA* below).
 
 ## OTA: the box does not stay on the bundle
 
@@ -166,12 +166,13 @@ Two consequences worth knowing:
 - The bundle still matters: it is what the box runs before the first update,
   what it falls back to if an update rolls back, and the `offline/` cache the
   pip step and the OTA both use.
-- The first boot can miss the run. The board has no RTC, so the clock starts at
-  the build timestamp and jumps when NTP answers; on one boot here that jump was
-  1h23m47s, past the `OnBootSec=2min` trigger point, and the timer sat at
-  `NextElapse=infinity` for the rest of that boot. If a box comes up on an old
-  SHA, `systemctl start caremojo-update.service` (start the service, not the
-  timer) forces the run, and a reboot restores the schedule.
+- On one boot here the timer did not fire at all: `systemctl show
+  caremojo-update.timer` reported `NextElapseUSecMonotonic=infinity` and
+  `INSTALLED_SHA` still held the bundle's commit long after boot. A later boot
+  on the same image fired normally (`LastTriggerUSec` set, a real
+  `NextElapseUSecMonotonic`), so **the cause is not known** -- it has not been
+  reproduced. If a box comes up on an old SHA, `systemctl start
+  caremojo-update.service` (start the service, not the timer) forces the run.
 
 ## What is added on top of the bundle
 
@@ -236,13 +237,15 @@ section at all (they are static), so their `enable` is a no-op.
 **Still untested: the reset button itself.** The script was run directly; the
 button -> supervisor -> script path has not been exercised.
 
-**Bluetooth `Opcode 0x2005 failed: -16`** (`EBUSY`) appears in the kernel log
-about every 10 seconds -- 57 times in one boot. `0x2005` is LE Set Random
-Address, and two of their units drive `hci0` at once: `caremojo-ble` keeps a
-scan running while `caremojo-provision` advertises, so the controller is busy
-when the address is set. It is log noise, not a fault: `hci0` reports
-`UP RUNNING` with zero errors and `/run/caremojo-ble/status.json` shows
-`scanning: true`. It does keep writing to the persistent journal.
+**Bluetooth `Opcode 0x2005 failed: -16`** (`EBUSY`) is a burst confined to the
+first few minutes after boot, not a steady stream. Measured on one boot: 12
+occurrences, the first at 08:04:56 and the last at 08:07:42 -- boot was 08:04:46,
+so boot +10s to boot +176s -- about 10.5 seconds apart, and none afterwards.
+`0x2005` is LE Set Random Address, and two of their units drive `hci0` at once:
+`caremojo-ble` keeps a scan running while `caremojo-provision` advertises, so the
+controller is busy when the address is set. It is log noise, not a fault: `hci0`
+reports `UP RUNNING` with zero errors and `/run/caremojo-ble/status.json` shows
+`scanning: true`.
 
 ## Factory flow (after the image is flashed)
 
