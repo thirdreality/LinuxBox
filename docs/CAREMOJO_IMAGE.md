@@ -239,13 +239,16 @@ button -> supervisor -> script path has not been exercised.
 
 **Bluetooth `Opcode 0x2005 failed: -16`** (`EBUSY`) is a burst confined to the
 first few minutes after boot, not a steady stream. Measured on one boot: 12
-occurrences, the first at 08:04:56 and the last at 08:07:42 -- boot was 08:04:46,
-so boot +10s to boot +176s -- about 10.5 seconds apart, and none afterwards.
-`0x2005` is LE Set Random Address, and two of their units drive `hci0` at once:
-`caremojo-ble` keeps a scan running while `caremojo-provision` advertises, so the
-controller is busy when the address is set. It is log noise, not a fault: `hci0`
-reports `UP RUNNING` with zero errors and `/run/caremojo-ble/status.json` shows
-`scanning: true`.
+occurrences between 60.7 s and 176.1 s of kernel uptime (`dmesg`), about 10.5
+seconds apart, and none afterwards. `0x2005` is LE Set Random Address, and two of
+their units drive `hci0` at once: `caremojo-ble` keeps a scan running while
+`caremojo-provision` advertises, so the controller is busy when the address is
+set. It is log noise, not a fault: `hci0` reports `UP RUNNING` with zero errors
+and `/run/caremojo-ble/status.json` shows `scanning: true`.
+
+Timings for this board come from `dmesg`, not from journal wall-clock times: it
+has no RTC, so the clock jumps at boot and subtracting the boot wall time is off
+by tens of seconds.
 
 ## Factory flow (after the image is flashed)
 
